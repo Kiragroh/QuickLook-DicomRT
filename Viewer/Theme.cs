@@ -6,7 +6,7 @@ namespace QuickLook.DicomRT
 {
     internal static class Theme
     {
-        public static readonly Brush Background = Brush("#111314"), Panel = Brush("#191C1E"), Foreground = Brush("#EDF3F9"), Muted = Brush("#A9B5BC"), Accent = Brush("#64D8CF");
+        public static readonly Brush Background = Brush("#111314"), Panel = Brush("#191C1E"), Foreground = Brush("#EDF3F9"), Muted = Brush("#A9B5BC"), Accent = Brush("#64B5F6");
         public static SolidColorBrush Brush(string color) { var b = (SolidColorBrush)new BrushConverter().ConvertFromString(color); b.Freeze(); return b; }
         public static TextBlock Text(string text, double size = 12, Brush color = null) => new TextBlock { Text = text, FontSize = size, Foreground = color ?? Foreground, Margin = new Thickness(0, 3, 0, 3), TextWrapping = TextWrapping.Wrap };
         public static Button Button(string text) => new Button { Content = text, Padding = new Thickness(9, 5, 9, 5), Margin = new Thickness(3) };

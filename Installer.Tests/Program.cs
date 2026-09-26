@@ -11,7 +11,7 @@ class Program
 {
     static int checks;
     static void Check(bool value,string message){if(!value)throw new Exception(message);checks++;}
-    static byte[] Archive(string extra=null,bool wrongHash=false,bool omit=false,bool duplicate=false,string version="0.2.3")
+    static byte[] Archive(string extra=null,bool wrongHash=false,bool omit=false,bool duplicate=false,string version="0.2.4")
     {
         var names=Payload.RequiredNames.Where(n=>!omit||n!="QuickLook.Plugin.DicomRT.dll").ToArray();
         var files=names.ToDictionary(n=>n,n=>Encoding.UTF8.GetBytes("synthetic installer test: "+n));
@@ -38,7 +38,7 @@ class Program
     {
         try
         {
-            var good=Archive();using(var source=new MemoryStream(good))Check(Payload.Verify(source,Payload.Hash(good)).Files.Count==10,"complete allowlisted archive accepted");
+            var good=Archive();using(var source=new MemoryStream(good))Check(Payload.Verify(source,Payload.Hash(good)).Files.Count==Payload.RequiredNames.Length+1,"complete allowlisted archive accepted");
             Reject(good,"whole archive checksum rejects tampering",new string('0',64));
             Reject(Archive(wrongHash:true),"per-file hash mismatch rejected");Reject(Archive(omit:true),"missing required plugin rejected");
             Reject(Archive(duplicate:true),"case-insensitive duplicate rejected");Reject(Archive(version:"9.9.9"),"unexpected package version rejected");

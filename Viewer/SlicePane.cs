@@ -71,12 +71,12 @@ namespace QuickLook.DicomRT
    var isoPens=new Dictionary<double,Pen>();foreach(var line in f.Raster.Isolines)
    {
     Pen pen;if(!isoPens.TryGetValue(line.DosePercent,out pen))
-    {double red,green,blue;SliceRaster.DoseColor(line.DosePercent,out red,out green,out blue);pen=new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),.9);isoPens.Add(line.DosePercent,pen);}
+    {double red,green,blue;SliceRaster.IsodoseColor(f.Scene,line.DosePercent,out red,out green,out blue);pen=new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),.9);isoPens.Add(line.DosePercent,pen);}
     dc.DrawLine(pen,Project(line.A,g,rect),Project(line.B,g,rect));
    }
    if(f.Scene.Crosshair&&f.Scene.Entry?.HasGeometry!=false)
    {
-    var p=Project(f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,216,207)),.8);
+    var p=Project(f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,181,246)),.8);
     dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));
     dc.DrawLine(pen,new Point(p.X,rect.Top),new Point(p.X,p.Y-5));dc.DrawLine(pen,new Point(p.X,p.Y+5),new Point(p.X,rect.Bottom));
    }
@@ -101,7 +101,19 @@ namespace QuickLook.DicomRT
    }
    Text(dc,string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
    if(f.InterpolatedContours||f.ContourFallback)Text(dc,f.ContourFallback?"Contour intersections (unsupported stack)"+(f.InterpolatedContours?"; interpolated boundaries":""):"Interpolated contour-stack boundary",new Point(10,26),Brushes.LightSlateGray,10);
-   if(f.Scene.Isodoses&&f.Scene.Doses.Count>0)Text(dc,"Isodoses: "+string.Join(" / ",SliceRaster.IsodoseLevels(f.Scene).Select(x=>x.ToString("0.#",CultureInfo.InvariantCulture)))+" % of each dose maximum",new Point(10,40),Brushes.LightGray,10);
+   if(f.Scene.Isodoses&&f.Scene.Doses.Any(d=>d.Dose.Visible&&d.Dose.Maximum>0))
+   {
+    var levels=SliceRaster.IsodoseLevels(f.Scene);int columns=levels.Length>10?2:1,rows=(levels.Length+columns-1)/columns;
+    double legendWidth=columns==2?205:157,x=Math.Max(10,ActualWidth-legendWidth-107),y=58;
+    dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(205,17,19,20)),null,new Rect(x-5,y-4,legendWidth,22+rows*16),4,4);
+    Text(dc,f.Scene.AbsoluteIsodoses?"Isodoses · Gy":"% of each dose maximum",new Point(x,y),Brushes.LightGray,10);
+    for(int i=0;i<levels.Length;i++)
+    {
+     double level=levels[i],lx=x+(i/rows)*100,ly=y+16+(i%rows)*16,red,green,blue;SliceRaster.IsodoseColor(f.Scene,level,out red,out green,out blue);
+     dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),3),new Point(lx+2,ly+7),new Point(lx+22,ly+7));
+     Text(dc,level.ToString("0.##",CultureInfo.InvariantCulture)+(f.Scene.AbsoluteIsodoses?" Gy":" %"),new Point(lx+30,ly),Brushes.LightGray,10);
+    }
+   }
    if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
   }
   void Text(DrawingContext dc,string text,Point p,Brush brush,double size=11)

@@ -75,6 +75,7 @@ namespace QuickLook.DicomRT
 
         public ViewerControl()
         {
+            isodosePreferences.Changed += GlobalIsodosesChanged;
             Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml", UriKind.Relative) });
             FontFamily = new FontFamily("Segoe UI"); FontSize = 12; Background = Theme.Background; Foreground = Theme.Foreground;
             var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -97,8 +98,8 @@ namespace QuickLook.DicomRT
             plans.SelectionChanged += async (s, e) => await SelectPlanChoiceAsync();
             opacity.ValueChanged += (s, e) => Redraw(); iso.Checked += (s, e) => Redraw(); iso.Unchecked += (s, e) => Redraw();
             sliceSlider.ValueChanged += async (s, e) => { if (!changing && currentStack != null) await ShowSliceAsync((int)Math.Round(e.NewValue), true); };
-            IsVisibleChanged+=(s,e)=>{if(!IsVisible&&fusionPopup!=null)fusionPopup.IsOpen=false;};
-            Unloaded+=(s,e)=>{if(fusionPopup!=null)fusionPopup.IsOpen=false;};
+            IsVisibleChanged+=(s,e)=>{if(!IsVisible){if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();}};
+            Unloaded+=(s,e)=>{if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();};
             RebuildPanes();
         }
 
@@ -120,7 +121,7 @@ namespace QuickLook.DicomRT
         {
             var dock = new DockPanel { Margin = new Thickness(8, 0, 8, 0) };
             var top = new StackPanel();var images=new StackPanel();imageHeader=images;top.Children.Add(images);
-            var sourceRow=new DockPanel();var fusion=BuildFusionButton();DockPanel.SetDock(fusion,Dock.Right);sourceRow.Children.Add(fusion);series.ToolTip="Change the base image · RT follows when a matching registration is available";sourceRow.Children.Add(series);images.Children.Add(sourceRow);
+            var sourceRow=new DockPanel();var fusion=BuildFusionButton();DockPanel.SetDock(fusion,Dock.Right);sourceRow.Children.Add(fusion);var isoJump=BuildIsocenterButton();DockPanel.SetDock(isoJump,Dock.Right);sourceRow.Children.Add(isoJump);series.ToolTip="Change the base image · RT follows when a matching registration is available";sourceRow.Children.Add(series);images.Children.Add(sourceRow);
             var tools = new WrapPanel(); planes.ItemsSource = new[] { "Native", "Axial", "Coronal", "Sagittal", "MPR + 3D" }; planes.SelectedIndex = 0; tools.Children.Add(planes);
             Button soft = Theme.Button("Soft tissue"), bone = Theme.Button("Bone"), auto = Theme.Button("Auto"), fit = Theme.Button("Fit"), zin = Theme.Button("＋"), zout = Theme.Button("−");
             soft.Click += (s, e) => SetWindow(40, 400); bone.Click += (s, e) => SetWindow(400, 1800); auto.Click += (s, e) => AutoWindow(); fit.Click += (s, e) => { zoom = 1; Redraw(); }; zin.Click += (s, e) => { zoom = Math.Min(8, zoom * 1.25); Redraw(); }; zout.Click += (s, e) => { zoom = Math.Max(.25, zoom / 1.25); Redraw(); };
@@ -162,7 +163,8 @@ namespace QuickLook.DicomRT
 
         public void Dispose()
         {
-            if (disposed) return; if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
+            isodosePreferences.Changed -= GlobalIsodosesChanged;
+            if (disposed) return; CloseDosePopups(); if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Dispose(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }

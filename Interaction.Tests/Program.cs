@@ -18,6 +18,7 @@ class Program
     [STAThread] static int Main(string[] args)
     {
         if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
+        var preferenceScope=new IsodosePreferenceScenarios.TestScope();
         try
         {
             var app=new Application();app.Resources.MergedDictionaries.Add(new ResourceDictionary {Source=new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml",UriKind.Relative)});
@@ -48,8 +49,11 @@ class Program
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
+            DoseControlsScenarios.Run(Check);
+            AbsoluteIsodoseScenarios.Run(Check);TagDetailScenarios.Run(Check);IsodosePreferenceScenarios.Run(Check,preferenceScope.DirectoryPath);
             Console.WriteLine("PASS: "+checks+" WPF interaction/contrast/tree/timeline checks");return 0;
         }
         catch(Exception e){Console.WriteLine("FAIL: "+e);return 1;}
+        finally{preferenceScope.Dispose();}
     }
 }

@@ -104,11 +104,10 @@ namespace QuickLook.DicomRT
                     if (transform != null) doseOverlays.Add(new DoseOverlay { Dose = dose, ImageToDose = transform });
                 }
             }
-            var isocenters=new List<Vec3>();var isoMap=selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid);
-            if(isoMap!=null)foreach(var beam in selectedPlan.Beams)
-            {var point=isoMap.Transform(beam.Isocenter);if(!double.IsNaN(point.X)&&!double.IsNaN(point.Y)&&!double.IsNaN(point.Z)&&!double.IsInfinity(point.X)&&!double.IsInfinity(point.Y)&&!double.IsInfinity(point.Z)&&!isocenters.Any(p=>(p-point).Length<.1))isocenters.Add(point);}
+            var isocenters=IsocenterNavigation.MappedPoints(selectedPlan,selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid));
+            UpdateIsocenterButton(isocenters);UpdateIsodoseContext();UpdateIsodoseLegend(doseOverlays);
             latestScene = new RenderScene { Isocenters=isocenters, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = iso.IsChecked == true,
-                DoseWash=wash.IsChecked==true,DoseMinimumPercent=doseMin.Value,DoseMaximumPercent=doseMax.Value,IsoLevels=displayedIsoLevels,
+                DoseWash=wash.IsChecked==true,DoseMinimumPercent=doseMin.Value,DoseMaximumPercent=doseMax.Value,IsoLevels=displayedIsoLevels,AbsoluteIsodoses=absoluteIsodoses,IsoColorMaximum=isodoseMaximum,IsoColors=new Dictionary<double,int>(isodoseColors),
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };

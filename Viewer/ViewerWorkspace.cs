@@ -18,8 +18,8 @@ namespace QuickLook.DicomRT
         private readonly CheckBox wash = new CheckBox { Content = "Colorwash", IsChecked = true, Margin = new Thickness(4,8,4,4) };
         private readonly Slider doseMin = new Slider { Minimum = 0, Maximum = 99, Value = 5 }, doseMax = new Slider { Minimum = 1, Maximum = 100, Value = 100 };
         private readonly TextBlock doseRange = Theme.Text("",11,Theme.Muted), fusionStatus = Theme.Text("",10,Theme.Muted);
-        private readonly TextBox isoLevels = new TextBox { Text = "20; 50; 80; 95", Padding = new Thickness(6), Margin = new Thickness(0,3,0,3) };
-        private double[] displayedIsoLevels = { 20,50,80,95 };
+        private readonly TextBox isoLevels = new TextBox { Text = "10; 20; 30; 40; 50; 60; 70; 80; 90; 100", Padding = new Thickness(6), Margin = new Thickness(0,3,0,3) };
+        private double[] displayedIsoLevels = { 10,20,30,40,50,60,70,80,90,100 };
         private VolumeData overlayVolume;
         private ImageStack overlayStack;
         private CancellationTokenSource overlayLoad;
@@ -99,13 +99,8 @@ namespace QuickLook.DicomRT
         {
             var panel=new StackPanel();panel.Children.Add(wash);panel.Children.Add(Theme.Text("Opacity",10,Theme.Muted));opacity.Width=double.NaN;panel.Children.Add(opacity);
             panel.Children.Add(doseRange);panel.Children.Add(Theme.Text("Lower threshold",10,Theme.Muted));panel.Children.Add(doseMin);panel.Children.Add(Theme.Text("Upper threshold",10,Theme.Muted));panel.Children.Add(doseMax);
-            panel.Children.Add(iso);panel.Children.Add(Theme.Text("Isodoses as % of the dose maximum",10,Theme.Muted));panel.Children.Add(isoLevels);var apply=Theme.Button("Apply isodoses");panel.Children.Add(apply);
-            apply.Click+=(s,e)=>
-            {
-                var parts=isoLevels.Text.Split(new[]{';',' ',',','/'},StringSplitOptions.RemoveEmptyEntries);var levels=new List<double>();
-                foreach(var part in parts){double value;if(!double.TryParse(part,NumberStyles.Float,CultureInfo.InvariantCulture,out value)||double.IsInfinity(value)||double.IsNaN(value)||value<=0||value>100){status.Text="Isodoses: values > 0 to 100, separated by semicolons (decimal point).";return;}levels.Add(value);}
-                if(levels.Count==0||levels.Count>12){status.Text="Enter 1 to 12 isodose levels.";return;}displayedIsoLevels=levels.Distinct().OrderBy(x=>x).ToArray();iso.IsChecked=true;Redraw();
-            };
+            panel.Children.Add(iso);panel.Children.Add(isodoseUnitsLabel);panel.Children.Add(isoLevels);var apply=Theme.Button("Apply globally");apply.ToolTip="Save levels for all views, plans and future files, including after restart. Gy and percentage settings are separate.";panel.Children.Add(apply);panel.Children.Add(isodoseLegend);
+            apply.Click+=(s,e)=>ApplyIsodoseLevels();
             wash.Checked+=(s,e)=>Redraw();wash.Unchecked+=(s,e)=>Redraw();
             doseMin.ValueChanged+=(s,e)=>{if(doseMin.Value>=doseMax.Value)doseMax.Value=doseMin.Value+1;UpdateDoseRange();Redraw();};
             doseMax.ValueChanged+=(s,e)=>{if(doseMax.Value<=doseMin.Value)doseMin.Value=doseMax.Value-1;UpdateDoseRange();Redraw();};UpdateDoseRange();
@@ -114,7 +109,7 @@ namespace QuickLook.DicomRT
         private void UpdateDoseRange(){doseRange.Text=$"Colorwash {doseMin.Value:0}–{doseMax.Value:0} % · relative to each dose maximum";}
         private void SetWorkspace(string mode)
         {
-            if(disposed)return;if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
+            if(disposed)return;CloseDosePopups();if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
             foreach(var pair in viewButtons)pair.Value.Foreground=pair.Key==mode?Theme.Accent:Theme.Foreground;
             foreach(UIElement child in workspace.Children)child.Visibility=Visibility.Collapsed;
             if(imageHeader!=null)imageHeader.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;

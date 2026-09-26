@@ -18,8 +18,10 @@ namespace QuickLook.DicomRT
   public IReadOnlyList<Vec3> Isocenters {get;set;} = new Vec3[0];
   public bool Crosshair {get;set;} = true; public bool Isodoses {get;set;} public double DoseOpacity {get;set;} = .35;
   public bool DoseWash {get;set;} = true; public double DoseMinimumPercent {get;set;} = 5; public double DoseMaximumPercent {get;set;} = 100;
-  public double[] IsoLevels {get;set;} = new double[]{20,50,80,95};
-  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();return s; }
+  public double[] IsoLevels {get;set;} = new double[]{10,20,30,40,50,60,70,80,90,100};
+  public bool AbsoluteIsodoses {get;set;} public double IsoColorMaximum {get;set;} = 100;
+  public Dictionary<double,int> IsoColors {get;set;} = new Dictionary<double,int>();
+  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());return s; }
   // A pending scroll keeps the complete previous frame, including its own geometry and labels.
   internal bool SameImageSource(RenderScene other)
   {
@@ -30,7 +32,7 @@ namespace QuickLook.DicomRT
    return ReferenceEquals(Entry,other.Entry)&&ReferenceEquals(Native,other.Native);
   }
  }
- public struct WorldLine { public Vec3 A,B; public double DosePercent; public WorldLine(Vec3 a,Vec3 b,double dosePercent=double.NaN){A=a;B=b;DosePercent=dosePercent;} }
+ public struct WorldLine { public Vec3 A,B; public double DosePercent; public double DoseLevel => DosePercent; public WorldLine(Vec3 a,Vec3 b,double dosePercent=double.NaN){A=a;B=b;DosePercent=dosePercent;} }
  public sealed class SliceGeometry
  {
   public Vec3 Center {get;private set;} public Vec3 Right {get;private set;} public Vec3 Down {get;private set;}
@@ -100,12 +102,41 @@ namespace QuickLook.DicomRT
  {
   public int Width,Height;public byte[] Pixels;public SliceGeometry Geometry;public List<WorldLine> Isolines=new List<WorldLine>();
  }
+ public static class IsodoseConfiguration
+ {
+  public static bool IsPhysicalGy(DoseGrid dose) => dose!=null&&string.Equals(dose.Units,"GY",StringComparison.OrdinalIgnoreCase)&&(string.IsNullOrEmpty(dose.DoseType)||string.Equals(dose.DoseType,"PHYSICAL",StringComparison.OrdinalIgnoreCase));
+  public static double[] AutomaticLevels(double maximum,bool absolute)
+  {
+   if(!absolute)return Enumerable.Range(1,10).Select(i=>i*10d).ToArray();
+   if(double.IsNaN(maximum)||double.IsInfinity(maximum)||maximum<=1)return new double[0];
+   double target=Math.Max(1,maximum/14),power=Math.Pow(10,Math.Floor(Math.Log10(target)));
+   double step=new[]{1d,2d,5d,10d}.Select(n=>n*power).First(n=>n>=target);
+   int count=Math.Min(24,(int)Math.Ceiling(maximum/step)-1);
+   return Enumerable.Range(1,Math.Max(0,count)).Select(i=>i*step).ToArray();
+  }
+  public static bool TryParse(string text,bool absolute,out double[] levels,out string error)
+  {
+   levels=null;error="Enter 1 to 24 positive "+(absolute?"Gy":"percentage")+" levels, at most 2 decimal places, separated by semicolons (e.g. 2; 4.25).";
+   var parts=(text??"").Split(new[]{';',' ','\t','\r','\n'},StringSplitOptions.RemoveEmptyEntries);
+   if(parts.Length<1||parts.Length>24)return false;
+   var result=new List<double>();
+   foreach(var part in parts)
+   {
+    double value;
+    if(!System.Text.RegularExpressions.Regex.IsMatch(part,@"^\d+(\.\d{1,2})?$")||!double.TryParse(part,System.Globalization.NumberStyles.AllowDecimalPoint,System.Globalization.CultureInfo.InvariantCulture,out value)||double.IsInfinity(value)||double.IsNaN(value)||value<=0||(!absolute&&value>100))return false;
+    result.Add(value);
+   }
+   levels=result.Distinct().OrderBy(x=>x).ToArray();error=null;return true;
+  }
+ }
  public static class SliceRaster
  {
-  public static double[] IsodoseLevels(RenderScene s) => (s.IsoLevels??new double[0]).Where(x=>!double.IsNaN(x)&&!double.IsInfinity(x)&&x>0&&x<=100).Distinct().OrderBy(x=>x).ToArray();
-  // Percent of each grid's maximum: the wash, lines and legend use this identical scale.
+  public static double[] IsodoseLevels(RenderScene s) => (s.IsoLevels??new double[0]).Where(x=>!double.IsNaN(x)&&!double.IsInfinity(x)&&x>0&&(s.AbsoluteIsodoses||x<=100)).Distinct().OrderBy(x=>x).ToArray();
+  // Colorwash remains a percentage of each grid maximum; isodose levels may instead be absolute Gy.
   public static void DoseColor(double percent,out double red,out double green,out double blue)
   {double t=Math.Max(0,Math.Min(1,percent/100));red=255*Math.Min(1,2*t);green=255*Math.Max(0,1-Math.Abs(2*t-1));blue=255*Math.Max(0,1-2*t);}
+  public static void IsodoseColor(RenderScene scene,double percent,out double red,out double green,out double blue)
+  {int color;if(scene?.IsoColors!=null&&scene.IsoColors.TryGetValue(percent,out color)){red=(color>>16)&255;green=(color>>8)&255;blue=color&255;}else DoseColor(scene?.AbsoluteIsodoses==true?percent/Math.Max(.0001,scene.IsoColorMaximum)*100:percent,out red,out green,out blue);}
   public static byte Window(float value,double center,double width,bool invert)
   {if(float.IsNaN(value))return 0;double t=Math.Max(0,Math.Min(1,(value-center)/Math.Max(1,width)+.5));if(invert)t=1-t;return (byte)Math.Round(t*255);}
   public static float SampleImage(RenderScene s,Vec3 p)
@@ -150,7 +181,7 @@ namespace QuickLook.DicomRT
      for(int d=0;d<doses.Length;d++)
      {
       float val=doses[d].Dose.Sample(doses[d].ImageToDose.Transform(p));float ratio=val/doses[d].Dose.Maximum;
-      if(maps!=null)maps[d][y*w+x]=ratio;
+      if(maps!=null)maps[d][y*w+x]=s.AbsoluteIsodoses?val:ratio;
       if(!s.DoseWash||float.IsNaN(ratio)||ratio*100<s.DoseMinimumPercent||ratio*100>s.DoseMaximumPercent)continue;
       double t=Math.Max(0,Math.Min(1,ratio));double a=Math.Max(0,Math.Min(.9,s.DoseOpacity))*Math.Min(1,t*3);
       double rr,gg,bb;DoseColor(ratio*100,out rr,out gg,out bb);
@@ -159,16 +190,17 @@ namespace QuickLook.DicomRT
      int k=(y*w+x)*4;r.Pixels[k]=(byte)blue;r.Pixels[k+1]=(byte)green;r.Pixels[k+2]=(byte)red;r.Pixels[k+3]=255;
     }
    }
-   if(maps!=null)foreach(var map in maps)foreach(double percent in IsodoseLevels(s))
+   if(maps!=null)for(int doseIndex=0;doseIndex<maps.Length;doseIndex++)foreach(double displayLevel in IsodoseLevels(s))
    {
-    double level=percent/100;var vals=new float[4];var uu=new double[4];var vv=new double[4];var points=new Vec3[4];
+    if(s.AbsoluteIsodoses&&(!IsodoseConfiguration.IsPhysicalGy(doses[doseIndex].Dose)||displayLevel>doses[doseIndex].Dose.Maximum))continue;
+    var map=maps[doseIndex];double level=s.AbsoluteIsodoses?displayLevel:displayLevel/100;var vals=new float[4];var uu=new double[4];var vv=new double[4];var points=new Vec3[4];
     for(int y=0;y<h-1;y++) {token.ThrowIfCancellationRequested();for(int x=0;x<w-1;x++)
     {
      vals[0]=map[y*w+x];vals[1]=map[y*w+x+1];vals[2]=map[(y+1)*w+x+1];vals[3]=map[(y+1)*w+x];
      if((vals[0]<level&&vals[1]<level&&vals[2]<level&&vals[3]<level)||(vals[0]>=level&&vals[1]>=level&&vals[2]>=level&&vals[3]>=level))continue;
      uu[0]=uu[3]=(x+.5)/w;uu[1]=uu[2]=(x+1.5)/w;vv[0]=vv[1]=(y+.5)/h;vv[2]=vv[3]=(y+1.5)/h;
      int count=0;for(int i=0;i<4;i++){int j=(i+1)%4;if(float.IsNaN(vals[i])||float.IsNaN(vals[j]))continue;if((vals[i]<level&&vals[j]>=level)||(vals[j]<level&&vals[i]>=level)){double t=(level-vals[i])/(vals[j]-vals[i]);points[count++]=g.WorldAt(uu[i]+t*(uu[j]-uu[i]),vv[i]+t*(vv[j]-vv[i]));}}
-     for(int i=0;i+1<count;i+=2)r.Isolines.Add(new WorldLine(points[i],points[i+1],percent));
+     for(int i=0;i+1<count;i+=2)r.Isolines.Add(new WorldLine(points[i],points[i+1],displayLevel));
     }}
    }
    return r;

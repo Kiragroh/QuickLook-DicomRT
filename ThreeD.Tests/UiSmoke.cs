@@ -26,7 +26,7 @@ internal static class UiSmoke
     var visual=(ModelVisual3D)typeof(ThreeDControl).GetField("visual",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(control);var models=visual.Content;var prepared=field.GetValue(control);
     for(int orbit=0;orbit<30;orbit++)typeof(ThreeDControl).GetMethod("UpdateCamera",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(control,null);
     if(!ReferenceEquals(models,visual.Content)||!ReferenceEquals(prepared,field.GetValue(control)))throw new Exception("orbit rebuilds models or geometry");
-    control.UpdateLayout();var bitmap=new RenderTargetBitmap(700,500,96,96,PixelFormats.Pbgra32);bitmap.Render(control);var pixels=new byte[700*500*4];bitmap.CopyPixels(pixels,700*4,0);int bright=0;for(int y=100;y<400;y++)for(int x=100;x<600;x++){int p=(y*700+x)*4;if(pixels[p]+pixels[p+1]+pixels[p+2]>400)bright++;}if(bright<500)throw new Exception("3D synthetic geometry not visible in composition");
+    control.UpdateLayout();var bitmap=Direct3DTests.CaptureControl(control);int w=bitmap.PixelWidth,h=bitmap.PixelHeight;var pixels=new byte[w*h*4];bitmap.CopyPixels(pixels,w*4,0);int bright=0;for(int y=0;y<h;y++)for(int x=0;x<w;x++){int p=(y*w+x)*4;if(pixels[p]+pixels[p+1]+pixels[p+2]>400)bright++;}if(bright<500)throw new Exception("3D synthetic geometry not visible in composition");
     window.Hide();control.SetScene(new RenderScene{Volume=v,Entry=new DicomEntry{Modality="MR"}});window.Show();control.Dispose();
    }
    finally {window.Close();}

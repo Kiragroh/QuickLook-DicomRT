@@ -1,3 +1,19 @@
+# Version 0.2.4 — detailed GPU surfaces and dose/tag controls
+
+All seven engineering suites passed with zero build warnings/errors: Core (10 groups), RT (130 assertions), rendering (341 checks plus 45 contour checks), playback, DVH (71), WPF interaction (138), and 3D (44 base checks plus surface detail, absolute-dose, context, focus, camera and guide checks). Windows installer and packaged-runtime verification are recorded below.
+
+The Direct3D 11 renderer uses depth peeling and retains full-detail geometry during orbit, zoom and linked MPR scrolling. Actual GPU pixel tests retained all 8,594 red target pixels inside a 6% skin surface. Reversing draw order produced a mean byte difference of 0.0000. Transparent emissive slice guides and portrait/landscape camera projection also passed. The synthetic fine-cylinder fixture measured 0.255 mm maximum boundary error with 199,992 triangles; this is one engineering fixture, not a general accuracy guarantee.
+
+On the authorized larger local CT/RT dataset, the default 24 selected ROI surfaces plus skin produced 6,539,298 triangles, without a contour fallback. First mesh preparation took 11,554 ms. Twenty hardware Direct3D 11 orbit frames after three warm-up frames at 1000 × 800 measured 9.33 ms median / 19.64 ms p95 including GPU rendering and bitmap readback. Full geometry remained unchanged. This excludes file/volume loading and does not establish Explorer startup time or a guaranteed desktop frame rate. No private anatomy was exported. The initial mesh cost remains material for large scenes.
+
+Actual UI captures of the approved nonpatient benchmark were inspected after the final changes: absolute Gy dose legend, blue controls, ISO jump, full/compact GPU 3D, focused brainstem, nested tag search and copy popup. Capture uses native GPU bitmap readback inside the actual WPF visual tree; no anatomy is generated. Small ROIs use 0.5 mm target spacing; other ROIs start at 1 mm, with explicit axis/triangle bounds and larger-object retries. Maximum smoothing displacement is 0.65 mm, or 0.325 mm at 0.5 mm spacing; total reconstruction error is not bounded by this smoothing limit.
+
+Physical dose contexts generate whole-Gy defaults: a 27.699 Gy maximum produces 2, 4, …, 26 Gy; a 68 Gy maximum produces 5, 10, …, 65 Gy. Manual input supports 1–24 values with up to two decimal places. Tests verify actual 2D contour coordinates and 3D 5.25 Gy surface coordinates, shared physical thresholds across dose grids, matching colors, decimal precision rejection, above-maximum levels and relative/nonphysical unit handling. Colorwash remains percentage-based. Global preference checks cover two open viewers, changed plan/dose, reopened viewer, fresh on-disk settings reader, separate Gy/percentage lists, invalid precision and malformed files. Tests use an isolated temporary preference store and never change user settings.
+
+Tag tests exercise actual WPF selection, duplicate tags, nested search, retained selected ancestors/scroll after clearing search, individually selectable popup fields and copy payloads. Busy clipboard handling is tested without overwriting the user's clipboard. The reader's existing text-prefix cap and binary omission remain unchanged.
+
+The existing offline HTML tour remains version 0.2.2; this release updates the viewer and Windows installer first. Source DICOM files remain read-only. Engineering tests do not establish clinical commissioning or TPS equivalence.
+
 # Version 0.2.3 — interaction and rendering update
 
 All seven engineering suites pass: Core (10 groups), RT (130 assertions), rendering (341 checks plus 45 contour checks), playback, DVH (71), WPF interaction (66), and 3D (44 base checks plus context, framing, focus and slice-guide suites). The native-coronal regression exercises the actual WPF route. Sampling optimizations retain byte-exact reference parity, including zoom and MONOCHROME1.
@@ -101,3 +117,7 @@ The final 0.2.2 English tour passed 133 browser assertions across 14 slides at 1
 
 
 Final 0.2.3 package: warning-free Release build, 32 installer checks and standalone embedded-payload verification passed. All 10 installed files, including manifest, matched package hashes; a previous-version backup was retained and restarted QuickLook responded. This verifies deployment files and process health, not manual Explorer Space-key acceptance. The controlled full/restored 3D screenshots were also SHA-256 identical.
+
+## 0.2.4 distribution verification
+
+The strict installer passed 32 archive/path/checksum checks and verified its embedded 32-file payload. Actual Direct3D pixel tests also passed using only the staged runtime DLL closure, then using the installed QuickLook host binding configuration and overlapping host DLLs. No .NET facade bundle is required. Live Explorer Space-key interaction is not part of these automated checks.
