@@ -29,6 +29,13 @@ class Program
  s.Zoom=2;s.Focus=new Vec3(8,21,30);var zoomed=SliceGeometry.Create(s);Near(zoomed.Center.X,8,"native zoom centers picked focus X");Near(zoomed.Center.Y,21,"native zoom centers picked focus Y");s.Zoom=1;s.Focus=new Vec3(6,22,30);
  Near(g.WidthMm,6,"native pixel-edge width");Near(g.HeightMm,12,"native pixel-edge height");
  Near(SliceRaster.SampleImage(s,p),40,"native bilinear patient-space center");
+ foreach(bool invert in new[]{false,true})foreach(double zoom in new[]{.75,1,2.3})
+ {
+  s.Native.Invert=invert;s.Zoom=zoom;var exact=SliceRaster.Render(s,37,29,CancellationToken.None);bool identical=true;
+  for(int yy=0;yy<exact.Height;yy++)for(int xx=0;xx<exact.Width;xx++){byte expected=SliceRaster.Window(SliceRaster.SampleImage(s,exact.Geometry.WorldAt((xx+.5)/exact.Width,(yy+.5)/exact.Height)),s.WindowCenter,s.WindowWidth,invert);int k=(yy*exact.Width+xx)*4;if(exact.Pixels[k]!=expected||exact.Pixels[k+1]!=expected||exact.Pixels[k+2]!=expected||exact.Pixels[k+3]!=255)identical=false;}
+  Check(identical,"optimized native raster exactly retains reference bilinear/window pixels");
+ }
+ s.Native.Invert=false;s.Zoom=1;
  Check(float.IsNaN(SliceRaster.SampleImage(s,new Vec3(6,22,40))),"native excludes distant plane");
  var v=new VolumeData{Width=3,Height=3,Depth=3,Origin=new Vec3(0,0,0),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1),SpacingX=2,SpacingY=3,SpacingZ=4,Values=new float[27]};
  s.Volume=v;s.Plane="Coronal";s.Focus=new Vec3(2,3,4); g=SliceGeometry.Create(s);Near(g.WorldAt(.5,.5).Y,3,"coronal fixed Y");Check(g.WorldAt(.5,0).Z>g.WorldAt(.5,1).Z,"superior at top");
@@ -68,6 +75,10 @@ class Program
   var newest=next.Snapshot();newest.Focus=new Vec3(2,3,8);pane.Scene=newest;PumpUntil(()=>FrameOf(pane)!=null&&!ReferenceEquals(old,FrameOf(pane)));
   var accepted=(RenderScene)FrameOf(pane).GetType().GetField("Scene").GetValue(FrameOf(pane));Near(accepted.Focus.Z,8,"newest generation replaces old frame atomically");
   var different=newest.Snapshot();different.Entry=new DicomEntry{SeriesUid="synthetic-b",HasGeometry=true};pane.Scene=different;Check(FrameOf(pane)==null,"source series change clears old frame");PumpUntil(()=>FrameOf(pane)!=null);
+  var nativeCoronal=new RenderScene{Plane="Native",Entry=new DicomEntry{SeriesUid="synthetic-coronal",HasGeometry=true,Origin=new Vec3(-10,0,10),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,0,-1),SpacingX=1,SpacingY=1},Native=new PixelPlane{Width=21,Height=21,Values=new float[441]}};
+  var stackRoi=new StructureRoi();foreach(double z in new[]{0d,2,4})stackRoi.Contours.Add(new Contour{GeometricType="CLOSED_PLANAR",Points=new List<Vec3>{new Vec3(-5,-5,z),new Vec3(5,-5,z),new Vec3(5,5,z),new Vec3(-5,5,z)}});
+  nativeCoronal.Structures.Add(new RoiOverlay{Roi=stackRoi});pane.Scene=nativeCoronal;PumpUntil(()=>FrameOf(pane)!=null);
+  var nativeFrame=FrameOf(pane);Check((bool)nativeFrame.GetType().GetField("InterpolatedContours").GetValue(nativeFrame),"native pane actually routes off-axis contours through boundary renderer");
   pane.Scene=null;Check(FrameOf(pane)==null,"missing source clears frame");
  }}finally{SynchronizationContext.SetSynchronizationContext(previousContext);}
  ReformatTests.Run();

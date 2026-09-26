@@ -133,7 +133,8 @@ namespace QuickLook.DicomRT
             try
             {
                 PixelPlane plane;
-                if (volume != null && volume.Depth == stack.Entries.Count)
+                if(pixelCache.TryGetValue(entry.Path,out plane)) { }
+                else if (volume != null && volume.Depth == stack.Entries.Count)
                 {
                     int size = volume.Width * volume.Height; var values = new float[size]; Array.Copy(volume.Values, size * index, values, 0, size);
                     plane = new PixelPlane { Width = volume.Width, Height = volume.Height, Values = values, Min = volume.Min, Max = volume.Max, Invert = volume.Invert };
@@ -147,7 +148,7 @@ namespace QuickLook.DicomRT
                     var normal = entry.AxisX.Cross(entry.AxisY).Normalized(); focus = focus + normal * ((entry.Origin - focus).Dot(normal));
                 }
                 else SetEntryFocus(entry);
-                changing = true; sliceSlider.Value = index; changing = false; UpdateTags(); Redraw();
+                changing = true; sliceSlider.Value = index; changing = false; if(tagsVisible)UpdateTags(); Redraw();
                 if (volume == null) Prefetch(stack, index, seriesGeneration);
             }
             catch (OperationCanceledException) { }

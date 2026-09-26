@@ -46,7 +46,7 @@ namespace QuickLook.DicomRT
                 toggle.Checked += (s, e) => { roi.Visible = true; RoiVisibilityChanged(); }; toggle.Unchecked += (s, e) => { roi.Visible = false; RoiVisibilityChanged(); }; DockPanel.SetDock(toggle, Dock.Left); row.Children.Add(toggle);
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
                 var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Left; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = workspaceMode=="DVH" || transform != null; jump.ToolTip = transform == null ? "No matching registration to the displayed series" : "Go to structure";
-                jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null) await MoveFocusAsync(map.Transform(roi.Center)); };
+                jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null){bool in3D=workspaceMode=="3D"||workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D";if(in3D&&!roi.Visible){roi.Visible=true;BuildRoiList();}await MoveFocusAsync(map.Transform(roi.Center));if(in3D){if(workspaceMode=="3D")threeDView?.FocusStructure(roi);else mprThreeD?.FocusStructure(roi);}} };
                 row.Children.Add(jump); roiList.Children.Add(row);
             }
             if (roiList.Children.Count == 0) roiList.Children.Add(Theme.Text("No matching structures", 11, Theme.Muted));

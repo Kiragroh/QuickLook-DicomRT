@@ -47,12 +47,13 @@ namespace QuickLook.DicomRT
         private void UpdateFrame()
         {
             int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);
-            if(plan==null||bi<0){beam=null;orientation.Set(double.NaN,double.NaN);aperture.Set(null,null,0);details.Text="No control points";return;}
+            if(plan==null||bi<0){beam=null;orientation.Set(double.NaN,double.NaN);orientation.SetCollimator(double.NaN);aperture.Set(null,null,0);details.Text="No control points";return;}
             beam=plan.Beams[bi];selecting=true;beams.SelectedIndex=bi;selecting=false;
             int i=(int)local,j=Math.Min(i+1,beam.ControlPoints.Count-1);double t=local-i;var a=beam.ControlPoints[i];var b=beam.ControlPoints[j];aperture.Set(a,b,t);
             var layerLabels=new[]{"All layers"}.Concat(a.MlcLayers.Select((l,k)=>"Layer "+(k+1)+" · "+l.Type)).ToArray();
             if(!layerView.Items.Cast<string>().SequenceEqual(layerLabels)){layerView.ItemsSource=layerLabels;layerView.SelectedIndex=0;}
             orientation.SetContext(beam,bodyRegion,planNoncoplanar);
+            orientation.SetCollimator(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false));
             orientation.Set(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false));
             double weight=a.MetersetWeight+(b.MetersetWeight-a.MetersetWeight)*t;
             details.Text=$"Beam {bi+1}/{plan.Beams.Count} · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";

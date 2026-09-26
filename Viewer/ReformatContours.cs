@@ -6,20 +6,28 @@ using System.Threading;
 namespace QuickLook.DicomRT
 {
  // Reformat the contour stack as a signed interval field. Draw its boundary,
- // not every axial chord through its interior. Native contours stay unchanged.
+ // not every axial chord through its interior. Coplanar originals stay unchanged,
+ // including native images whose plane differs from the RTSTRUCT stack.
  public static class ReformatContours
  {
+  public enum OutlineKind { Original, Interpolated, IntersectionFallback }
   sealed class Row {public double H;public List<Tuple<double,double>> Intervals=new List<Tuple<double,double>>();}
   public static List<WorldLine> Outline(StructureRoi roi,Matrix4 map,SliceGeometry g,double tolerance,CancellationToken token)
+  {OutlineKind kind;return Outline(roi,map,g,tolerance,token,out kind);}
+  public static List<WorldLine> Outline(StructureRoi roi,Matrix4 map,SliceGeometry g,double tolerance,CancellationToken token,out OutlineKind kind)
   {
+   kind=OutlineKind.IntersectionFallback;
    token.ThrowIfCancellationRequested();
-   var loops=roi.Contours.Where(c=>c.Points.Count>=3&&(c.GeometricType=="CLOSED_PLANAR"||c.GeometricType=="CLOSEDPLANAR_XOR")).ToArray();
-   if(loops.Length<2 || loops.Any(c=>c.GeometricType!=loops[0].GeometricType))return SliceGeometry.ContourLines(roi,map,g,tolerance);
+   if(roi?.Contours==null)return new List<WorldLine>();
+   var loops=roi.Contours.Where(c=>c.Points!=null&&c.Points.Count>=3&&(c.GeometricType=="CLOSED_PLANAR"||c.GeometricType=="CLOSEDPLANAR_XOR")).ToArray();
+   if(loops.Length==0||loops.Length!=roi.Contours.Count||loops.Any(c=>c.GeometricType!=loops[0].GeometricType))return SliceGeometry.ContourLines(roi,map,g,tolerance);
    Vec3 normal=new Vec3();var first=loops[0].Points.Select(map.Transform).ToArray();
    for(int i=0;i<first.Length;i++)normal+=first[i].Cross(first[(i+1)%first.Length]);
    if(normal.Length<1e-8)return SliceGeometry.ContourLines(roi,map,g,tolerance);normal=normal.Normalized();
-   if(Math.Abs(normal.Dot(g.Normal))>.9999)return SliceGeometry.ContourLines(roi,map,g,tolerance);
-   var axis=normal.Cross(g.Normal).Normalized();var stack=g.Normal.Cross(axis).Normalized();if(stack.Dot(normal)<0)stack=stack*-1;
+   var viewNormal=g.Normal;
+   if(normal.Cross(viewNormal).Length<1e-7){kind=OutlineKind.Original;return SliceGeometry.ContourLines(roi,map,g,tolerance);}
+   if(loops.Length<2)return SliceGeometry.ContourLines(roi,map,g,tolerance);
+   var axis=normal.Cross(viewNormal).Normalized();var stack=viewNormal.Cross(axis).Normalized();if(stack.Dot(normal)<0)stack=stack*-1;
    double scale=normal.Dot(stack);var rows=new List<Row>();bool xor=loops.Any(c=>c.GeometricType=="CLOSEDPLANAR_XOR");
    foreach(var loop in loops)
    {
@@ -28,11 +36,12 @@ namespace QuickLook.DicomRT
     double h=(plane-normal.Dot(g.Center))/scale;var row=rows.FirstOrDefault(r=>Math.Abs(r.H-h)<.001);
     if(row==null){row=new Row{H=h};rows.Add(row);}var cuts=new List<double>();
     for(int i=0;i<p.Length;i++)
-    {var a=p[i];var b=p[(i+1)%p.Length];double da=(a-g.Center).Dot(g.Normal),db=(b-g.Center).Dot(g.Normal);
+    {var a=p[i];var b=p[(i+1)%p.Length];double da=(a-g.Center).Dot(viewNormal),db=(b-g.Center).Dot(viewNormal);
      if((da<=0&&db>0)||(db<=0&&da>0)){var q=a+(b-a)*(da/(da-db));cuts.Add((q-g.Center).Dot(axis));}}
     cuts.Sort();for(int i=0;i+1<cuts.Count;i+=2)if(cuts[i+1]-cuts[i]>1e-7)row.Intervals.Add(Tuple.Create(cuts[i],cuts[i+1]));
    }
    rows=rows.OrderBy(r=>r.H).ToList();if(rows.Count<2)return SliceGeometry.ContourLines(roi,map,g,tolerance);
+   kind=OutlineKind.Interpolated;
    foreach(var row in rows)row.Intervals=Combine(row.Intervals,xor);
    var intervals=rows.SelectMany(r=>r.Intervals).ToArray();if(intervals.Length==0)return new List<WorldLine>();
    var gaps=Enumerable.Range(1,rows.Count-1).Select(i=>rows[i].H-rows[i-1].H).OrderBy(x=>x).ToArray();double typical=gaps[(gaps.Length-1)/2];
@@ -62,15 +71,16 @@ namespace QuickLook.DicomRT
      values[y*w+x]=value;
     }
    }
-   var lines=new List<WorldLine>();
+   var lines=new List<WorldLine>();var v=new double[4];var px=new double[4];var py=new double[4];var points=new Vec3[4];
    for(int y=0;y<hgt-1;y++){token.ThrowIfCancellationRequested();for(int x=0;x<w-1;x++)
    {
-    var v=new[]{values[y*w+x],values[y*w+x+1],values[(y+1)*w+x+1],values[(y+1)*w+x]};
-    var px=new[]{lo+x*pitch,lo+(x+1)*pitch,lo+(x+1)*pitch,lo+x*pitch};var py=new[]{bottom+y*pitch,bottom+y*pitch,bottom+(y+1)*pitch,bottom+(y+1)*pitch};
-    var points=new List<Vec3>();for(int i=0;i<4;i++){int j=(i+1)%4;if((v[i]<=0&&v[j]>0)||(v[j]<=0&&v[i]>0)){double t=v[i]/(v[i]-v[j]);points.Add(g.Center+axis*(px[i]+t*(px[j]-px[i]))+stack*(py[i]+t*(py[j]-py[i])));}}
+    v[0]=values[y*w+x];v[1]=values[y*w+x+1];v[2]=values[(y+1)*w+x+1];v[3]=values[(y+1)*w+x];
+    if((v[0]<=0&&v[1]<=0&&v[2]<=0&&v[3]<=0)||(v[0]>0&&v[1]>0&&v[2]>0&&v[3]>0))continue;
+    px[0]=px[3]=lo+x*pitch;px[1]=px[2]=lo+(x+1)*pitch;py[0]=py[1]=bottom+y*pitch;py[2]=py[3]=bottom+(y+1)*pitch;
+    int count=0;for(int i=0;i<4;i++){int j=(i+1)%4;if((v[i]<=0&&v[j]>0)||(v[j]<=0&&v[i]>0)){double t=v[i]/(v[i]-v[j]);points[count++]=g.Center+axis*(px[i]+t*(px[j]-px[i]))+stack*(py[i]+t*(py[j]-py[i]));}}
     // Asymptotic saddle decision keeps diagonal islands from connecting arbitrarily.
-    if(points.Count==4&&v[0]*v[2]-v[1]*v[3]<0){var last=points[3];points.RemoveAt(3);points.Insert(0,last);}
-    for(int i=0;i+1<points.Count;i+=2)if((points[i+1]-points[i]).Length>1e-9)lines.Add(new WorldLine(points[i],points[i+1]));
+    if(count==4&&v[0]*v[2]-v[1]*v[3]<0){var last=points[3];points[3]=points[2];points[2]=points[1];points[1]=points[0];points[0]=last;}
+    for(int i=0;i+1<count;i+=2)if((points[i+1]-points[i]).Length>1e-9)lines.Add(new WorldLine(points[i],points[i+1]));
    }}
    return lines;
   }

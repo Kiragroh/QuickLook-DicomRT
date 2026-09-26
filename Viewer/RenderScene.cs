@@ -70,14 +70,16 @@ namespace QuickLook.DicomRT
   // Closed planar loops intersected with the displayed plane. No surface is inferred between slices.
   public static List<WorldLine> ContourLines(StructureRoi roi,Matrix4 transform,SliceGeometry g,double tolerance)
   {
-   var result=new List<WorldLine>();if(roi?.Contours==null)return result;
+   var result=new List<WorldLine>();if(roi?.Contours==null)return result;var normal=g.Normal;
    foreach(var contour in roi.Contours)
    {
     if(contour.Points==null||contour.Points.Count<2)continue;
-    var p=contour.Points.Select(x=>transform.Transform(x)).ToArray();var d=p.Select(x=>(x-g.Center).Dot(g.Normal)).ToArray();
+    var p=new Vec3[contour.Points.Count];var d=new double[p.Length];double min=double.PositiveInfinity,max=double.NegativeInfinity;
+    for(int i=0;i<p.Length;i++){p[i]=transform.Transform(contour.Points[i]);d[i]=(p[i]-g.Center).Dot(normal);min=Math.Min(min,d[i]);max=Math.Max(max,d[i]);}
     var closed=contour.GeometricType=="CLOSED_PLANAR"||contour.GeometricType=="CLOSEDPLANAR_XOR";
     var count=closed?p.Length:p.Length-1;
-    if(d.All(x=>Math.Abs(x)<=tolerance)) {for(int i=0;i<count;i++)result.Add(new WorldLine(p[i],p[(i+1)%p.Length]));continue;}
+    if(min>=-tolerance&&max<=tolerance) {for(int i=0;i<count;i++)result.Add(new WorldLine(p[i],p[(i+1)%p.Length]));continue;}
+    if(min>0||max<0)continue;
     if(!closed)continue;
     var crossings=new List<Vec3>();
     for(int i=0;i<p.Length;i++)
@@ -112,7 +114,10 @@ namespace QuickLook.DicomRT
    if(s.Native==null||s.Entry==null)return float.NaN;
    var e=s.Entry;var n=s.Native;var dx=e.HasGeometry?e.AxisX.Normalized():new Vec3(1,0,0);var dy=e.HasGeometry?e.AxisY.Normalized():new Vec3(0,1,0);var delta=p-e.Origin;
    if(Math.Abs(delta.Dot(dx.Cross(dy)))>.01)return float.NaN;
-   var x=delta.Dot(dx)/(e.SpacingX>0?e.SpacingX:1);var y=delta.Dot(dy)/(e.SpacingY>0?e.SpacingY:1);
+   return SampleNative(n,delta.Dot(dx)/(e.SpacingX>0?e.SpacingX:1),delta.Dot(dy)/(e.SpacingY>0?e.SpacingY:1));
+  }
+  static float SampleNative(PixelPlane n,double x,double y)
+  {
    if(x<-.50001||y<-.50001||x>n.Width-.49999||y>n.Height-.49999)return float.NaN;
    x=Math.Max(0,Math.Min(n.Width-1,x));y=Math.Max(0,Math.Min(n.Height-1,y));int x0=(int)x,y0=(int)y,x1=Math.Min(x0+1,n.Width-1),y1=Math.Min(y0+1,n.Height-1);double fx=x-x0,fy=y-y0;
    return (float)((n.Values[y0*n.Width+x0]*(1-fx)+n.Values[y0*n.Width+x1]*fx)*(1-fy)+(n.Values[y1*n.Width+x0]*(1-fx)+n.Values[y1*n.Width+x1]*fx)*fy);
@@ -124,12 +129,18 @@ namespace QuickLook.DicomRT
    var doses=(s.Doses??new List<DoseOverlay>()).Where(d=>d?.Dose!=null&&d.Dose.Visible&&d.Dose.Maximum>0).ToArray();
    var maps=s.Isodoses?doses.Select(d=>new float[w*h]).ToArray():null;
    bool invert=s.Plane=="Native"?(s.Native?.Invert??false):(s.Volume?.Invert??false);
+   // Native image orientation and pixel spacing are invariant across this frame.
+   // Calculate patient-to-pixel axes once, retaining the same bilinear sampler.
+   bool native=s.Plane=="Native"&&s.Native!=null&&s.Entry!=null;var nx=new Vec3();var ny=new Vec3();var nn=new Vec3();double nativeSx=1,nativeSy=1;
+   if(native){var e=s.Entry;nx=e.HasGeometry?e.AxisX.Normalized():new Vec3(1,0,0);ny=e.HasGeometry?e.AxisY.Normalized():new Vec3(0,1,0);nn=nx.Cross(ny);nativeSx=e.SpacingX>0?e.SpacingX:1;nativeSy=e.SpacingY>0?e.SpacingY:1;}
    for(int y=0;y<h;y++)
    {
     token.ThrowIfCancellationRequested();
     for(int x=0;x<w;x++)
     {
-     var p=g.WorldAt((x+.5)/w,(y+.5)/h);var v=SampleImage(s,p);double red=Window(v,s.WindowCenter,s.WindowWidth,invert),green=red,blue=red;
+     var p=g.WorldAt((x+.5)/w,(y+.5)/h);float v;
+     if(native){var delta=p-s.Entry.Origin;v=Math.Abs(delta.Dot(nn))>.01?float.NaN:SampleNative(s.Native,delta.Dot(nx)/nativeSx,delta.Dot(ny)/nativeSy);}else v=SampleImage(s,p);
+     double red=Window(v,s.WindowCenter,s.WindowWidth,invert),green=red,blue=red;
      if(s.OverlayVolume!=null&&s.OverlayOpacity>0)
      {
       var overlay=s.OverlayVolume.Sample((s.ImageToOverlay??Matrix4.Identity).Transform(p));
@@ -150,13 +161,14 @@ namespace QuickLook.DicomRT
    }
    if(maps!=null)foreach(var map in maps)foreach(double percent in IsodoseLevels(s))
    {
-    double level=percent/100;
+    double level=percent/100;var vals=new float[4];var uu=new double[4];var vv=new double[4];var points=new Vec3[4];
     for(int y=0;y<h-1;y++) {token.ThrowIfCancellationRequested();for(int x=0;x<w-1;x++)
     {
-     var vals=new[]{map[y*w+x],map[y*w+x+1],map[(y+1)*w+x+1],map[(y+1)*w+x]};
-     var uu=new[]{(x+.5)/w,(x+1.5)/w,(x+1.5)/w,(x+.5)/w};var vv=new[]{(y+.5)/h,(y+.5)/h,(y+1.5)/h,(y+1.5)/h};
-     var points=new List<Vec3>();for(int i=0;i<4;i++){int j=(i+1)%4;if(float.IsNaN(vals[i])||float.IsNaN(vals[j]))continue;if((vals[i]<level&&vals[j]>=level)||(vals[j]<level&&vals[i]>=level)){double t=(level-vals[i])/(vals[j]-vals[i]);points.Add(g.WorldAt(uu[i]+t*(uu[j]-uu[i]),vv[i]+t*(vv[j]-vv[i])));}}
-     for(int i=0;i+1<points.Count;i+=2)r.Isolines.Add(new WorldLine(points[i],points[i+1],percent));
+     vals[0]=map[y*w+x];vals[1]=map[y*w+x+1];vals[2]=map[(y+1)*w+x+1];vals[3]=map[(y+1)*w+x];
+     if((vals[0]<level&&vals[1]<level&&vals[2]<level&&vals[3]<level)||(vals[0]>=level&&vals[1]>=level&&vals[2]>=level&&vals[3]>=level))continue;
+     uu[0]=uu[3]=(x+.5)/w;uu[1]=uu[2]=(x+1.5)/w;vv[0]=vv[1]=(y+.5)/h;vv[2]=vv[3]=(y+1.5)/h;
+     int count=0;for(int i=0;i<4;i++){int j=(i+1)%4;if(float.IsNaN(vals[i])||float.IsNaN(vals[j]))continue;if((vals[i]<level&&vals[j]>=level)||(vals[j]<level&&vals[i]>=level)){double t=(level-vals[i])/(vals[j]-vals[i]);points[count++]=g.WorldAt(uu[i]+t*(uu[j]-uu[i]),vv[i]+t*(vv[j]-vv[i]));}}
+     for(int i=0;i+1<count;i+=2)r.Isolines.Add(new WorldLine(points[i],points[i+1],percent));
     }}
    }
    return r;

@@ -1,3 +1,32 @@
+# Version 0.2.3 — interaction and rendering update
+
+All seven engineering suites pass: Core (10 groups), RT (130 assertions), rendering (341 checks plus 45 contour checks), playback, DVH (71), WPF interaction (66), and 3D (44 base checks plus context, framing, focus and slice-guide suites). The native-coronal regression exercises the actual WPF route. Sampling optimizations retain byte-exact reference parity, including zoom and MONOCHROME1.
+
+The linac table terminates at the schematic head for head-first/feet-first and supine/prone contexts. Its permanent collimator dial follows directed control-point interpolation, including the zero-degree crossing, and clears unavailable angles. The dial is labeled source view; its sign follows DICOM beam-limiting-device rotation conventions. Public benchmark MLC screenshots and the complete 90-frame capture were rendered from the actual viewer and visually inspected.
+
+Selecting an ROI name centers its mapped contour representative point and adds an emissive highlight in full and compact 3D. A second selection clears emphasis. A selected nondefault ROI can be admitted without widening the type filter; EXTERNAL stays excluded. Tests cover registered centering, cache preservation, rapid selection, frozen model reuse, timer cleanup and restoration after interaction.
+
+Native image planes that cross a parallel RT contour stack now use the same labeled approximate boundary reconstruction as MPR; contours already coplanar with the displayed image retain their original points. Unsupported stacks explicitly fall back to intersections. This removes stacked-chord artifacts without modifying the source contours.
+
+## Warm public-benchmark measurements
+
+The same approved nonpatient benchmark and machine were used before and after. These are component measurements, not Explorer startup or a guaranteed on-screen frame rate.
+
+| Workload | 0.2.2 baseline | 0.2.3 |
+| --- | ---: | ---: |
+| CPU native raster, 512 x 512, dose wash | 29–30 ms | 18 ms |
+| CPU native raster, wash + isodoses | 47–52 ms | 20–21 ms |
+| Native navigation, 1200 x 800, hidden tags, 20 warm frames: dispatch median | 1.33 ms | 1.21 ms |
+| Same navigation: prepared-frame completion median | 46.33 ms | 31.16 ms |
+
+Both raster paths retain 1,719 contour segments. Cold first raster was 48 vs 50 ms; no cold-start improvement is claimed. Navigation waits for completed raster tasks and excludes final WPF paint. Hidden tags no longer parse every source slice; opening the panel refreshes the current attributes.
+
+The 1000 x 800 WPF RenderTargetBitmap orbit profile used 20 timed frames after three warm-up frames. Baseline software paint was 415.603 ms median (434.916 ms p95), with 169,716 triangles. Current quality paint was 255.065 ms (266.695 p95); interaction preview was 175.988 ms (187.525 p95), with 27,936 triangles; idle-restored quality was 248.248 ms (262.420 p95), restoring all 169,716 triangles. Camera update alone remained about 0.027 ms. Repeat capture-run medians were 256.812 / 171.832 / 241.355 ms, respectively. Full-quality timings vary despite the preserved geometry; the preview's lower workload is deliberate, not an equal-quality speedup.
+
+During orbit, zoom or linked MPR scrolling, cached coarse meshes are used and an interaction-preview label appears. Enclosing skin/large-organ context is temporarily omitted when interior objects are visible; a skin-only scene retains its context. ROI preview becomes opaque; dose stays transparent and a selected ROI retains its full mesh/highlight. After 180 ms idle the exact cached full scene returns. Public quality, preview, restored and focused-brainstem captures were visually reviewed. No DICOM files were modified.
+
+The existing offline HTML tour remains version 0.2.2; this release updates the tool and Windows installer first.
+
 # 0.2.2 orientation and context update
 
 The current update passed 130 RT assertions, playback checks, 56 WPF interaction checks, and 44 base 3D checks plus context and slice-guide suites. Tests cover referenced patient-setup selection, eight supported recumbent positions, missing/ambiguous metadata, LPS image-badge orientation, no sum offered for one dose, skin-opacity independence, EXTERNAL exclusion and geometry/cache preservation.
@@ -69,3 +98,6 @@ Presentation acceptance: 14 slides and seven six-second videos passed 133 headle
 Final 0.2.2 package: clean build, 32 installer checks and standalone embedded-payload verification passed. All 10 installed package files (including manifest) were hash-verified; QuickLook restarted and responded. The previous plugin backup is retained. Public/nonpatient and sanitized MLC captures were visually inspected. Full 3D camera-fit tests additionally cover wide/tall viewports and camera preservation after manual adjustment.
 
 The final 0.2.2 English tour passed 133 browser assertions across 14 slides at 1600 × 900 and 1280 × 720. All seven videos were freshly rendered and verified as 1600 × 900, six seconds and 180 frames. Hero, MPR, skin/3D and sanitized dual-MLC slides were visually inspected.
+
+
+Final 0.2.3 package: warning-free Release build, 32 installer checks and standalone embedded-payload verification passed. All 10 installed files, including manifest, matched package hashes; a previous-version backup was retained and restarted QuickLook responded. This verifies deployment files and process health, not manual Explorer Space-key acceptance. The controlled full/restored 3D screenshots were also SHA-256 identical.

@@ -31,7 +31,7 @@ internal static class Benchmark
      for(int pass=0;pass<3;pass++)
      {
       scene.Isodoses=isodoses;var sw=Stopwatch.StartNew();var raster=SliceRaster.Render(scene,512,512,CancellationToken.None);long rasterMs=sw.ElapsedMilliseconds;int segments=0;
-      foreach(var roi in scene.Structures)segments+=SliceGeometry.ContourLines(roi.Roi,roi.RoiToImage,raster.Geometry,plane=="Native"?volume.SpacingZ*.49:.01).Count;
+      foreach(var roi in scene.Structures)segments+=ReformatContours.Outline(roi.Roi,roi.RoiToImage,raster.Geometry,plane=="Native"?volume.SpacingZ*.49:.01,CancellationToken.None).Count;
       sw.Stop();Console.WriteLine(modality+" "+plane+" isodoses="+isodoses+" pass="+pass+" raster_ms="+rasterMs+" contours_ms="+(sw.ElapsedMilliseconds-rasterMs)+" total_ms="+sw.ElapsedMilliseconds+" segments="+segments);
      }
     }

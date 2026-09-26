@@ -37,7 +37,7 @@ Namespace: `QuickLook.DicomRT`. Target: `net462`, WPF in Viewer only, fo-dicom.D
 - `DvhControl.SetData(rois, dose, transform)` starts on-demand asynchronous work; `Completion`, `StatusText`, `Cancel` and `Dispose` expose lifecycle state. Limits: 128 structures, 30 seconds per view; each calculator call has a 10-second/600,000-cell cap. Remaining structures are counted.
 - `ThreeDControl.SetScene(scene)` prepares physical-coordinate meshes only while visible. Hidden/disposed views cancel pending work. Adaptive allocation caps the scene at 600,000 triangles, 64 ROI inputs and 8 dose inputs. Unsupported/omitted objects are counted. Transparency is approximate.
 
-The internal workspace key `Bild` remains for compatibility; its visible label is `Image`. Plane values are `Native`, `Axial`, `Coronal`, `Sagittal` and `3 planes`.
+The internal workspace key `Bild` remains for compatibility; its visible label is `Image`. Plane values are `Native`, `Axial`, `Coronal`, `Sagittal` and `MPR + 3D`.
 
 RT-only loading does not require a matching image or dose. An initial RTPLAN opens MLC; RTSTRUCT/RTDOSE open 3D. `HasImage == false` does not imply RT failure. Matching structures and dose support DVH without a plan. Dose sums require explicit selection.
 
@@ -45,7 +45,7 @@ RT-only loading does not require a matching image or dose. An initial RTPLAN ope
 
 `StructureRoi.InterpretedType` retains the DICOM interpreted type. `ThreeDGeometry.DefaultRoi` selects exact `PTV` / `ORGAN` types, without name inference. All ROI types, CT context and dose are opt-in. Unchanged geometry reuses a bounded mesh cache; smoothing displaces ROI vertices by at most 1 mm.
 
-`ReformatContours.Outline` constructs a bounded approximate contour-stack boundary between supported parallel planes. Original native contours remain unchanged; unsupported stacks fall back to actual plane intersections. `SlicePane` uses published geometry for raster, overlays and picking, supports Ctrl-wheel zoom, shows compact width/level information, and draws plan isocenter projections with signed off-plane distances.
+`ReformatContours.Outline` constructs a bounded approximate contour-stack boundary between supported parallel planes. Original contours coplanar with the displayed native image remain unchanged. Off-axis native images use the same approximate boundary reconstruction as MPR; unsupported stacks fall back to actual plane intersections. `SlicePane` uses published geometry for raster, overlays and picking, supports Ctrl-wheel zoom, shows compact width/level information, and draws plan isocenter projections with signed off-plane distances.
 
 ## Host and tests
 
@@ -54,3 +54,6 @@ RT-only loading does not require a matching image or dose. An initial RTPLAN ope
 Assertion projects cover Core, RT, rendering, playback, DVH/sums, 3D and WPF interaction. Use synthetic cases for reproducible changes. Authorized-folder modes are read-only and output aggregates. See [VERIFICATION.md](VERIFICATION.md) for acceptance boundaries.
 
 The 0.2.2 orientation API includes PatientOrientation.ToIec, per-beam PatientPosition, MlcPlaybackControl.SetBodyRegion, and a shared normalized LPS human. SetBodyRegion is a schematic metadata cue; it is not anatomical registration. MPR + 3D is the four-pane selector label. Single-dose catalogs do not offer summation. CT skin starts at 6% opacity independent of ROI alpha; EXTERNAL is excluded from all-type ROI rendering.
+
+
+The 0.2.3 3D API adds `ThreeDControl.FocusStructure(roi)` for toggleable emphasis and mapped centering. The collimator source-view dial follows directed control-point interpolation independently of gantry/couch geometry. Hidden metadata panels defer per-slice parsing until reopened.

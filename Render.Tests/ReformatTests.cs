@@ -59,6 +59,15 @@ internal static class ReformatTests
   Check(Points(leadingGap).Min(p=>p.Z)>=-1.001,"leading gap does not inflate first end cap");
   var axial=Geometry("Axial",new Vec3(0,0,2));var original=SliceGeometry.ContourLines(Box(0,2,4),Matrix4.Identity,axial,.01);var retained=Outline(Box(0,2,4),axial);
   Check(original.Count==retained.Count&&original.Zip(retained,(a,b)=>(a.A-b.A).Length+(a.B-b.B).Length).All(d=>d<1e-9),"parallel original contours unchanged");
+  // A native coronal image with an axial RTSTRUCT must use the same boundary
+  // as MPR. The image's Native label says nothing about the contour orientation.
+  var native=SliceGeometry.Create(new RenderScene{Plane="Native",Entry=new DicomEntry{HasGeometry=true,Origin=new Vec3(-20,0,20),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,0,-1),SpacingX=1,SpacingY=1},Native=new PixelPlane{Width=41,Height=41}});
+  ReformatContours.OutlineKind kind;var nativeLines=ReformatContours.Outline(Box(0,2,4),Matrix4.Identity,native,.49,CancellationToken.None,out kind);
+  Closed(nativeLines,"native coronal image plus axial contour stack");
+  Check(kind==ReformatContours.OutlineKind.Interpolated,"native off-axis stack is explicitly interpolated");
+  Check(nativeLines.All(l=>!(Math.Abs(l.A.Z-l.B.Z)<1e-7&&Math.Abs(l.A.Z-2)<.2&&Math.Abs(l.A.X-l.B.X)>1)),"native has no interior RTSTRUCT chords");
+  ReformatContours.Outline(Box(0,2,4),Matrix4.Identity,axial,.49,CancellationToken.None,out kind);Check(kind==ReformatContours.OutlineKind.Original,"aligned original contours labeled original");
+  ReformatContours.Outline(Box(0),Matrix4.Identity,native,.49,CancellationToken.None,out kind);Check(kind==ReformatContours.OutlineKind.IntersectionFallback,"single unsupported off-axis contour explicitly falls back");
   using(var cancel=new CancellationTokenSource()){cancel.Cancel();bool threw=false;try{ReformatContours.Outline(Box(0),Matrix4.Identity,Geometry(),.01,cancel.Token);}catch(OperationCanceledException){threw=true;}Check(threw,"cancellation includes early fallback");}
   Console.WriteLine("PASS "+checks+" contour reformat boundary checks");
  }

@@ -15,8 +15,9 @@ class Program
     static void Layout(FrameworkElement element){element.Measure(new Size(800,700));element.Arrange(new Rect(0,0,800,700));element.UpdateLayout();}
     static System.Collections.Generic.IEnumerable<T> Descendants<T>(DependencyObject root) where T:DependencyObject
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
-    [STAThread] static int Main()
+    [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
         try
         {
             var app=new Application();app.Resources.MergedDictionaries.Add(new ResourceDictionary {Source=new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml",UriKind.Relative)});

@@ -14,7 +14,7 @@ namespace QuickLook.DicomRT
  public sealed class SlicePane : FrameworkElement, IDisposable
  {
   sealed class OverlayLines {public Pen Pen;public List<WorldLine> Lines;}
-  sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public List<OverlayLines> Lines=new List<OverlayLines>();}
+  sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public bool InterpolatedContours,ContourFallback;public List<OverlayLines> Lines=new List<OverlayLines>();}
   RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
   public RenderScene Scene {get=>scene;set{scene=value;Refresh();}}
   public event Action<SlicePane,int> Scrolled; public event Action<SlicePane,Vec3> Picked;public event Action<double,double> WindowChanged;public event Action<double> ZoomChanged;
@@ -41,7 +41,11 @@ namespace QuickLook.DicomRT
      {
       cancel.Token.ThrowIfCancellationRequested();if(overlay?.Roi==null||!overlay.Roi.Visible)continue;
       var roi=overlay.Roi;var brush=new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue));brush.Freeze();var pen=new Pen(brush,1.3);pen.Freeze();
-      result.Lines.Add(new OverlayLines{Pen=pen,Lines=copy.Plane=="Native"?SliceGeometry.ContourLines(roi,overlay.RoiToImage,pixels.Geometry,tolerance):ReformatContours.Outline(roi,overlay.RoiToImage,pixels.Geometry,tolerance,cancel.Token)});
+      ReformatContours.OutlineKind kind;
+      var lines=ReformatContours.Outline(roi,overlay.RoiToImage,pixels.Geometry,tolerance,cancel.Token,out kind);
+      result.InterpolatedContours|=kind==ReformatContours.OutlineKind.Interpolated;
+      result.ContourFallback|=kind==ReformatContours.OutlineKind.IntersectionFallback;
+      result.Lines.Add(new OverlayLines{Pen=pen,Lines=lines});
      }
      return result;
     },cancel.Token);
@@ -96,7 +100,7 @@ namespace QuickLook.DicomRT
     Text(dc,SliceGeometry.Direction(g.Down),new Point(ActualWidth/2,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
    }
    Text(dc,string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
-   if(f.Scene.Structures.Count>0&&f.Scene.Plane!="Native")Text(dc,"Interpolated contour-stack boundary",new Point(10,26),Brushes.LightSlateGray,10);
+   if(f.InterpolatedContours||f.ContourFallback)Text(dc,f.ContourFallback?"Contour intersections (unsupported stack)"+(f.InterpolatedContours?"; interpolated boundaries":""):"Interpolated contour-stack boundary",new Point(10,26),Brushes.LightSlateGray,10);
    if(f.Scene.Isodoses&&f.Scene.Doses.Count>0)Text(dc,"Isodoses: "+string.Join(" / ",SliceRaster.IsodoseLevels(f.Scene).Select(x=>x.ToString("0.#",CultureInfo.InvariantCulture)))+" % of each dose maximum",new Point(10,40),Brushes.LightGray,10);
    if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
   }

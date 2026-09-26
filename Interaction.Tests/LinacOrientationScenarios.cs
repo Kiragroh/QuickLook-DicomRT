@@ -21,6 +21,15 @@ internal static class LinacOrientationScenarios
         var patient=(Model3DGroup)modelType.GetField("patientHost",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(widget);var before=patient.Children[0].Transform.Transform(new Point3D(0,0,.55));
         var cursor=(System.Windows.Controls.Slider)type.GetField("cursor",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(playback);var same=patient.Children[0];cursor.Value=.5;check(ReferenceEquals(same,patient.Children[0]),"MLC playback reuses patient geometry between control points");cursor.Value=2;var after=patient.Children[0].Transform.Transform(new Point3D(0,0,.55));
         check((before-new Point3D()).Length<1e-9&&(after-before).Length<1e-9,"Mixed-couch plan keeps the same assumed head isocenter across beam boundaries");
+        foreach(string position in new[]{"HFS","FFS","HFP","FFP"})foreach(string region in new[]{"HEAD","CHEST"})
+        {
+            var context=new PlanBeam{PatientPosition=position};modelType.GetMethod("SetContext").Invoke(widget,new object[]{context,region,false});string cue;var head=PatientOrientation.ToIec(position).Transform(new Vec3(0,0,.70-PatientOrientation.SchematicAnchor(region,false,out cue)));
+            var table=(Model3DGroup)modelType.GetField("couchTop",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(widget);double edge=position.StartsWith("HF")?table.Bounds.Y+table.Bounds.SizeY:table.Bounds.Y;
+            check(Math.Abs(edge-head.Y)<1e-9,"Couch ends at schematic head for "+position+" "+region);
+        }
+        var rotating=new PlanData();rotating.Beams.Add(new PlanBeam{PatientPosition="HFS",ControlPoints={new ControlPoint{Gantry=0,Couch=0,Collimator=350,CollimatorRotationDirection="CC",GantryRotationDirection="NONE",CouchRotationDirection="NONE"},new ControlPoint{Gantry=0,Couch=0,Collimator=10}}});playback.SetPlan(rotating);cursor.Value=.5;
+        var dial=modelType.GetField("collimator",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(widget);double angle=(double)dial.GetType().GetProperty("Angle").GetValue(dial);check(Math.Abs(angle)<1e-8,"Collimator dial follows directed control-point interpolation across zero");
+        playback.SetPlan(new PlanData());angle=(double)dial.GetType().GetProperty("Angle").GetValue(dial);check(double.IsNaN(angle),"Empty plan clears the collimator angle");
         playback.Dispose();
     }
 }
