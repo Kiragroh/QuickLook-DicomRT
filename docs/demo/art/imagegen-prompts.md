@@ -47,4 +47,3 @@ Materials/textures: thin polished translucent glass sheets and fine textured mat
 Text (verbatim): "SPACE" only, small crisp white uppercase type centered on the key. No other lettering.
 Constraints: purely conceptual brand illustration. Absolutely no anatomy, no body parts, no brains, no medical imagery, no CT or MR scans, no dose maps, no viewer screenshots, no simulated software UI, no clinical data, no charts, no icons, no logos, no watermark, no people, no hands. All glass sheets blank. No extra decorative objects.
 ```
-
