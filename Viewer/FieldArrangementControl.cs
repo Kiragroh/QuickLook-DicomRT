@@ -11,7 +11,7 @@ namespace QuickLook.DicomRT
     internal sealed class FieldArrangementControl : Border
     {
         readonly SlicePane slice=new SlicePane{IsHitTestVisible=false};
-        readonly TextBlock heading=Theme.Text("FIELD ARRANGEMENT Â· ISO",10,Theme.Accent);
+        readonly TextBlock heading=Theme.Text("FIELD ARRANGEMENT · ISO",10,Theme.Accent);
         readonly TextBlock note=Theme.Text("Matching image required",9,Theme.Muted);
         VolumeData volume;Vec3 iso;double width,level;bool valid;
         public FieldArrangementControl()
@@ -28,7 +28,7 @@ namespace QuickLook.DicomRT
             var next=new RenderScene{Volume=scene.Volume,Entry=scene.Entry,Plane="Axial",Focus=center,WindowCenter=scene.WindowCenter,WindowWidth=scene.WindowWidth,Crosshair=false,Plan=plan,PlanToImage=map,ActiveBeam=active,ActiveControlPoint=cp,ShowFields=true,Isocenters=new[]{center}};
             if(!valid||volume!=scene.Volume||(iso-center).Length>1e-5||width!=scene.WindowWidth||level!=scene.WindowCenter){slice.Scene=next;volume=scene.Volume;iso=center;width=scene.WindowWidth;level=scene.WindowCenter;valid=true;}
             else slice.UpdateFields(next);
-            note.Text=$"Beam {active?.Number} Â· G {cp.Gantry:0.#}Â° Â· T {cp.Couch:0.#}Â° Â· C {cp.Collimator:0.#}Â°";
+            note.Text=$"Beam {active?.Number} · G {cp.Gantry:0.#}° · T {cp.Couch:0.#}° · C {cp.Collimator:0.#}°";
         }
     }
 }

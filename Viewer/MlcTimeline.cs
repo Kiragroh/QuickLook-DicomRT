@@ -6,9 +6,8 @@ namespace QuickLook.DicomRT
     {
         public static double WheelStep(double cursor,double maximum,int delta,ref int remainder)
         {
-            remainder+=delta;int ticks=remainder/120;remainder-=ticks*120;
-            if(ticks==0)return cursor;
-            return Math.Max(0,Math.Min(maximum,ticks>0?Math.Ceiling(cursor)-ticks:Math.Floor(cursor)-ticks));
+            // Preserve high-resolution wheel deltas. One detent is one tenth CP.
+            remainder=0;return Math.Max(0,Math.Min(maximum,cursor-delta/1200.0));
         }
         public static ControlPoint Interpolate(ControlPoint a,ControlPoint b,double t)
         {

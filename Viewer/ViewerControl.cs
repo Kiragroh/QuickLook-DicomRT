@@ -131,7 +131,7 @@ namespace QuickLook.DicomRT
             var tools = new WrapPanel(); planes.ItemsSource = new[] { "Native", "Axial", "Coronal", "Sagittal", "MPR + 3D" }; planes.SelectedIndex = 0; tools.Children.Add(planes);tools.Children.Add(showFields);showFields.Checked+=(s,e)=>Redraw();showFields.Unchecked+=(s,e)=>Redraw();
             Button soft = Theme.Button("Soft tissue"), bone = Theme.Button("Bone"), auto = Theme.Button("Auto"), fit = Theme.Button("Fit"), zin = Theme.Button("＋"), zout = Theme.Button("−");
             soft.Click += (s, e) => SetWindow(40, 400); bone.Click += (s, e) => SetWindow(400, 1800); auto.Click += (s, e) => AutoWindow(); fit.Click += (s, e) => { zoom = 1; Redraw(); }; zin.Click += (s, e) => { zoom = Math.Min(8, zoom * 1.25); Redraw(); }; zout.Click += (s, e) => { zoom = Math.Max(.25, zoom / 1.25); Redraw(); };
-            foreach (var b in new[] { soft, bone, auto, fit, zin, zout }) tools.Children.Add(b); images.Children.Add(tools);
+            foreach (var b in new[] { soft, bone, auto, fit, zin, zout }) tools.Children.Add(b); images.Children.Add(tools);images.Children.Add(BuildFieldControls());
             DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
             patientIdentity.HorizontalAlignment=HorizontalAlignment.Right;patientIdentity.TextAlignment=TextAlignment.Right;patientIdentity.TextTrimming=TextTrimming.CharacterEllipsis;patientIdentity.Margin=new Thickness(8,4,8,2);DockPanel.SetDock(patientIdentity,Dock.Bottom);dock.Children.Add(patientIdentity);
             var bottom = new StackPanel(); imageFooter=bottom; bottom.Children.Add(sliceSlider); bottom.Children.Add(position); DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom); workspace.Children.Add(imageGrid); dock.Children.Add(workspace); return dock;
@@ -174,7 +174,7 @@ namespace QuickLook.DicomRT
         {
             isodosePreferences.Changed -= GlobalIsodosesChanged;
             if (disposed) return; CloseDosePopups(); if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
-            foreach (var pane in panes) pane.Dispose(); centralPlayback?.Dispose(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
+            foreach (var pane in panes) pane.Dispose(); centralPlayback?.Close(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }
 }

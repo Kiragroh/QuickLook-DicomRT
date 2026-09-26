@@ -23,6 +23,7 @@ class Program
   timer.Tick+=(a,b)=>{if(done()||watch.ElapsedMilliseconds>10000)frame.Continue=false;};timer.Start();Dispatcher.PushFrame(frame);timer.Stop();Check(done(),"dispatcher render completed");
  }
  [STAThread] static int Main(string[] args){if(args.Length==2&&args[0]=="--reformat-benchmark")return ReformatTests.Benchmark(args[1]);if(args.Length==2&&args[0]=="--benchmark")return Benchmark.Run(args[1]);try{
+ FieldApertureTests.Run(Check);
  var e=new DicomEntry {Columns=3,Rows=3,Origin=new Vec3(10,20,30),AxisX=new Vec3(0,1,0),AxisY=new Vec3(-1,0,0),SpacingX=2,SpacingY=4,HasGeometry=true};
  var s=new RenderScene {Entry=e,Native=new PixelPlane {Width=3,Height=3,Values=new float[]{0,10,20,30,40,50,60,70,80}},Plane="Native",Focus=new Vec3(6,22,30),WindowCenter=40,WindowWidth=80};
  var g=SliceGeometry.Create(s); var p=g.WorldAt(.5,.5); Near(p.X,6,"native oblique center X");Near(p.Y,22,"native oblique center Y");Near(p.Z,30,"native center Z");

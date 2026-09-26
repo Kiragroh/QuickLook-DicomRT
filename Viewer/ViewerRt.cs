@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -117,7 +117,7 @@ namespace QuickLook.DicomRT
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
-            if(workspaceMode=="MLC"&&centralPlayback!=null)centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);
+            if(selectedPlan!=null||centralPlayback!=null){EnsurePlayback();centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);centralPlayback.Preload(selectedPlan,latestScene,latestScene.PlanToImage);SyncFieldControls();}
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
             if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);

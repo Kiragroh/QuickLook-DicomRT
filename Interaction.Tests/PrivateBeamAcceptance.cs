@@ -23,7 +23,7 @@ internal static class PrivateBeamAcceptance
                 viewer.Open(catalog.Files.First(f=>f.Modality=="RTPLAN").Path);await viewer.LoadCompletion;
                 var choices=Get<ComboBox>(viewer,"plans");var entries=choices.Items.Cast<object>().Where(c=>c.GetType().GetField("Plan").GetValue(c)!=null).ToArray();int tested=0;
                 foreach(var choice in entries){
-                    choices.SelectedItem=choice;Call(viewer,"SetWorkspace","MLC");
+                    choices.SelectedItem=choice;Call(viewer,"SetWorkspace","MLC");Get<CheckBox>(Get<MlcPlaybackControl>(viewer,"centralPlayback"),"showDrr").IsChecked=true;
                     var start=DateTime.UtcNow;object frame=null;
                     while(true){await Task.Delay(25);var mlc=Get<MlcPlaybackControl>(viewer,"centralPlayback");frame=Get<object>(Get<object>(mlc,"aperture"),"projection");
                         if(!Get<bool>(mlc,"projectionBusy")&&!Get<DispatcherTimer>(mlc,"projectionDelay").IsEnabled&&frame!=null)break;

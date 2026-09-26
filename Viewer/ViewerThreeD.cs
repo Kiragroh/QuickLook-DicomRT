@@ -1,14 +1,16 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 
 namespace QuickLook.DicomRT
 {
  public sealed partial class ViewerControl
  {
+  private void OpenMpr(){if(volume==null){status.Text="MPR + 3D requires a loaded image volume.";return;}planes.SelectedItem="MPR + 3D";SetWorkspace("Bild");}
   private void EnsureThreeDView()
   {
    if(threeDView!=null)return;
    threeDView=new ThreeDControl{Visibility=Visibility.Collapsed};
+   threeDView.MprRequested+=OpenMpr;
    mprThreeD=threeDView;workspace.Children.Add(threeDView);
   }
   private void AttachThreeD(bool quad)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -45,6 +45,7 @@ namespace QuickLook.DicomRT
   static int Id(object value)=>value==null?0:identities.GetValue(value,x=>new Identity()).Value;
   static string TransformKey(Matrix4 transform)=>string.Join(",",transform.Values.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)));
   RenderScene scene;Prepared prepared;CancellationTokenSource pending;int generation;bool disposed,doseDefaultInitialized;string key,preparedDoseKey;double yaw=-1.7,pitch=.25,distance=500,radius=250;Vec3 target;Point mouse;bool dragging;
+  public event Action MprRequested;
   public ThreeDControl(bool compact=false)
   {
    this.compact=compact;
@@ -56,6 +57,7 @@ namespace QuickLook.DicomRT
    controls.Children.Add(Theme.Text("ROI opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="ROI opacity; large enclosing organs are automatically more transparent. Skin has its own control."};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
    var skinOpacityLabel=Theme.Text("Skin opacity",11);controls.Children.Add(skinOpacityLabel);skinOpacity=new Slider{Minimum=.01,Maximum=.25,Value=.06,Width=80,Margin=new Thickness(6),ToolTip="CT skin opacity (1–25%), independent of ROI opacity; 6% by default"};controls.Children.Add(skinOpacity);skinOpacity.ValueChanged+=(s,e)=>ApplyModels();
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose surface"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{if(!updatingDoseChoices)StartBuild();};
+   var quad=Theme.Button("▦ MPR + 3D");quad.Click+=(s,e)=>MprRequested?.Invoke();controls.Children.Add(quad);
    var reset=Theme.Button("Reset view");reset.Click+=(s,e)=>{cameraAdjusted=false;ResetCamera();};controls.Children.Add(reset);
    root.Children.Add(controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);

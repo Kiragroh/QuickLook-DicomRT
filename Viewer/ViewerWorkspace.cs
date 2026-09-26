@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -111,6 +111,11 @@ namespace QuickLook.DicomRT
             return panel;
         }
         private void UpdateDoseRange(){doseRange.Text=$"Colorwash {doseMin.Value:0}–{doseMax.Value:0} % · relative to each dose maximum";}
+        private void EnsurePlayback()
+        {
+            if(centralPlayback==null){centralPlayback=new MlcPlaybackControl{Visibility=Visibility.Collapsed};centralPlayback.MprRequested+=OpenMpr;centralPlayback.FrameChanged+=(b,cp)=>{activeField=b;activeFieldPoint=cp;SyncFieldControls();UpdateFieldOverlays();};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
+            if(centralPlan!=selectedPlan){activeField=null;activeFieldPoint=null;centralPlan=selectedPlan;centralPlayback.SetPlan(selectedPlan);}
+        }
         private void SetWorkspace(string mode)
         {
             if(disposed)return;CloseDosePopups();if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
@@ -123,8 +128,7 @@ namespace QuickLook.DicomRT
             if(mode=="Bild")imageGrid.Visibility=Visibility.Visible;
             else if(mode=="MLC")
             {
-                if(centralPlayback==null){centralPlayback=new MlcPlaybackControl();centralPlayback.FrameChanged+=(b,cp)=>{activeField=b;activeFieldPoint=cp;};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
-                if(selectedPlan!=null&&centralPlan!=selectedPlan){centralPlayback.SetPlan(selectedPlan);centralPlan=selectedPlan;}
+                EnsurePlayback();
                 centralPlayback.Visibility=Visibility.Visible;if(selectedPlan==null)status.Text="Select an RTPLAN on the left to open the MLC view.";
             }
             else if(mode=="DVH")

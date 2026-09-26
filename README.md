@@ -1,10 +1,10 @@
-# DICOM RT for QuickLook
+﻿# DICOM RT for QuickLook
 
-**Version 0.2.7** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
+**Version 0.2.8** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.7.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.8.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
 
 [Open the HTML presentation in your browser](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
 
@@ -12,14 +12,13 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 ![DICOM RT workspace](docs/demo/screens/rt-overview.png)
 
-## New in 0.2.7
+## New in 0.2.8
 
-- Scroll the mouse wheel over MLC or its timeline to step through control points across field boundaries.
-- A CT-derived perspective DRR behind the leaf banks. PTV, organ and other selected ROI silhouettes have separate switches; outlines remain visible over the leaves. No CT is required for the original aperture preview.
-- A small field-arrangement view at the isocenter in the upper right of MLC; **Fields** also enables aperture intersections and projected central axes on the main image. Other beams are shown at their first control point, not as an accumulated arc envelope.
-- Patient name and ID at the lower right of the central panel.
-- Drag the crosshair with the left mouse button. During dragging, lower-resolution image/dose previews follow the cursor; contours and isodoses return on release.
-- Existing 3D surfaces stay visible as additional organs arrive. GPU nodes are reused; a structure jump no longer schedules duplicate slice renders.
+- **Navigation first:** leaf positions and controls respond immediately. DRR and projected PTV/organ outlines are prepared asynchronously; missing overlays stay blank until the correct geometry is ready. Playback no longer waits for projections.
+- **DRR starts off.** Recorded plan control points are prepared in the background as associated images and structures arrive, even outside MLC. Nearby fine positions are prioritized while browsing. Viewer-local, bounded caches survive view and plan switches; closing the preview cancels preparation. There is no persistent patient-data cache.
+- **Fine wheel navigation:** each wheel detent moves 0.1 control point, including sub-detent input. Hold Shift for 1 CP. The slider remains continuous.
+- **Fields now shows actual MLC apertures**, clipped by jaws and every MLC layer, including dual layers. Select the active field from its dropdown and use the adjacent CP slider/wheel. The wheel over an image still changes its slice, with the aperture intersected at that actual plane. Other fields stay faint at their first control point.
+- **MPR + 3D** buttons in both MLC and 3D open the linked 2 × 2 overview. Existing incremental 3D rendering, camera and settings remain shared.
 
 The DRR is a HU-derived display projection, not a calibrated treatment image. It requires a CT association, recorded source-axis distance and patient position, and a rigid frame mapping. Unsupported gantry pitch, table pitch/roll or eccentric rotation disables anatomical projection while the aperture preview remains available. Projected ROI boundaries use the existing approximate contour-derived surfaces.
 
@@ -27,9 +26,9 @@ The DRR is a HU-derived display projection, not a calibrated treatment image. It
 
 Install and start [QuickLook for Windows](https://github.com/QL-Win/QuickLook) first. The plugin was developed against QuickLook 4.5 and targets .NET Framework 4.6.2; the .NET Framework 4.8 runtime is required. Direct3D 11 provides the main 3D renderer. QuickLook is a separate dependency and is not bundled.
 
-Download **QuickLook-DicomRT-Setup-0.2.7.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
+Download **QuickLook-DicomRT-Setup-0.2.8.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
 
-For manual installation, download `QuickLook.Plugin.DicomRT-0.2.7.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
+For manual installation, download `QuickLook.Plugin.DicomRT-0.2.8.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
 
 ## Explore a dataset
 

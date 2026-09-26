@@ -18,10 +18,11 @@ internal static class BeamInteractionScenarios
     {
         using(var mlc=new MlcPlaybackControl()){
             var plan=new PlanData();plan.Beams.Add(new PlanBeam{ControlPoints={new ControlPoint(),new ControlPoint()}});plan.Beams.Add(new PlanBeam{ControlPoints={new ControlPoint(),new ControlPoint()}});mlc.SetPlan(plan);
-            var slider=Get<Slider>(mlc,"cursor");slider.Value=1;var aperture=Get<FrameworkElement>(mlc,"aperture");
+            check(Get<CheckBox>(mlc,"showDrr").IsChecked==false,"DRR defaults off for immediate MLC interaction");
+            var slider=Get<Slider>(mlc,"cursor");slider.Value=1.95;var aperture=Get<FrameworkElement>(mlc,"aperture");
             var wheel=new MouseWheelEventArgs(Mouse.PrimaryDevice,0,-120){RoutedEvent=Mouse.PreviewMouseWheelEvent};aperture.RaiseEvent(wheel);
-            check(wheel.Handled&&slider.Value==2&&Get<ComboBox>(mlc,"beams").SelectedIndex==1,"wheel over MLC crosses field boundary");
-            slider.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice,0,120){RoutedEvent=Mouse.PreviewMouseWheelEvent});check(slider.Value==1,"wheel over timeline navigates same CP sequence");
+            check(wheel.Handled&&Math.Abs(slider.Value-2.05)<1e-8&&Get<ComboBox>(mlc,"beams").SelectedIndex==1,"wheel over MLC crosses field boundary");
+            slider.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice,0,120){RoutedEvent=Mouse.PreviewMouseWheelEvent});check(Math.Abs(slider.Value-1.95)<1e-8,"wheel over timeline navigates same CP sequence");
         }
         using(var pane=new SlicePane()){
             var volume=new VolumeData{Width=11,Height=11,Depth=11,SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)};

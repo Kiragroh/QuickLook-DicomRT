@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,17 +11,20 @@ internal static partial class Program
     static async Task BeamReview(string folder)
     {
         await Load(folder,"user-approved public nonpatient benchmark");Panels(true,false);Mode("MLC");
-        var playback=Get<MlcPlaybackControl>(viewer,"centralPlayback");var watch=Stopwatch.StartNew();
+        var playback=Get<MlcPlaybackControl>(viewer,"centralPlayback");Get<CheckBox>(playback,"showDrr").IsChecked=true;var watch=Stopwatch.StartNew();
         await Wait(()=>!Get<bool>(playback,"projectionBusy")&&!Get<System.Windows.Threading.DispatcherTimer>(playback,"projectionDelay").IsEnabled&&Get<object>(Get<object>(playback,"aperture"),"projection")!=null,"Initial DRR projection",180);
         var frame=Get<object>(Get<object>(playback,"aperture"),"projection");
         if(frame.GetType().GetField("Drr").GetValue(frame)==null)throw new Exception("DRR absent");
         var outlines=(System.Collections.ICollection)frame.GetType().GetField("Outlines").GetValue(frame);
         if(outlines.Count==0)throw new Exception("PTV silhouettes absent");
         Console.WriteLine("BEV_INITIAL ms="+watch.ElapsedMilliseconds+" outlines="+outlines.Count);
+        await BeamResponsiveness(playback);
         await Save("mlc-drr-ptv.png","Actual CT-derived DRR with perspective PTV silhouettes and field arrangement at isocenter.");
         var cursor=Get<Slider>(playback,"cursor");var timings=new double[8];
         for(int i=0;i<timings.Length;i++){watch.Restart();cursor.Value=i+1;await Wait(()=>!Get<bool>(playback,"projectionBusy")&&!Get<System.Windows.Threading.DispatcherTimer>(playback,"projectionDelay").IsEnabled&&Get<object>(Get<object>(playback,"aperture"),"projection")!=null,"DRR scrub",60);timings[i]=watch.Elapsed.TotalMilliseconds;}
-        Console.WriteLine("BEV_SCRUB warm_384_median_ms="+timings.OrderBy(x=>x).ElementAt(4).ToString("0"));
+        Console.WriteLine("BEV_SCRUB settled_384_median_ms="+timings.OrderBy(x=>x).ElementAt(4).ToString("0"));
+        for(int i=0;i<timings.Length;i++){watch.Restart();cursor.Value=i+1;await Wait(()=>!Get<bool>(playback,"projectionBusy")&&!Get<System.Windows.Threading.DispatcherTimer>(playback,"projectionDelay").IsEnabled&&Get<object>(Get<object>(playback,"aperture"),"projection")!=null,"Cached DRR scrub",60);timings[i]=watch.Elapsed.TotalMilliseconds;}
+        Console.WriteLine("BEV_REVISIT cached_384_median_ms="+timings.OrderBy(x=>x).ElementAt(4).ToString("0"));
         var all=Get<System.Collections.Generic.List<StructureSet>>(viewer,"structures").SelectMany(s=>s.Rois).ToArray();
         var organ=all.FirstOrDefault(r=>r.InterpretedType=="ORGAN"&&r.Name.IndexOf("brainstem",StringComparison.OrdinalIgnoreCase)>=0)??all.First(r=>r.InterpretedType=="ORGAN");
         foreach(var roi in all)roi.Visible=roi.InterpretedType=="PTV"||roi==organ;

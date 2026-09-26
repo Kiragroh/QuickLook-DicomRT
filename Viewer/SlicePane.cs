@@ -96,7 +96,7 @@ namespace QuickLook.DicomRT
     dc.DrawLine(pen,new Point(point.X-9,point.Y),new Point(point.X+9,point.Y));dc.DrawLine(pen,new Point(point.X,point.Y-9),new Point(point.X,point.Y+9));
     Text(dc,Math.Abs(distance)<=tolerance?"ISO":$"ISO {distance:+0.0;-0.0} mm",new Point(point.X+12,point.Y-8),brush,10);
    }
-   FieldArrangementDrawing.Draw(dc,f.Scene,g,rect);
+   FieldArrangementDrawing.Draw(dc,f.Scene,g,rect,InvalidateVisual);
    dc.Pop();
    Text(dc,f.Scene.Plane=="Native"?"Original plane":f.Scene.Plane=="Axial"?"Axial":f.Scene.Plane=="Coronal"?"Coronal":"Sagittal",new Point(10,7),Brushes.White);
    if(f.Scene.Entry?.HasGeometry!=false)

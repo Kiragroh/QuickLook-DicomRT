@@ -60,11 +60,11 @@ namespace QuickLook.DicomRT
             return Slab(s.X,d.X,v.Width-1,ref lo,ref hi)&&Slab(s.Y,d.Y,v.Height-1,ref lo,ref hi)&&Slab(s.Z,d.Z,v.Depth-1,ref lo,ref hi);
         }
         // HU-derived water-equivalent line integral; a display DRR, not a calibrated portal image.
-        public float[] Integrate(VolumeData volume,double extent,int size,double step,CancellationToken token)
+        public float[] Integrate(VolumeData volume,double extent,int size,double step,CancellationToken token,int parallelism=4)
         {
             if(volume==null||size<2||!Finite(extent)||extent<=0||!Finite(step)||step<=0)throw new ArgumentException("Invalid projection request");
             var result=new float[size*size];var source=Voxel(volume,Source);
-            Parallel.For(0,size,new ParallelOptions{CancellationToken=token,MaxDegreeOfParallelism=Math.Max(1,Math.Min(4,Environment.ProcessorCount-1))},y=>{
+            Parallel.For(0,size,new ParallelOptions{CancellationToken=token,MaxDegreeOfParallelism=Math.Max(1,Math.Min(parallelism,Environment.ProcessorCount-1))},y=>{
                 for(int x=0;x<size;x++)
                 {
                     if((x&15)==0)token.ThrowIfCancellationRequested();

@@ -1,3 +1,17 @@
+﻿# Version 0.2.8 — asynchronous projections and actual multi-layer field apertures
+
+Engineering validation on 2026-09-26; source DICOM files were read-only. This is not clinical acceptance.
+
+- Actual field openings are intersected with the displayed plane. Analytic checks cover notches, source-distance scaling, jaw clipping, orthogonal dual-layer intersection, closed leaves and removal of internal leaf seams. Missing aperture data no longer produces an invented default rectangle. Rendering passed 357 checks plus 45 contour boundary checks.
+- WPF interaction passed 177 checks, including fine wheel navigation across beam boundaries, default-off DRR, global preparation before entering MLC, frozen 384-pixel cache frames, cache preservation on plan changes, and isolation by CT identity, ROI selection and beam geometry. Playback interpolation checks also passed.
+- Public nonpatient multimets case, 1600 × 900, DRR + PTV + organ outlines enabled: 60 wheel events had a median synchronous handler time of **0.86 ms**, p95 **1.50 ms**. Render-dispatch cycles including an intentional 16 ms delay had a p95 of **46.52 ms**. These are local warm-OS-cache observations, not end-to-end input-to-photon measurements or latency guarantees.
+- At 384-pixel DRR resolution, the first sweep of eight positions settled in **294 ms median**, with missing overlays left blank during work. Repeating cached positions settled in **46 ms median**. These measurements include debounce/polling and test settle overhead. Cold projections still take time, but the MLC/timeline no longer waits for them.
+- Actual UI review covered selected-field dropdown/CP synchronization, projected PTV plus an independently enabled organ, a noncoplanar beam, main/mini field views, direct MPR navigation, and retained 3D surfaces while organs arrive. The 3D suite passed its 44 base checks and all geometry, focus, lifecycle and GPU sub-suites. The authorized private dual-layer input still imported 182 dual-layer CPs among 184 total; no private data were exported. Only the approved public nonpatient dataset was captured locally.
+
+The background worker prepares recorded CPs and prioritizes nearby 0.1-CP positions. It does not precompute an infinite continuum or guarantee every position is ready immediately. DRRs are bounded to 160 MiB; projected-outline frames and source meshes have separate bounded caches. Evicted or new projections are recomputed asynchronously. The 512-pixel silhouette masks and contour-derived surfaces remain approximate; the beam geometry support gates from 0.2.7 remain in force. No clinical dataset or patient identifier is included in release artifacts.
+
+---
+
 # Version 0.2.7 — DRR, projected ROI silhouettes and responsive interaction
 
 Validated 2026-09-26 on the Windows development workstation. These are engineering checks, not clinical acceptance.

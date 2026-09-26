@@ -7,7 +7,7 @@ class Program
     static int Main()
     {
         try {
-            int wheel=0;Near(3,MlcTimeline.WheelStep(3,10,60,ref wheel));Near(2,MlcTimeline.WheelStep(3,10,60,ref wheel));Near(3,MlcTimeline.WheelStep(2.3,10,-120,ref wheel));Near(2,MlcTimeline.WheelStep(2.3,10,120,ref wheel));Near(0,MlcTimeline.WheelStep(0,10,240,ref wheel));Near(10,MlcTimeline.WheelStep(10,10,-240,ref wheel));
+            int wheel=0;Near(2.95,MlcTimeline.WheelStep(3,10,60,ref wheel));Near(2.9,MlcTimeline.WheelStep(2.95,10,60,ref wheel));Near(2.4,MlcTimeline.WheelStep(2.3,10,-120,ref wheel));Near(2.2,MlcTimeline.WheelStep(2.3,10,120,ref wheel));Near(0,MlcTimeline.WheelStep(0,10,240,ref wheel));Near(10,MlcTimeline.WheelStep(10,10,-240,ref wheel));Near(3.29916666666667,MlcTimeline.WheelStep(3.3,10,1,ref wheel));
 
             var setup=new PlanBeam{Number=71,TreatmentDeliveryType="SETUP"};setup.ControlPoints.Add(new ControlPoint());
             var jaw=new PlanBeam{Number=12,TreatmentDeliveryType="TREATMENT"};jaw.ControlPoints.Add(new ControlPoint());
