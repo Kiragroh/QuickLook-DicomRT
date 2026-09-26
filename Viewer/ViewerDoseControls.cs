@@ -42,34 +42,89 @@ namespace QuickLook.DicomRT
         private readonly TextBlock isodoseUnitsLabel = Theme.Text("Isodose levels · % of each dose maximum", 10, Theme.Muted);
         private string IsodoseUnit => absoluteIsodoses ? "Gy" : "%";
         private readonly IsodosePreferences isodosePreferences = IsodosePreferences.Current;
+        private readonly ComboBox isodoseMode = Theme.Combo();
+        private readonly Button applyIsodosesButton = Theme.Button("Apply");
+        private readonly Button defaultIsodosesButton = Theme.Button("Default");
+        private bool preferRelativeIsodoses, updatingIsodoseMode;
+        private readonly List<LocalGyLevels> localGyLevels = new List<LocalGyLevels>();
+        private sealed class LocalGyLevels
+        {
+            internal DoseGrid[] Doses;
+            internal string Signature;
+            internal double[] Levels;
+        }
+        private bool PhysicalIsodoseContext => isodoseContext.Length > 0 && isodoseContext.All(IsodoseConfiguration.IsPhysicalGy);
+        private LocalGyLevels CurrentLocalGyLevels => localGyLevels.FirstOrDefault(item => item.Signature == isodoseContextSignature && item.Doses.Length == isodoseContext.Length && item.Doses.All(isodoseContext.Contains));
 
         private void GlobalIsodosesChanged(bool absolute,double[] levels)
         {
             if(disposed)return;
             if(!Dispatcher.CheckAccess()){Dispatcher.BeginInvoke(new Action(()=>GlobalIsodosesChanged(absolute,levels)));return;}
-            if(absolute!=absoluteIsodoses)return;
+            if(absolute||absoluteIsodoses)return;
             displayedIsoLevels=(double[])levels.Clone();doseLegendKey=null;
             isoLevels.Text=string.Join("; ",levels.Select(x=>x.ToString("0.##",CultureInfo.InvariantCulture)));Redraw();
         }
         private void ApplyIsodoseLevels()
         {
             double[] levels;string error;
-            if(!IsodoseConfiguration.TryParse(isoLevels.Text,absoluteIsodoses,out levels,out error)||!isodosePreferences.Save(absoluteIsodoses,levels,out error)){status.Text=error;return;}
-            iso.IsChecked=true;Redraw();status.Text="Global isodose levels saved · all views and future files · "+IsodoseUnit;
+            if(!IsodoseConfiguration.TryParse(isoLevels.Text,absoluteIsodoses,out levels,out error)){status.Text=error;return;}
+            if(absoluteIsodoses)
+            {
+                var saved=CurrentLocalGyLevels;
+                if(saved==null){saved=new LocalGyLevels{Doses=(DoseGrid[])isodoseContext.Clone(),Signature=isodoseContextSignature};localGyLevels.Add(saved);}
+                saved.Levels=(double[])levels.Clone();SetDisplayedIsodoses(levels);
+            }
+            else if(!isodosePreferences.Save(false,levels,out error)){status.Text=error;return;}
+            iso.IsChecked=true;Redraw();status.Text=absoluteIsodoses?"Gy levels applied · all views of this dose selection only":"Percentage levels saved globally · all relative views and future files";
+        }
+        private void DefaultIsodoseLevels()
+        {
+            if(absoluteIsodoses)
+            {
+                var saved=CurrentLocalGyLevels;if(saved!=null)localGyLevels.Remove(saved);
+                SetDisplayedIsodoses(IsodoseConfiguration.AutomaticLevels(isodoseMaximum,true));
+            }
+            else
+            {
+                string error;
+                if(!isodosePreferences.Save(false,IsodoseConfiguration.AutomaticLevels(100,false),out error)){status.Text=error;return;}
+            }
+            iso.IsChecked=true;Redraw();status.Text=absoluteIsodoses?"Automatic whole-Gy levels restored for this dose selection":"Default percentage levels restored globally";
+        }
+        private void SetDisplayedIsodoses(double[] levels)
+        {
+            displayedIsoLevels=(double[])levels.Clone();doseLegendKey=null;
+            isoLevels.Text=string.Join("; ",levels.Select(v=>v.ToString("0.##",CultureInfo.InvariantCulture)));
+        }
+        private void ChangeIsodoseMode()
+        {
+            if(updatingIsodoseMode)return;
+            if(PhysicalIsodoseContext)preferRelativeIsodoses=isodoseMode.SelectedIndex==1;
+            RefreshIsodoseLevels();Redraw();
         }
 
         private void UpdateIsodoseContext()
         {
             var context = SelectedDoses.Where(d => d.Maximum > 0 && !float.IsInfinity(d.Maximum) && !float.IsNaN(d.Maximum)).ToArray();
-            var signature = string.Join(";", context.Select(d => d.Maximum.ToString("R", CultureInfo.InvariantCulture) + ":" + d.Units + ":" + d.DoseType));
+            var signature = string.Join(";", context.Select(d => d.Maximum.ToString("R", CultureInfo.InvariantCulture) + ":" + d.Units + ":" + d.DoseType).OrderBy(s=>s,StringComparer.Ordinal));
             if (isodoseContext.SequenceEqual(context) && signature == isodoseContextSignature) return;
             isodoseContext = context; isodoseContextSignature = signature;
-            absoluteIsodoses = context.Length > 0 && context.All(IsodoseConfiguration.IsPhysicalGy);
-            isodoseMaximum = absoluteIsodoses ? context.Max(d => (double)d.Maximum) : 100;
-            displayedIsoLevels = isodosePreferences.Read(absoluteIsodoses) ?? IsodoseConfiguration.AutomaticLevels(isodoseMaximum, absoluteIsodoses);
+            RefreshIsodoseLevels();
+        }
+        private void RefreshIsodoseLevels()
+        {
+            absoluteIsodoses = PhysicalIsodoseContext && !preferRelativeIsodoses;
+            isodoseMaximum = absoluteIsodoses ? isodoseContext.Max(d => (double)d.Maximum) : 100;
+            SetDisplayedIsodoses(absoluteIsodoses ? CurrentLocalGyLevels?.Levels ?? IsodoseConfiguration.AutomaticLevels(isodoseMaximum,true) : isodosePreferences.Read(false) ?? IsodoseConfiguration.AutomaticLevels(100,false));
             isodoseColors.Clear(); doseLegendKey = null;
-            isoLevels.Text = string.Join("; ", displayedIsoLevels.Select(v => v.ToString("0.##", CultureInfo.InvariantCulture)));
-            isodoseUnitsLabel.Text = absoluteIsodoses ? "Isodose levels · Gy (up to 2 decimal places)" : "Isodose levels · % of each dose maximum (relative or nonphysical dose)";
+            updatingIsodoseMode=true;
+            ((ComboBoxItem)isodoseMode.Items[0]).IsEnabled=PhysicalIsodoseContext;
+            isodoseMode.SelectedIndex=absoluteIsodoses?0:1;
+            updatingIsodoseMode=false;
+            isodoseUnitsLabel.Text = absoluteIsodoses ? "Isodose levels · Gy (up to 2 decimal places)" : "Isodose levels · % of each dose maximum";
+            applyIsodosesButton.Content=absoluteIsodoses?"Apply":"Apply globally";
+            applyIsodosesButton.ToolTip=absoluteIsodoses?"Apply Gy levels to all views of this dose selection for this viewer session only.":"Save percentage levels for all relative views and future files, including after restart.";
+            defaultIsodosesButton.ToolTip=absoluteIsodoses?"Restore automatic whole-Gy levels for this dose selection.":"Restore 10, 20, ..., 100 percent globally.";
             isoLevels.ToolTip = "1–24 levels; separate with semicolons; use a decimal point, e.g. 2; 4.25";
         }
 
@@ -126,7 +181,7 @@ namespace QuickLook.DicomRT
             if (doseColorPopup != null) doseColorPopup.IsOpen = false;
             isodoseLegend.Children.Clear();
             isodoseLegend.Children.Add(Theme.Text("ISODOSE LEGEND · click a color", 10, Theme.Muted));
-            isodoseLegend.Children.Add(Theme.Text(absoluteIsodoses ? "Absolute dose levels in Gy, shared by all visible physical doses. Click a swatch to change its line color." : "Relative or nonphysical dose: levels are percentages of each grid maximum. Click a swatch to change its line color.", 10, Theme.Muted));
+            isodoseLegend.Children.Add(Theme.Text(absoluteIsodoses ? "Absolute dose levels in Gy, shared by all visible physical doses. Click a swatch to change its line color." : "Relative isodose levels: percentages of each grid maximum. Click a swatch to change its line color.", 10, Theme.Muted));
             foreach (var level in displayedIsoLevels)
             {
                 var row = new DockPanel();

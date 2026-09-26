@@ -1,4 +1,4 @@
-# 3D engineering checks — 0.2.4
+# 3D engineering checks — 0.2.5
 
 Run `dotnet run --project ThreeD.Tests -c Release` for physical-coordinate surface, signed-distance contour interpolation, holes/gaps, registration, normals, bounded smoothing, cancellation, cache, focus, context, framing, slice-guide and WPF lifecycle checks. Absolute dose tests check actual 5.25 Gy surface coordinates, matching selector values and rejection of relative grids in Gy mode.
 
@@ -11,3 +11,4 @@ Full geometry stays in GPU buffers during orbit and MPR scrolling. There is no c
 `--approved-public-gpu <nonpatient-folder> <output>` also saves actual GPU renders. Use only with an explicitly approved nonpatient source. Automated synthetic fixtures are engineering tests, not presentation imagery.
 
 Older `--frame-benchmark`, `--benchmark` and `--scene-budget` entry points remain available for component investigation. Historical coarse-WPF timings are recorded in VERIFICATION.md; they do not describe the current GPU renderer.
+PreloadWorkspaceTests checks hidden preparation before activation, PTV-only defaults, separate Organs/Support/External/Other switches, exact prepared-object reuse across full/2x2/native switches, all controls available in both layouts, retained opacity/dose/camera settings and cancellation on close. Incremental plan-dose discovery must not prematurely enable a 3D dose surface.

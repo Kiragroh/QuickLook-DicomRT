@@ -155,7 +155,8 @@ namespace QuickLook.DicomRT
                 var cell=new Grid();cell.Children.Add(pane);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }
-            if(quad){if(mprThreeD==null)mprThreeD=new ThreeDControl(compact:true);Grid.SetColumn(mprThreeD,1);Grid.SetRow(mprThreeD,1);imageGrid.Children.Add(mprThreeD);}
+            if(quad)AttachThreeD(true);
+            else if(threeDView!=null&&threeDView.Parent==null){threeDView.Visibility=Visibility.Collapsed;workspace.Children.Add(threeDView);}
             var mini=BuildWindowControls();imageGrid.Children.Add(mini);
             Redraw();
         }

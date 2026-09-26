@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 namespace QuickLook.DicomRT
 {
+ [Flags] public enum RoiSurfaceTypes { None=0, Ptv=1, Organ=2, Support=4, External=8, Other=16 }
  internal sealed class ThreeDDetailLimitException : InvalidOperationException
  {
   internal ThreeDDetailLimitException():base("3D object exceeds the 1000000 triangle limit."){}
@@ -30,7 +31,9 @@ namespace QuickLook.DicomRT
    public override int GetHashCode(){unchecked{return (x.GetHashCode()*397^y.GetHashCode())*397^z.GetHashCode();}}
   }
   public static bool ExternalRoi(StructureRoi roi)=>roi!=null&&(string.Equals(roi.InterpretedType?.Trim(),"EXTERNAL",StringComparison.OrdinalIgnoreCase)||(string.IsNullOrWhiteSpace(roi.InterpretedType)&&(string.Equals(roi.Name?.Trim(),"BODY",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.Name?.Trim(),"EXTERNAL",StringComparison.OrdinalIgnoreCase))));
-  public static bool DefaultRoi(StructureRoi roi)=>roi!=null&&!ExternalRoi(roi)&&(string.Equals(roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase));
+  public static RoiSurfaceTypes SurfaceType(StructureRoi roi)=>roi==null?RoiSurfaceTypes.None:ExternalRoi(roi)?RoiSurfaceTypes.External:string.Equals(roi.InterpretedType?.Trim(),"PTV",StringComparison.OrdinalIgnoreCase)?RoiSurfaceTypes.Ptv:string.Equals(roi.InterpretedType?.Trim(),"ORGAN",StringComparison.OrdinalIgnoreCase)?RoiSurfaceTypes.Organ:string.Equals(roi.InterpretedType?.Trim(),"SUPPORT",StringComparison.OrdinalIgnoreCase)?RoiSurfaceTypes.Support:RoiSurfaceTypes.Other;
+  public static bool DefaultRoi(StructureRoi roi)=>SurfaceType(roi)==RoiSurfaceTypes.Ptv;
+  public static bool DisplayRoi(StructureRoi roi,RoiSurfaceTypes types)=>(SurfaceType(roi)&types)!=0;
   public static bool DisplayRoi(StructureRoi roi,bool allTypes)=>roi!=null&&!ExternalRoi(roi)&&(allTypes||DefaultRoi(roi));
   // Display-only extent heuristic: make an enclosing organ faint without changing
   // target opacity or inferring anatomy from names. Bounds are in patient mm.

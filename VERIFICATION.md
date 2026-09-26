@@ -1,3 +1,13 @@
+# Version 0.2.5 — background preparation and shared 3D workspace
+
+Targeted Release builds passed without warnings or errors. The WPF interaction suite passed 161 checks, including the Default button, explicit Gy/% mode, local-only Gy edits, ignored legacy Gy files, independent dose contexts and globally persisted/broadcast percentage presets. Tests use isolated temporary settings and do not change the user's preferences.
+
+The full 3D suite passed its 44 base checks and surface, context, framing, focus, guide, absolute-dose and lifecycle suites. New workspace tests verify that a hidden 3D control prepares before activation, only PTV surfaces start enabled, Organs/Support/External/Other work independently, and switching between full 3D, 2x2 MPR and native images retains the exact same prepared scene and generation. The same control exposes all switches in both layouts; opacity, dose selection and manual camera state are unchanged. Closing cancels pending preloading. An RTPLAN's early-arriving dose does not enable dose surfaces before CT/structures arrive.
+
+Direct3D pixel checks still retained all 8,594 internal target pixels with enclosing skin and a mean draw-order difference of 0.0000. Surface reconstruction is unchanged from 0.2.4. Initial preparation now overlaps ordinary image/RT inspection; it is still cancellable work and may not have finished if 3D is requested immediately. GPU upload occurs when the view becomes visible. No zero-latency startup guarantee is made.
+
+Actual full/MPR UI captures use only the approved nonpatient benchmark. They show the complete shared 3D toolbar and scope-aware Apply/Apply globally plus Default controls. Synthetic geometry is used only for engineering tests. Historical 0.2.4 and earlier measurements below refer to those versions and their defaults.
+
 # Version 0.2.4 — detailed GPU surfaces and dose/tag controls
 
 All seven engineering suites passed with zero build warnings/errors: Core (10 groups), RT (130 assertions), rendering (341 checks plus 45 contour checks), playback, DVH (71), WPF interaction (138), and 3D (44 base checks plus surface detail, absolute-dose, context, focus, camera and guide checks). Windows installer and packaged-runtime verification are recorded below.
@@ -121,3 +131,9 @@ Final 0.2.3 package: warning-free Release build, 32 installer checks and standal
 ## 0.2.4 distribution verification
 
 The strict installer passed 32 archive/path/checksum checks and verified its embedded 32-file payload. Actual Direct3D pixel tests also passed using only the staged runtime DLL closure, then using the installed QuickLook host binding configuration and overlapping host DLLs. No .NET facade bundle is required. Live Explorer Space-key interaction is not part of these automated checks.
+
+## 0.2.5 public preload observation
+
+The approved public capture reported prepared geometry before the first 3D activation. Activation plus the capture harness settle delay took 1,041 ms, including first visible GPU setup/upload; this is not a desktop frame-time measurement. Full and compact screenshots were visually inspected. No private anatomy was exported.
+
+The 0.2.5 installer passed all 32 archive/path/checksum checks and verified its embedded 32-file payload. Local installation matched every staged file hash and QuickLook was restarted. Live Explorer Space-key interaction was not re-tested in this run.

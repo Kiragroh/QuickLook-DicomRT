@@ -17,7 +17,7 @@ internal static class QualityTests
  }
  public static void Run()
  {
-  var roi=Sphere();Check(ThreeDGeometry.DefaultRoi(roi),"ORGAN metadata default");roi.InterpretedType="PTV";roi.Name="No hint";Check(ThreeDGeometry.DefaultRoi(roi),"PTV metadata default");roi.InterpretedType="EXTERNAL";roi.Name="PTV Brainstem Organ";Check(!ThreeDGeometry.DefaultRoi(roi),"EXTERNAL never selected by name");roi.InterpretedType=null;Check(!ThreeDGeometry.DefaultRoi(roi),"untyped ROI not guessed");roi.InterpretedType="ORGAN";
+  var roi=Sphere();Check(!ThreeDGeometry.DefaultRoi(roi),"ORGAN off by default");roi.InterpretedType="PTV";roi.Name="No hint";Check(ThreeDGeometry.DefaultRoi(roi),"PTV metadata default");roi.InterpretedType="EXTERNAL";roi.Name="PTV Brainstem Organ";Check(!ThreeDGeometry.DefaultRoi(roi),"EXTERNAL never selected by name");roi.InterpretedType=null;Check(!ThreeDGeometry.DefaultRoi(roi),"untyped ROI not guessed");roi.InterpretedType="ORGAN";
   string reason;var v=ThreeDGeometry.VoxelizeRoi(roi,Matrix4.Identity,40,CancellationToken.None,out reason);var raw=ThreeDGeometry.Isosurface(v,v.Sample,.5,40,CancellationToken.None);var welded=ThreeDGeometry.Smooth(raw,0,CancellationToken.None);var smooth=ThreeDGeometry.Smooth(raw,1,CancellationToken.None);
   Check(smooth.Points.Count<raw.Points.Count/2,"shared surface vertices");Check(smooth.Normals.Count==smooth.Points.Count,"explicit smooth normals");Check(smooth.Indices.Count<=raw.Indices.Count,"smoothing retains triangle budget");double displacement=0;
   for(int i=0;i<smooth.Points.Count;i++){double d=(smooth.Points[i]-welded.Points[i]).Length;displacement=Math.Max(displacement,d);Check(d<=1.000001,"bounded smoothing displacement");Check(Math.Abs(smooth.Normals[i].Length-1)<1e-6,"finite unit normals");}
@@ -27,7 +27,7 @@ internal static class QualityTests
   for(int i=0;i<smooth.Indices.Count;i+=3){int a=smooth.Indices[i],b=smooth.Indices[i+1],c=smooth.Indices[i+2];var original=(welded.Points[b]-welded.Points[a]).Cross(welded.Points[c]-welded.Points[a]);var normal=(smooth.Points[b]-smooth.Points[a]).Cross(smooth.Points[c]-smooth.Points[a]);Check(original.Length<1e-10||normal.Dot(original)>0,"smoothing preserves face orientation");}
   var field=ThreeDGeometry.VoxelizeRoi(roi,Matrix4.Identity,40,CancellationToken.None,out reason,true);Check(field.Sample(new Vec3(0,0,0))>.5,"display field retains interior");Check(field.Sample(new Vec3(10,10,0))<.5,"display field excludes exterior");
   Check(roughness(smooth)<roughness(welded),"lower normal variation after geometry smoothing");
-  var scene=new RenderScene{Structures=new List<RoiOverlay>{new RoiOverlay{Roi=roi},new RoiOverlay{Roi=new StructureRoi{InterpretedType="EXTERNAL",Contours=roi.Contours}}},Isocenters=new[]{new Vec3(1,2,3)}};
+  roi.InterpretedType="PTV";var scene=new RenderScene{Structures=new List<RoiOverlay>{new RoiOverlay{Roi=roi},new RoiOverlay{Roi=new StructureRoi{InterpretedType="EXTERNAL",Contours=roi.Contours}}},Isocenters=new[]{new Vec3(1,2,3)}};
   using(var control=new ThreeDControl())
   {
    var cache=typeof(ThreeDControl).GetField("cache",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(control);var prepare=typeof(ThreeDControl).GetMethod("PrepareCore",PrivateStatic);object[] args={scene,false,.5,CancellationToken.None,cache,false,false,false,false};var first=prepare.Invoke(null,args);var second=prepare.Invoke(null,args);

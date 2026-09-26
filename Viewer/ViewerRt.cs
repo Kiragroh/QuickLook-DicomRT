@@ -112,8 +112,9 @@ namespace QuickLook.DicomRT
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
-            if(workspaceMode=="3D"&&threeDView!=null)threeDView.SetScene(latestScene);
-            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"&&mprThreeD!=null){mprThreeD.SetScene(latestScene);mprThreeD.SetSlicePlanes(focus,volume);}
+            if(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
+            if(workspaceMode=="3D")AttachThreeD(false);
+            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,volume);}
             position.Text = $"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";
         }
     }

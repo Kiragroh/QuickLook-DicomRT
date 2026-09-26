@@ -21,7 +21,7 @@ internal static class FocusInteractionTests
  public static void Run()
  {
   SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
-  var organ=QualityTests.Sphere();organ.Center=new Vec3(0,0,0);
+  var organ=QualityTests.Sphere();organ.InterpretedType="PTV";organ.Center=new Vec3(0,0,0);
   var avoidance=QualityTests.Sphere();avoidance.InterpretedType="AVOIDANCE";avoidance.Visible=false;avoidance.Center=new Vec3(1,2,3);
   var additional=QualityTests.Sphere();additional.InterpretedType="AVOIDANCE";
   var external=QualityTests.Sphere();external.InterpretedType="EXTERNAL";

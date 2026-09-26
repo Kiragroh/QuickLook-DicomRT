@@ -18,7 +18,7 @@ internal static class ContextTests
  {
   foreach(string name in new[]{"BODY"," external "})Check(!ThreeDGeometry.DisplayRoi(new StructureRoi{Name=name},true),"untyped external fallback excluded");
   Check(ThreeDGeometry.DisplayRoi(new StructureRoi{Name="BODY",InterpretedType="ORGAN"},true),"explicit non-external type wins over name");
-  Check(ThreeDGeometry.DisplayRoi(new StructureRoi{Name="Brain",InterpretedType="ORGAN"},false),"organ never filtered by name");
+  Check(!ThreeDGeometry.DisplayRoi(new StructureRoi{Name="Brain",InterpretedType="ORGAN"},false),"organ requires explicit type switch");
   Check(ThreeDGeometry.RoiOpacityScale("PTV",new Vec3(100,100,100),new Vec3(1,1,1),true)==1,"target opacity unchanged");
   Check(ThreeDGeometry.RoiOpacityScale("ORGAN",new Vec3(100,100,100),new Vec3(20,20,20),true)==.18,"large enclosing organ is faint");
   Check(ThreeDGeometry.RoiOpacityScale("ORGAN",new Vec3(10,10,10),new Vec3(100,100,100),false)==1,"small organ opacity unchanged");
@@ -31,7 +31,7 @@ internal static class ContextTests
   {
    Check(Get<CheckBox>(control,"skin").IsChecked==true,"CT skin defaults on in full and compact 3D");
    Check(Math.Abs(Get<Slider>(control,"skinOpacity").Value-.06)<1e-8,"skin defaults to six percent");
-   var cache=Get<object>(control,"cache");var prepare=typeof(ThreeDControl).GetMethod("PrepareCore",BindingFlags.Static|BindingFlags.NonPublic);object[] args={scene,true,.5,CancellationToken.None,cache,false,true,false,false};
+   Get<CheckBox>(control,"organs").IsChecked=true;var cache=Get<object>(control,"cache");var prepare=typeof(ThreeDControl).GetMethod("PrepareCore",BindingFlags.Static|BindingFlags.NonPublic);object[] args={scene,true,.5,CancellationToken.None,cache,false,true,false,true};
    var prepared=prepare.Invoke(null,args);var again=prepare.Invoke(null,args);Check((int)again.GetType().GetField("CacheHits").GetValue(again)==3,"skin and both ROI meshes reused from cache");
    typeof(ThreeDControl).GetField("scene",Private).SetValue(control,scene);typeof(ThreeDControl).GetField("prepared",Private).SetValue(control,prepared);
    typeof(ThreeDControl).GetMethod("ApplyModels",Private).Invoke(control,null);

@@ -99,8 +99,12 @@ namespace QuickLook.DicomRT
         {
             var panel=new StackPanel();panel.Children.Add(wash);panel.Children.Add(Theme.Text("Opacity",10,Theme.Muted));opacity.Width=double.NaN;panel.Children.Add(opacity);
             panel.Children.Add(doseRange);panel.Children.Add(Theme.Text("Lower threshold",10,Theme.Muted));panel.Children.Add(doseMin);panel.Children.Add(Theme.Text("Upper threshold",10,Theme.Muted));panel.Children.Add(doseMax);
-            panel.Children.Add(iso);panel.Children.Add(isodoseUnitsLabel);panel.Children.Add(isoLevels);var apply=Theme.Button("Apply globally");apply.ToolTip="Save levels for all views, plans and future files, including after restart. Gy and percentage settings are separate.";panel.Children.Add(apply);panel.Children.Add(isodoseLegend);
-            apply.Click+=(s,e)=>ApplyIsodoseLevels();
+            panel.Children.Add(iso);panel.Children.Add(Theme.Text("Isodose units",10,Theme.Muted));
+            isodoseMode.Items.Add(new ComboBoxItem{Content="Gy"});isodoseMode.Items.Add(new ComboBoxItem{Content="%"});
+            isodoseMode.ToolTip="Gy: local to this dose selection. %: global percentages of each dose grid maximum.";
+            isodoseMode.SelectionChanged+=(s,e)=>ChangeIsodoseMode();panel.Children.Add(isodoseMode);
+            panel.Children.Add(isodoseUnitsLabel);panel.Children.Add(isoLevels);var actions=new WrapPanel();actions.Children.Add(applyIsodosesButton);actions.Children.Add(defaultIsodosesButton);panel.Children.Add(actions);panel.Children.Add(isodoseLegend);
+            applyIsodosesButton.Click+=(s,e)=>ApplyIsodoseLevels();defaultIsodosesButton.Click+=(s,e)=>DefaultIsodoseLevels();
             wash.Checked+=(s,e)=>Redraw();wash.Unchecked+=(s,e)=>Redraw();
             doseMin.ValueChanged+=(s,e)=>{if(doseMin.Value>=doseMax.Value)doseMax.Value=doseMin.Value+1;UpdateDoseRange();Redraw();};
             doseMax.ValueChanged+=(s,e)=>{if(doseMax.Value<=doseMin.Value)doseMin.Value=doseMax.Value-1;UpdateDoseRange();Redraw();};UpdateDoseRange();
@@ -130,7 +134,7 @@ namespace QuickLook.DicomRT
             }
             else if(mode=="3D")
             {
-                if(threeDView==null){threeDView=new ThreeDControl();workspace.Children.Add(threeDView);}threeDView.Visibility=Visibility.Visible;
+                AttachThreeD(false);
             }
             Redraw();
         }

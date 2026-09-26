@@ -163,7 +163,8 @@ internal static class Program
  static async Task UiReview(string folder)
  {
   await Load(folder,"user-supplied public nonpatient benchmark");Panels(true,false);Mode("Bild");Layers(true,true);DoseTab();Get<CheckBox>(viewer,"iso").IsChecked=true;await Save("dose-legend-iso.png","Editable dose legend, blue accents and registered ISO navigation.");
-  Mode("3D");await Settle();var three=Get<ThreeDControl>(viewer,"threeDView");await Save("gpu-skin.png","Full-detail Direct3D view with transparent CT skin.");
+  Get<ComboBox>(viewer,"isodoseMode").SelectedIndex=1;await Save("relative-isodoses.png","Percentage presets apply globally; Default restores the standard percentage levels.");Get<ComboBox>(viewer,"isodoseMode").SelectedIndex=0;
+  var three=Get<ThreeDControl>(viewer,"threeDView");bool preloaded=three!=null&&Get<object>(three,"prepared")!=null;var switchTimer=Stopwatch.StartNew();Mode("3D");await Settle();three=Get<ThreeDControl>(viewer,"threeDView");Console.WriteLine("PRELOAD_REVIEW ready_before_first_3d="+preloaded+" first_switch_settle_ms="+switchTimer.ElapsedMilliseconds);await Save("gpu-skin.png","PTV-only default with transparent CT skin and independent structure-type switches.");
   var roi=Get<List<StructureSet>>(viewer,"structures").SelectMany(s=>s.Rois).FirstOrDefault(r=>r.Name.IndexOf("brainstem",StringComparison.OrdinalIgnoreCase)>=0);if(roi!=null){three.FocusStructure(roi);await Save("gpu-focused.png","Focused ROI retains full geometry and translucent context.");}
   Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";Panels(false,false);await Save("gpu-mpr.png","Linked MPR and Direct3D with transparent colored coordinate planes.");
   await Tags();var row=Get<List<TagRow>>(viewer,"tags").First(r=>r.Name.IndexOf("Leaf/Jaw Positions",StringComparison.OrdinalIgnoreCase)>=0);
