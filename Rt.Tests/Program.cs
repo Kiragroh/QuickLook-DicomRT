@@ -127,6 +127,35 @@ internal static class Program
         invalid=false;try {PlanData.Load(new DicomEntry {Dataset=d});}catch(ArgumentException){invalid=true;}
         Assert(invalid,"missing initial layer rejected");
     }
+    static void PatientOrientationTests()
+    {
+        var beam=new DicomDataset().Add(DicomTag.BeamNumber,1).Add(DicomTag.ReferencedPatientSetupNumber,2);
+        var setup1=new DicomDataset().Add(DicomTag.PatientSetupNumber,1).Add(DicomTag.PatientPosition,"HFP");
+        var setup2=new DicomDataset().Add(DicomTag.PatientSetupNumber,2).Add(DicomTag.PatientPosition,"FFS");
+        var data=new DicomDataset().Add(new DicomSequence(DicomTag.BeamSequence,beam)).Add(new DicomSequence(DicomTag.PatientSetupSequence,setup1,setup2));
+        Func<string> position=()=>PlanData.Load(new DicomEntry{Dataset=data}).Beams[0].PatientPosition;
+        Assert(position()=="FFS","beam selects referenced patient setup rather than first setup");
+        beam.Remove(DicomTag.ReferencedPatientSetupNumber);Assert(position()=="","unreferenced patient setup is not guessed");
+        beam.Add(DicomTag.ReferencedPatientSetupNumber,99);Assert(position()=="","missing referenced patient setup stays unknown");
+        beam.AddOrUpdate(DicomTag.ReferencedPatientSetupNumber,2);
+        data.AddOrUpdate(new DicomSequence(DicomTag.PatientSetupSequence,setup2,setup2));Assert(position()=="","duplicate setup number is ambiguous");
+        Assert(PatientOrientation.ToIec("")==null&&PatientOrientation.ToIec("SITTING")==null,"unsupported setup never falls back to HFS");
+        foreach(var code in new[]{"HFS","HFP","FFS","FFP","HFDR","HFDL","FFDR","FFDL"})
+        {
+            var m=PatientOrientation.ToIec(code);var l=m.Transform(new Vec3(1,0,0));var p=m.Transform(new Vec3(0,1,0));var h=m.Transform(new Vec3(0,0,1));
+            Near(l.X*l.X+l.Y*l.Y+l.Z*l.Z,1,"unit patient left axis "+code);
+            Near(p.X*p.X+p.Y*p.Y+p.Z*p.Z,1,"unit patient posterior axis "+code);
+            Near(l.Y*p.Z-l.Z*p.Y,h.X,"right handed x "+code);Near(l.Z*p.X-l.X*p.Z,h.Y,"right handed y "+code);Near(l.X*p.Y-l.Y*p.X,h.Z,"right handed z "+code);
+            Near(h.Y,code.StartsWith("HF")?1:-1,"head versus feet first "+code);
+            if(code.EndsWith("DR"))Near(l.Z,1,"right side down "+code);
+            if(code.EndsWith("DL"))Near(l.Z,-1,"left side down "+code);
+            if(code.EndsWith("S"))Near(p.Z,-1,"supine back down "+code);
+            if(code.EndsWith("P"))Near(p.Z,1,"prone back up "+code);
+        }
+        string cue;Near(PatientOrientation.SchematicAnchor("BRAIN",false,out cue),.55,"head metadata anchor");
+        Near(PatientOrientation.SchematicAnchor("CHEST",true,out cue),0,"explicit chest metadata takes priority over noncoplanar heuristic");
+        Near(PatientOrientation.SchematicAnchor(null,true,out cue),.55,"noncoplanar schematic head anchor");Assert(cue.Contains("assumed"),"fallback cue explicitly marked assumed");
+    }
     static DicomDataset Definition(string type,params double[] bounds)=>new DicomDataset().Add(DicomTag.RTBeamLimitingDeviceType,type).Add(DicomTag.NumberOfLeafJawPairs,bounds.Length-1).Add(DicomTag.LeafPositionBoundaries,bounds);
     static PlanData LayerPlan(DicomDataset[] definitions,params DicomDataset[] points)=>PlanData.Load(new DicomEntry {Dataset=new DicomDataset().Add(new DicomSequence(DicomTag.BeamSequence,new DicomDataset().Add(DicomTag.BeamNumber,1).Add(new DicomSequence(DicomTag.BeamLimitingDeviceSequence,definitions)).Add(new DicomSequence(DicomTag.ControlPointSequence,points))))});
     static DicomDataset Aperture(params DicomDataset[] devices)=>new DicomDataset().Add(new DicomSequence(DicomTag.BeamLimitingDevicePositionSequence,devices));
@@ -179,7 +208,7 @@ internal static class Program
     {
         if(args.Length==2 && args[0]=="--private-mlc") {try {PrivateMlcAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private MLC: "+ex.GetType().Name);return 1;}}
         if(args.Length==2 && args[0]=="--private") {try {PrivateAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private acceptance: "+ex.GetType().Name);return 1;}}
-        try { MatrixTests(); RegistrationTests(); DoseTests(); StructureTests(); PlanTests(); LayerTests(); Console.WriteLine("PASS RT assertions: " + checks); return 0; }
+        try { MatrixTests(); RegistrationTests(); DoseTests(); StructureTests(); PlanTests(); PatientOrientationTests(); LayerTests(); Console.WriteLine("PASS RT assertions: " + checks); return 0; }
         catch(Exception ex) { Console.WriteLine("FAIL RT assertion: " + ex.Message); return 1; }
     }
 }

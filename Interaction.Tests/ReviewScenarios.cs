@@ -35,9 +35,9 @@ internal static class ReviewScenarios
    var pane=Get<List<SlicePane>>(viewer,"panes")[0];var zoom=(Action<double>)typeof(SlicePane).GetField("ZoomChanged",Fields).GetValue(pane);zoom(1.15);var before=Get<Vec3>(viewer,"focus");check(before.X==1&&before.Y==2&&before.Z==0,"Zoom callback retains physical focus");
    ((Task)Call(viewer,"ShowSliceAsync",1,true)).GetAwaiter().GetResult();var after=Get<Vec3>(viewer,"focus");check(Math.Abs(Get<double>(viewer,"zoom")-3.68)<1e-9&&Get<double>(viewer,"windowWidth")==999&&Get<double>(viewer,"windowCenter")==42&&before.X==after.X&&before.Y==after.Y&&after.Z==1,"Native slice navigation preserves window, zoom and in-plane focus after zoom");
    ((Task)Call(viewer,"ScrollAsync","Coronal",1)).GetAwaiter().GetResult();after=Get<Vec3>(viewer,"focus");check(after.X==1&&after.Y==3&&after.Z==1&&Get<double>(viewer,"windowWidth")==999&&Get<double>(viewer,"windowCenter")==42&&Math.Abs(Get<double>(viewer,"zoom")-3.68)<1e-9,"Reformatted scroll changes only its normal coordinate and preserves window and zoom");
-   Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="3 planes";var grid=Get<System.Windows.Controls.Grid>(viewer,"imageGrid");var three=Get<ThreeDControl>(viewer,"mprThreeD");
+   Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";var grid=Get<System.Windows.Controls.Grid>(viewer,"imageGrid");var three=Get<ThreeDControl>(viewer,"mprThreeD");
    check(grid.RowDefinitions.Count==2&&grid.ColumnDefinitions.Count==2&&Get<List<SlicePane>>(viewer,"panes").Count==3&&System.Windows.Controls.Grid.GetRow(three)==1&&System.Windows.Controls.Grid.GetColumn(three)==1,"Three-plane view is a 2 by 2 grid with 3D at bottom right");
-   Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="Axial";Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="3 planes";check(ReferenceEquals(three,Get<ThreeDControl>(viewer,"mprThreeD")),"Reentering quad view preserves the 3D control and its camera/cache");
+   Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="Axial";Get<System.Windows.Controls.ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";check(ReferenceEquals(three,Get<ThreeDControl>(viewer,"mprThreeD")),"Reentering quad view preserves the 3D control and its camera/cache");
   }
  }
 }

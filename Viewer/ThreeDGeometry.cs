@@ -24,7 +24,19 @@ namespace QuickLook.DicomRT
    public override bool Equals(object other)=>other is VertexKey&&Equals((VertexKey)other);
    public override int GetHashCode(){unchecked{return (x.GetHashCode()*397^y.GetHashCode())*397^z.GetHashCode();}}
   }
-  public static bool DefaultRoi(StructureRoi roi)=>roi!=null&&(string.Equals(roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase));
+  public static bool ExternalRoi(StructureRoi roi)=>roi!=null&&(string.Equals(roi.InterpretedType?.Trim(),"EXTERNAL",StringComparison.OrdinalIgnoreCase)||(string.IsNullOrWhiteSpace(roi.InterpretedType)&&(string.Equals(roi.Name?.Trim(),"BODY",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.Name?.Trim(),"EXTERNAL",StringComparison.OrdinalIgnoreCase))));
+  public static bool DefaultRoi(StructureRoi roi)=>roi!=null&&!ExternalRoi(roi)&&(string.Equals(roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase));
+  public static bool DisplayRoi(StructureRoi roi,bool allTypes)=>roi!=null&&!ExternalRoi(roi)&&(allTypes||DefaultRoi(roi));
+  // Display-only extent heuristic: make an enclosing organ faint without changing
+  // target opacity or inferring anatomy from names. Bounds are in patient mm.
+  public static double RoiOpacityScale(string type,Vec3 extent,Vec3 referenceExtent,bool enclosedTarget)
+  {
+   if(!string.Equals(type,"ORGAN",StringComparison.OrdinalIgnoreCase))return 1;
+   double volume=extent.X*extent.Y*extent.Z,reference=referenceExtent.X*referenceExtent.Y*referenceExtent.Z;
+   if(volume<=0||reference<=0)return 1;
+   bool large=enclosedTarget?volume/reference>=8&&extent.X>=referenceExtent.X*1.5&&extent.Y>=referenceExtent.Y*1.5&&extent.Z>=referenceExtent.Z*1.5:volume/reference>=.15;
+   return large?.18:1;
+  }
   // Weld coincident marching-tetrahedron vertices before smoothing. Each vertex
   // remains within maxDisplacement mm of its original sampled surface position.
   // This is a bounded display approximation, never a replacement for contours.

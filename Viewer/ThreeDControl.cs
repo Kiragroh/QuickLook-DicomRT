@@ -15,11 +15,12 @@ namespace QuickLook.DicomRT
 {
  public sealed class ThreeDControl : UserControl,IDisposable
  {
-  sealed class Part {public MeshGeometry3D Mesh;public string Kind;public Color Color;public Vec3 Center;public bool Fallback,Reduced;}
+  sealed class Part {public MeshGeometry3D Mesh;public string Kind,RoiType;public Color Color;public Vec3 Center;public bool Fallback,Reduced;}
   sealed class Prepared {public List<Part> Parts=new List<Part>();public int Fallbacks,Skipped,Reduced,CacheHits;}
   readonly Viewport3D viewport=new Viewport3D();readonly ModelVisual3D visual=new ModelVisual3D();readonly PerspectiveCamera camera=new PerspectiveCamera();
+  readonly PatientOrientationBadge orientationBadge=new PatientOrientationBadge();
   readonly ModelVisual3D sliceVisual=new ModelVisual3D();readonly bool compact;VolumeData sliceVolume;Vec3 sliceFocus;bool cameraAdjusted;
-  readonly CheckBox bone,skin,structures,dose,allRois;readonly Slider opacity;readonly ComboBox doseLevel;readonly TextBlock status;
+  readonly CheckBox bone,skin,structures,dose,allRois;readonly Slider opacity,skinOpacity;readonly ComboBox doseLevel;readonly TextBlock status;
   readonly Dictionary<string,Part> cache=new Dictionary<string,Part>();
   sealed class Identity {public readonly int Value=Interlocked.Increment(ref identitySequence);}
   static int identitySequence;static readonly ConditionalWeakTable<object,Identity> identities=new ConditionalWeakTable<object,Identity>();
@@ -31,18 +32,20 @@ namespace QuickLook.DicomRT
    this.compact=compact;
    Background=Theme.Background;var root=new Grid();root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});root.RowDefinitions.Add(new RowDefinition{Height=new GridLength(1,GridUnitType.Star)});root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
    var controls=new WrapPanel{Margin=new Thickness(8,4,8,4)};
-   bone=Toggle("Bone ≥300 HU",false);skin=Toggle("Skin ≥−350 HU",false);structures=Toggle("PTV / organs",true);dose=Toggle("Dose",false);allRois=Toggle("All ROI types",false);
+   bone=Toggle("Bone ≥300 HU",false);skin=Toggle("Skin ≥−350 HU",true);structures=Toggle("PTV / organs",true);dose=Toggle("Dose",false);allRois=Toggle("All ROI types",false);allRois.ToolTip="Show additional ROI types; EXTERNAL and untyped BODY/EXTERNAL remain excluded";
    controls.Children.Add(bone);controls.Children.Add(skin);controls.Children.Add(structures);controls.Children.Add(dose);controls.Children.Add(allRois);
-   controls.Children.Add(Theme.Text("Opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="Opacity of ROI and skin surfaces"};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
+   controls.Children.Add(Theme.Text("ROI opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="ROI opacity; large enclosing organs are automatically more transparent. Skin has its own control."};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
+   var skinOpacityLabel=Theme.Text("Skin opacity",11);controls.Children.Add(skinOpacityLabel);skinOpacity=new Slider{Minimum=.01,Maximum=.25,Value=.06,Width=80,Margin=new Thickness(6),ToolTip="CT skin opacity (1–25%), independent of ROI opacity; 6% by default"};controls.Children.Add(skinOpacity);skinOpacity.ValueChanged+=(s,e)=>ApplyModels();
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose relative to each maximum; no automatic summation"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{StartBuild();};
    var reset=Theme.Button("Reset view");reset.Click+=(s,e)=>{cameraAdjusted=false;ResetCamera();};controls.Children.Add(reset);
    if(compact)
    {
     controls.Children.Clear();controls.Margin=new Thickness(5,0,5,0);structures.Content="ROI";structures.ToolTip="PTV and ORGAN surfaces";dose.ToolTip="50 % isodose surface";reset.Content="Reset";reset.Padding=new Thickness(6,2,6,2);reset.Margin=new Thickness(3,1,0,1);
-    var label=Theme.Text("3D",11,Theme.Muted);label.ToolTip="Blue: axial · green: coronal · red: sagittal. Drag to rotate; wheel to zoom.";label.VerticalAlignment=VerticalAlignment.Center;label.Margin=new Thickness(2,0,6,0);controls.Children.Add(label);controls.Children.Add(structures);controls.Children.Add(dose);controls.Children.Add(reset);
+    var label=Theme.Text("3D",11,Theme.Muted);label.ToolTip="Blue: axial · green: coronal · red: sagittal. Drag to rotate; wheel to zoom.";label.VerticalAlignment=VerticalAlignment.Center;label.Margin=new Thickness(2,0,6,0);skin.Content="Skin";skinOpacity.Width=60;controls.Children.Add(label);controls.Children.Add(structures);controls.Children.Add(dose);controls.Children.Add(skin);controls.Children.Add(skinOpacityLabel);controls.Children.Add(skinOpacity);controls.Children.Add(reset);
    }
    root.Children.Add(controls);
-   var host=new Border{Background=Theme.Background,Child=viewport,ClipToBounds=true};Grid.SetRow(host,1);root.Children.Add(host);host.SizeChanged+=(s,e)=>{if(compact&&!cameraAdjusted)ResetCamera();};
+   var viewportHost=new Grid();viewportHost.Children.Add(viewport);orientationBadge.HorizontalAlignment=HorizontalAlignment.Left;orientationBadge.VerticalAlignment=VerticalAlignment.Bottom;orientationBadge.Margin=new Thickness(5);viewportHost.Children.Add(orientationBadge);
+   var host=new Border{Background=Theme.Background,Child=viewportHost,ClipToBounds=true};Grid.SetRow(host,1);root.Children.Add(host);host.SizeChanged+=(s,e)=>{if(!cameraAdjusted)ResetCamera();};
    viewport.Camera=camera;viewport.Children.Add(visual);viewport.Children.Add(sliceVisual);camera.FieldOfView=42;
    host.MouseLeftButtonDown+=(s,e)=>{dragging=true;mouse=e.GetPosition(host);host.CaptureMouse();e.Handled=true;};
    host.MouseLeftButtonUp+=(s,e)=>{dragging=false;host.ReleaseMouseCapture();e.Handled=true;};host.LostMouseCapture+=(s,e)=>dragging=false;
@@ -139,7 +142,8 @@ namespace QuickLook.DicomRT
    if(disposed||!IsVisible||scene==null||doseLevel==null)return;
    double level=new[]{.2,.5,.8,.95}[Math.Max(0,doseLevel.SelectedIndex)];bool includeBone=bone.IsChecked==true,includeSkin=skin.IsChecked==true,includeDose=dose.IsChecked==true,includeAll=allRois.IsChecked==true;string nextKey=SceneKey(scene,includeDose?level:0)+"|"+includeBone+includeSkin+includeDose+includeAll;if(key==nextKey)return;key=nextKey;
    var copy=scene.Snapshot();int mine=++generation;pending?.Cancel();var cancel=new CancellationTokenSource();pending=cancel;
-   bool ct=copy.Volume!=null&&copy.Entry?.Modality=="CT";bone.IsEnabled=skin.IsEnabled=ct;bone.ToolTip=skin.ToolTip=ct?"Surface derived from a CT threshold; not an anatomical segmentation":"Bone/skin thresholds require CT values in HU";
+   bool ct=copy.Volume!=null&&copy.Entry?.Modality=="CT";bone.IsEnabled=skin.IsEnabled=skinOpacity.IsEnabled=ct;bone.ToolTip=skin.ToolTip=ct?"Surface derived from a CT threshold; not an anatomical segmentation":"Bone/skin thresholds require CT values in HU";
+   if(!cameraAdjusted)ResetCamera();
    status.Text="Building 3D surfaces in the background …";prepared=null;ApplyModels();
    try
    {
@@ -169,11 +173,11 @@ namespace QuickLook.DicomRT
   static Prepared PrepareCore(RenderScene s,bool ct,double level,CancellationToken token,Dictionary<string,Part> cache,bool includeBone,bool includeSkin,bool includeDose,bool includeAll)
   {
    var result=new Prepared();int totalTriangles=0;
-   var rois=(s.Structures??new List<RoiOverlay>()).Where(x=>x?.Roi!=null&&x.Roi.Visible&&(includeAll||ThreeDGeometry.DefaultRoi(x.Roi))).Take(64).ToArray();
+   var rois=(s.Structures??new List<RoiOverlay>()).Where(x=>x?.Roi!=null&&x.Roi.Visible&&ThreeDGeometry.DisplayRoi(x.Roi,includeAll)).Take(64).ToArray();
    var doses=(s.Doses??new List<DoseOverlay>()).Where(x=>includeDose&&x?.Dose!=null&&x.Dose.Visible&&x.Dose.Maximum>0).Take(8).ToArray();
    int contextBudget=ct&&(includeBone||includeSkin)?100000:0,doseTotalBudget=doses.Length==0?0:Math.Min(100000,100000*doses.Length);
    int roiBudget=Math.Min(30000,Math.Max(1500,Math.Min(180000,SceneTriangleLimit-120-contextBudget-doseTotalBudget)/Math.Max(1,rois.Length)));
-   string objectKey=null;bool objectFallback=false,objectReduced=false;
+   string objectKey=null,objectRoiType=null;bool objectFallback=false,objectReduced=false;
    Func<string,bool> reuse=k=>{objectKey=k;objectFallback=objectReduced=false;lock(cache){Part part;if(!cache.TryGetValue(k,out part))return false;token.ThrowIfCancellationRequested();if(totalTriangles+part.Mesh.TriangleIndices.Count/3>SceneTriangleLimit)return false;result.Parts.Add(part);totalTriangles+=part.Mesh.TriangleIndices.Count/3;result.CacheHits++;if(part.Fallback)result.Fallbacks++;if(part.Reduced)result.Reduced++;return true;}};
    Action<ThreeDMeshData,string,Color> add=(data,kind,color)=>
    {
@@ -182,7 +186,7 @@ namespace QuickLook.DicomRT
     totalTriangles+=data.Indices.Count/3;var geometry=new MeshGeometry3D();var center=new Vec3();
     for(int i=0;i<data.Points.Count;i++){if((i&4095)==0)token.ThrowIfCancellationRequested();var p=data.Points[i];geometry.Positions.Add(new Point3D(p.X,p.Y,p.Z));center+=p;}
     foreach(var i in data.Indices)geometry.TriangleIndices.Add(i);foreach(var normal in data.Normals)geometry.Normals.Add(new Vector3D(normal.X,normal.Y,normal.Z));geometry.Freeze();
-    var part=new Part{Mesh=geometry,Kind=kind,Color=color,Center=center/data.Points.Count,Fallback=objectFallback,Reduced=objectReduced};result.Parts.Add(part);
+    var part=new Part{Mesh=geometry,Kind=kind,RoiType=objectRoiType,Color=color,Center=center/data.Points.Count,Fallback=objectFallback,Reduced=objectReduced};result.Parts.Add(part);
     if(objectKey!=null)lock(cache){token.ThrowIfCancellationRequested();if(cache.Count>=96||cache.Values.Sum(p=>p.Mesh.TriangleIndices.Count/3)+data.Indices.Count/3>550000)cache.Clear();cache[objectKey]=part;}
    };
    // Reserve independent fair shares for CT context, dose and every ROI. Earlier large
@@ -206,7 +210,7 @@ namespace QuickLook.DicomRT
    result.Skipped+=Math.Max(0,(s.Structures?.Count??0)-64);
    foreach(var overlay in rois)
    {
-    token.ThrowIfCancellationRequested();if(reuse("R"+Id(overlay.Roi)+":"+TransformKey(overlay.RoiToImage)+":"+roiBudget+":"+overlay.Roi.Red+","+overlay.Roi.Green+","+overlay.Roi.Blue))continue;
+    token.ThrowIfCancellationRequested();objectRoiType=overlay.Roi.InterpretedType;if(reuse("R"+Id(overlay.Roi)+":"+TransformKey(overlay.RoiToImage)+":"+roiBudget+":"+objectRoiType+":"+overlay.Roi.Red+","+overlay.Roi.Green+","+overlay.Roi.Blue))continue;
     try
     {
      ThreeDMeshData selected=null;bool fallback=false,reduced=false;
@@ -240,7 +244,7 @@ namespace QuickLook.DicomRT
     var eye=new Vec3(camera.Position.X,camera.Position.Y,camera.Position.Z);
     foreach(var part in visible.OrderBy(p=>p.Kind=="Bone"?0:1).ThenByDescending(p=>(p.Center-eye).Length))
     {
-     double alpha=part.Kind=="Bone"||part.Kind=="Isocenter"?1:part.Kind=="Dose"?.25:opacity?.Value??.35;
+     double alpha=part.Kind=="Bone"||part.Kind=="Isocenter"?1:part.Kind=="Dose"?.25:part.Kind=="Skin"?skinOpacity.Value:(opacity?.Value??.7)*OrganOpacityScale(part);
      var color=part.Color;byte strongest=Math.Max(color.R,Math.Max(color.G,color.B));if(part.Kind=="Roi"&&strongest>0&&strongest<120){double boost=120d/strongest;color=Color.FromRgb((byte)(color.R*boost),(byte)(color.G*boost),(byte)(color.B*boost));}
      var brush=new SolidColorBrush(color){Opacity=alpha};brush.Freeze();var material=new DiffuseMaterial(brush);material.Freeze();
      group.Children.Add(new GeometryModel3D(part.Mesh,material){BackMaterial=part.Kind=="Roi"&&!part.Fallback?null:material});
@@ -248,27 +252,41 @@ namespace QuickLook.DicomRT
    }
    visual.Content=group;
   }
+  double OrganOpacityScale(Part part)
+  {
+   if(!string.Equals(part.RoiType,"ORGAN",StringComparison.OrdinalIgnoreCase))return 1;
+   var bounds=part.Mesh.Bounds;var extent=new Vec3(bounds.SizeX,bounds.SizeY,bounds.SizeZ);double scale=1;
+   foreach(var targetPart in prepared.Parts.Where(p=>p.Kind=="Roi"&&string.Equals(p.RoiType,"PTV",StringComparison.OrdinalIgnoreCase)))
+   {
+    var targetBounds=targetPart.Mesh.Bounds;if(bounds.Contains(targetBounds))scale=Math.Min(scale,ThreeDGeometry.RoiOpacityScale(part.RoiType,extent,new Vec3(targetBounds.SizeX,targetBounds.SizeY,targetBounds.SizeZ),true));
+   }
+   if(scene?.Volume!=null)
+   {
+    var volume=scene.Volume;var context=Rect3D.Empty;for(int i=0;i<8;i++){var p=volume.WorldAt((i&1)==0?-.5:volume.Width-.5,(i&2)==0?-.5:volume.Height-.5,(i&4)==0?-.5:volume.Depth-.5);context.Union(new Point3D(p.X,p.Y,p.Z));}
+    scale=Math.Min(scale,ThreeDGeometry.RoiOpacityScale(part.RoiType,extent,new Vec3(context.SizeX,context.SizeY,context.SizeZ),false));
+   }
+   return scale;
+  }
   bool changedCamera()=>scene?.Volume==null&&distance==500;
   void ResetCamera()
   {
    if(scene==null)return;
    var points=(compact&&scene.Volume!=null?new List<RoiOverlay>():scene.Structures??new List<RoiOverlay>()).Where(r=>r?.Roi!=null&&ThreeDGeometry.DefaultRoi(r.Roi)).SelectMany(r=>r.Roi.Contours.SelectMany(c=>c.Points).Select(p=>r.RoiToImage.Transform(p))).ToList();
-   if(points.Count==0&&scene.Volume!=null){var v=scene.Volume;foreach(double x in new[]{-.5,v.Width-.5})foreach(double y in new[]{-.5,v.Height-.5})foreach(double z in new[]{-.5,v.Depth-.5})points.Add(v.WorldAt(x,y,z));}
+   bool showContext=compact||scene.Entry?.Modality=="CT"&&(skin.IsChecked==true||bone.IsChecked==true);
+   if(scene.Volume!=null&&(points.Count==0||showContext)){var v=scene.Volume;foreach(double x in new[]{-.5,v.Width-.5})foreach(double y in new[]{-.5,v.Height-.5})foreach(double z in new[]{-.5,v.Depth-.5})points.Add(v.WorldAt(x,y,z));}
    if(points.Count==0&&prepared!=null)foreach(var part in prepared.Parts)foreach(var p in part.Mesh.Positions)points.Add(new Vec3(p.X,p.Y,p.Z));
    if(points.Count==0)points.AddRange(scene.Isocenters??new Vec3[0]);if(points.Count==0)return;
    var low=new Vec3(points.Min(p=>p.X),points.Min(p=>p.Y),points.Min(p=>p.Z));var high=new Vec3(points.Max(p=>p.X),points.Max(p=>p.Y),points.Max(p=>p.Z));target=(low+high)/2;radius=Math.Max(10,(high-low).Length*.55);double aspect=viewport.ActualHeight>0?Math.Max(.1,viewport.ActualWidth/viewport.ActualHeight):1;
-   yaw=-1.7;pitch=.25;distance=radius*3;
-   if(compact)
-   {
-    var view=new Vec3(-Math.Cos(pitch)*Math.Cos(yaw),-Math.Cos(pitch)*Math.Sin(yaw),-Math.Sin(pitch));var right=view.Cross(new Vec3(0,0,1)).Normalized();var up=right.Cross(view);double horizontal=Math.Tan(camera.FieldOfView*Math.PI/360)*.9,vertical=horizontal/aspect;
-    distance=radius*.15;foreach(var point in points){var delta=point-target;double depth=delta.Dot(view);distance=Math.Max(distance,Math.Max(Math.Abs(delta.Dot(right))/horizontal-depth,Math.Abs(delta.Dot(up))/vertical-depth));}
-   }
+   yaw=-1.7;pitch=.25;
+   var view=new Vec3(-Math.Cos(pitch)*Math.Cos(yaw),-Math.Cos(pitch)*Math.Sin(yaw),-Math.Sin(pitch));var right=view.Cross(new Vec3(0,0,1)).Normalized();var up=right.Cross(view);double horizontal=Math.Tan(camera.FieldOfView*Math.PI/360)*.9,vertical=horizontal/aspect;
+   distance=radius*.15;foreach(var point in points){var delta=point-target;double depth=delta.Dot(view);distance=Math.Max(distance,Math.Max(Math.Abs(delta.Dot(right))/horizontal-depth,Math.Abs(delta.Dot(up))/vertical-depth));}
    UpdateCamera();
   }
   void UpdateCamera()
   {
    var offset=new Vec3(Math.Cos(pitch)*Math.Cos(yaw),Math.Cos(pitch)*Math.Sin(yaw),Math.Sin(pitch))*distance;var p=target+offset;
    camera.Position=new Point3D(p.X,p.Y,p.Z);camera.LookDirection=new Vector3D(-offset.X,-offset.Y,-offset.Z);camera.UpDirection=new Vector3D(0,0,1);camera.NearPlaneDistance=Math.Max(.1,radius*.002);camera.FarPlaneDistance=radius*100;
+   orientationBadge.SetDirection(camera.LookDirection,camera.UpDirection);
   }
   public void Dispose(){if(disposed)return;disposed=true;++generation;pending?.Cancel();pending=null;prepared=null;scene=null;lock(cache)cache.Clear();visual.Content=null;sliceVisual.Content=null;sliceVolume=null;}
  }

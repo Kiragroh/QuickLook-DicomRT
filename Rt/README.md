@@ -1,4 +1,4 @@
-# RT interpretation — 0.2.1
+# RT interpretation — 0.2.2
 
 The readers operate on local DICOM data and do not modify source files. They do not log identifiers or paths.
 

@@ -33,7 +33,7 @@ internal static class Program
  {
   viewer.UpdateLayout();await Task.Delay(30);
   string mode=Get<string>(viewer,"workspaceMode");
-  if(mode=="Bild")await Wait(()=>Get<List<SlicePane>>(viewer,"panes").All(p=>Get<object>(p,"pending")==null&&Get<object>(p,"frame")!=null),"Image settle");
+  if(mode=="Bild"){await Wait(()=>Get<List<SlicePane>>(viewer,"panes").All(p=>Get<object>(p,"pending")==null&&Get<object>(p,"frame")!=null),"Image settle");if((string)Get<ComboBox>(viewer,"planes").SelectedItem=="MPR + 3D"){var three=Get<ThreeDControl>(viewer,"mprThreeD");await Wait(()=>three!=null&&Get<object>(three,"pending")==null&&Get<object>(three,"prepared")!=null,"MPR 3D settle");}}
   else if(mode=="DVH"){var dvh=Get<DvhControl>(viewer,"dvhView");if(dvh!=null)await dvh.Completion;}
   else if(mode=="3D"){var three=Get<ThreeDControl>(viewer,"threeDView");await Wait(()=>three!=null&&Get<object>(three,"pending")==null&&Get<object>(three,"prepared")!=null,"3D settle");}
   await viewer.Dispatcher.InvokeAsync(()=>viewer.UpdateLayout(),DispatcherPriority.Render);await Task.Delay(35);
@@ -105,7 +105,7 @@ internal static class Program
  {
   await Load(folder,"user-supplied public nonpatient benchmark");Mode("Bild");Panels(false,false);Layers(false,false);await Save("image-clean.png","Original CT from the supplied public nonpatient benchmark, with side panels closed.");
   Layers(true,true);Panels(true,false);await Save("rt-overview.png","RT tools on the left: plan, structures and dose on the actual benchmark CT.");await StructureJump();await Tags();
-  Get<ComboBox>(viewer,"planes").SelectedItem="3 planes";await Save("mpr-three.png","Axial, coronal and sagittal reconstructions of the same CT volume.");Get<ComboBox>(viewer,"planes").SelectedItem="Axial";
+  Get<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";await Save("mpr-three.png","Axial, coronal and sagittal reconstructions of the same CT volume.");Get<ComboBox>(viewer,"planes").SelectedItem="Axial";
   DoseTab();Get<CheckBox>(viewer,"wash").IsChecked=true;Get<CheckBox>(viewer,"iso").IsChecked=false;Get<Slider>(viewer,"opacity").Value=.42;await Save("dose-wash.png","Dose colorwash with adjustable opacity and thresholds relative to dose maximum.");
   Get<CheckBox>(viewer,"wash").IsChecked=false;Get<CheckBox>(viewer,"iso").IsChecked=true;await Save("dose-isodoses.png","Actual RTDOSE isodose lines, with colorwash disabled.");
   Get<CheckBox>(viewer,"wash").IsChecked=true;await Save("dose-combined.png","Colorwash and isodose lines together, with dose controls on the left.");
@@ -125,7 +125,7 @@ internal static class Program
  }
  static async Task ThreeD()
  {
-  Mode("3D");await Settle();var fullScene=Get<ThreeDControl>(viewer,"threeDView");Get<CheckBox>(fullScene,"bone").IsChecked=false;Get<CheckBox>(fullScene,"skin").IsChecked=false;Get<CheckBox>(fullScene,"dose").IsChecked=true;Get<Slider>(fullScene,"opacity").Value=.2;await Save("three-d-all.png","Default PTV/ORGAN metadata selection with dose enabled; external and other ROI types excluded.");
+  Mode("3D");await Settle();var fullScene=Get<ThreeDControl>(viewer,"threeDView");Get<CheckBox>(fullScene,"bone").IsChecked=false;Get<CheckBox>(fullScene,"skin").IsChecked=true;Get<CheckBox>(fullScene,"dose").IsChecked=true;Get<Slider>(fullScene,"opacity").Value=.7;await Save("three-d-all.png","Default PTV/ORGAN metadata selection with dose enabled; external and other ROI types excluded.");
   // All ROI/dose geometry is independently verified by SceneBudget. Select a small
   // explicit subset for legibility in the presentation, using the actual ROI toggles.
   var allRois=Get<List<StructureSet>>(viewer,"structures").SelectMany(x=>x.Rois).ToList();
@@ -134,19 +134,19 @@ internal static class Program
   selected.AddRange(allRois.Where(r=>r.Name.IndexOf("brainstem",StringComparison.OrdinalIgnoreCase)>=0||r.Name.IndexOf("chiasm",StringComparison.OrdinalIgnoreCase)>=0).Take(2));
   if(selected.Count==0)selected.AddRange(allRois.Take(6));foreach(var r in allRois)r.Visible=selected.Contains(r);Invoke(viewer,"RefreshRt");
   Mode("3D");await Settle();var three=Get<ThreeDControl>(viewer,"threeDView");Get<CheckBox>(three,"allRois").IsChecked=true;
-  Get<CheckBox>(three,"bone").IsChecked=true;Get<CheckBox>(three,"skin").IsChecked=false;Get<CheckBox>(three,"structures").IsChecked=true;Get<CheckBox>(three,"dose").IsChecked=false;Set(three,"distance",Get<double>(three,"radius")*2.7);Invoke(three,"UpdateCamera");
+  Get<CheckBox>(three,"bone").IsChecked=true;Get<CheckBox>(three,"skin").IsChecked=false;Get<CheckBox>(three,"structures").IsChecked=true;Get<CheckBox>(three,"dose").IsChecked=false;Invoke(three,"ResetCamera");
   string subset=selected.Distinct().Count()+" explicitly selected target/OAR structures for legibility; source contains "+allRois.Count+" structures.";
   await Save("three-d-bone.png","CT-derived bone surface and contour-derived target/OAR surfaces. "+subset);
-  Get<CheckBox>(three,"bone").IsChecked=false;Get<CheckBox>(three,"skin").IsChecked=true;Get<Slider>(three,"opacity").Value=.16;await Save("three-d-skin.png","Transparent CT-derived skin surface. "+subset);
+  Get<CheckBox>(three,"bone").IsChecked=false;Get<CheckBox>(three,"skin").IsChecked=true;Get<Slider>(three,"opacity").Value=.65;await Save("three-d-skin.png","Transparent CT-derived skin surface. "+subset);
   Get<CheckBox>(three,"skin").IsChecked=false;Get<Slider>(three,"opacity").Value=.65;await Save("three-d-roi.png","Contour-derived target/OAR surfaces, with CT threshold surfaces hidden. "+subset);
-  Get<CheckBox>(three,"skin").IsChecked=false;Get<CheckBox>(three,"dose").IsChecked=true;Get<Slider>(three,"opacity").Value=.7;await Save("three-d-dose.png","Actual 3D isodose and selected ROI surfaces in the same physical coordinate frame; CT threshold surfaces hidden for legibility. "+subset);
+  Get<CheckBox>(three,"skin").IsChecked=true;Get<CheckBox>(three,"dose").IsChecked=true;Get<Slider>(three,"opacity").Value=.7;await Save("three-d-dose.png","Actual 3D isodose and selected ROI surfaces in the same physical coordinate frame; very transparent CT skin retained for orientation. "+subset);
   double yaw=Get<double>(three,"yaw");await Sequence("orbit","Orbit around actual CT/ROI/dose geometry; bounded derived 3D preview. "+subset,i=>{Set(three,"yaw",yaw+i/(Frames-1.0)*Math.PI*2);Set(three,"pitch",.2+.12*Math.Sin(i/(Frames-1.0)*Math.PI*2));Invoke(three,"UpdateCamera");return Task.CompletedTask;});
  }
  static async Task CaptureQuad(string folder)
  {
   var serializer=new JavaScriptSerializer{MaxJsonLength=int.MaxValue};var old=(Dictionary<string,object>)serializer.DeserializeObject(File.ReadAllText(Path.Combine(output,"manifest.json")));
   foreach(var a in (object[])old["artifacts"]){string file=(string)((Dictionary<string,object>)a)["file"];if(file!="mpr-three.png"&&!file.StartsWith("mpr/"))artifacts.Add(a);}foreach(var a in (object[])old["availability"])availability.Add(a);
-  await Load(folder,"user-supplied public nonpatient benchmark");Panels(false,false);Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="3 planes";
+  await Load(folder,"user-supplied public nonpatient benchmark");Panels(false,false);Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";
   var three=Get<ThreeDControl>(viewer,"mprThreeD");await Wait(()=>Get<object>(three,"pending")==null&&Get<object>(three,"prepared")!=null,"Quad 3D settle");
   await Save("mpr-three.png","Synchronized 2 × 2 layout: axial, coronal, sagittal and 3D slice-coordinate planes.");
   var initial=Get<Vec3>(viewer,"focus");await Sequence("mpr","Scrolling axial slices moves the 3D coordinate planes in the same LPS frame.",i=>{Set(viewer,"focus",initial+new Vec3(0,0,24*Math.Sin(i/(Frames-1.0)*Math.PI*2)));Invoke(viewer,"Redraw");return Task.CompletedTask;});

@@ -28,7 +28,7 @@ namespace QuickLook.DicomRT
         }
         private void RefreshPlanChoices()
         {
-            var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();if(doses.Count>0)choices.Add(new PlanChoice{Sum=true});
+            var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();if(doses.Count>1)choices.Add(new PlanChoice{Sum=true});
             bool prior=changing;changing=true;plans.ItemsSource=choices;
             var choice=sumMode?choices.FirstOrDefault(c=>c.Sum):choices.FirstOrDefault(c=>!c.Sum&&c.Plan==selectedPlan);
             if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTDOSE")

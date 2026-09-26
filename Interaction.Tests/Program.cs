@@ -38,10 +38,15 @@ class Program
                 Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Only dose"});
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(!Field<bool>(viewer,"sumMode"),"Dose-only opening never selects a sum automatically");Check(Field<ComboBox>(viewer,"plans").SelectedIndex==-1,"Dose-only sum requires explicit selection");
+                Check(Field<ComboBox>(viewer,"plans").Items.Count==0,"One dose never offers a sum");
+                Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Second dose"});
+                typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
+                Check(Field<ComboBox>(viewer,"plans").Items.Count==1&&!Field<bool>(viewer,"sumMode"),"Multiple doses offer a sum without selecting it automatically");
             }
             RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
+            PatientBadgeScenarios.Run(Check);
             Console.WriteLine("PASS: "+checks+" WPF interaction/contrast/tree/timeline checks");return 0;
         }
         catch(Exception e){Console.WriteLine("FAIL: "+e);return 1;}

@@ -1,4 +1,4 @@
-# Component API contract — 0.2.1
+# Component API contract — 0.2.2
 
 Namespace: `QuickLook.DicomRT`. Target: `net462`, WPF in Viewer only, fo-dicom.Desktop 4.0.8 (`Dicom` namespace). Source data stays local and read-only. Console tests and benchmarks report aggregates rather than private identifiers or paths. Actual metadata is displayed in the local viewer.
 
@@ -52,3 +52,5 @@ RT-only loading does not require a matching image or dose. An initial RTPLAN ope
 `Plugin` implements QuickLook's `IViewer`; `Harness` embeds the same control for offscreen verification. `QuickLookDir` selects the host assembly location, defaulting to `%LOCALAPPDATA%\Programs\QuickLook`; the host assembly is not redistributed.
 
 Assertion projects cover Core, RT, rendering, playback, DVH/sums, 3D and WPF interaction. Use synthetic cases for reproducible changes. Authorized-folder modes are read-only and output aggregates. See [VERIFICATION.md](VERIFICATION.md) for acceptance boundaries.
+
+The 0.2.2 orientation API includes PatientOrientation.ToIec, per-beam PatientPosition, MlcPlaybackControl.SetBodyRegion, and a shared normalized LPS human. SetBodyRegion is a schematic metadata cue; it is not anatomical registration. MPR + 3D is the four-pane selector label. Single-dose catalogs do not offer summation. CT skin starts at 6% opacity independent of ROI alpha; EXTERNAL is excluded from all-type ROI rendering.

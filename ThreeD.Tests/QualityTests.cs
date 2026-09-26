@@ -36,7 +36,8 @@ internal static class QualityTests
    var cross=(MeshGeometry3D)parts[1].GetType().GetField("Mesh").GetValue(parts[1]);Check(Math.Abs(cross.Positions.Average(p=>p.X)-1)<1e-6&&Math.Abs(cross.Positions.Average(p=>p.Y)-2)<1e-6&&Math.Abs(cross.Positions.Average(p=>p.Z)-3)<1e-6,"isocenter in scene coordinates");
    var dose=(DoseGrid)typeof(DoseGrid).GetMethod("FromDerivedVolume",PrivateStatic).Invoke(null,new object[]{v,"synthetic","synthetic"});var doseScene=new RenderScene{Doses=new List<DoseOverlay>{new DoseOverlay{Dose=dose}}};control.SetScene(doseScene);var checkbox=(System.Windows.Controls.CheckBox)typeof(ThreeDControl).GetField("dose",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(control);Check(checkbox.IsChecked==true,"dose-only scene enables initial dose");checkbox.IsChecked=false;control.SetScene(doseScene);Check(checkbox.IsChecked==false,"manual dose-off persists");
    var doseOnly=prepare.Invoke(null,new object[]{doseScene,false,.5,CancellationToken.None,cache,false,false,true,false});Check(((IEnumerable)doseOnly.GetType().GetField("Parts").GetValue(doseOnly)).Cast<object>().Count()==1,"dose mesh requires no image volume");
-   args[8]=true;var all=prepare.Invoke(null,args);Check(((IEnumerable)all.GetType().GetField("Parts").GetValue(all)).Cast<object>().Count()==3,"other types opt in");
+   args[8]=true;var all=prepare.Invoke(null,args);Check(((IEnumerable)all.GetType().GetField("Parts").GetValue(all)).Cast<object>().Count()==2,"EXTERNAL excluded even with all types enabled");
+   scene.Structures.Add(new RoiOverlay{Roi=new StructureRoi{InterpretedType="CTV",Contours=roi.Contours}});all=prepare.Invoke(null,args);Check(((IEnumerable)all.GetType().GetField("Parts").GetValue(all)).Cast<object>().Count()==3,"other non-external types opt in");
   }
   Console.WriteLine("PASS smooth geometry, normals, deformation bound, metadata defaults, no-CT scene, cache and isocenter checks");
  }

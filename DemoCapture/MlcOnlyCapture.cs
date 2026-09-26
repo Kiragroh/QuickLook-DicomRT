@@ -24,7 +24,7 @@ internal static class MlcOnlyCapture
         var result=new PlanData{Label="Dual-layer plan"};
         foreach(var beam in source.Beams)
         {
-            var clean=new PlanBeam{Number=result.Beams.Count+1,Name="Beam "+(result.Beams.Count+1)};
+            var clean=new PlanBeam{Number=result.Beams.Count+1,Name="Beam "+(result.Beams.Count+1),PatientPosition=PatientOrientation.ToIec(beam.PatientPosition)!=null?beam.PatientPosition:""};
             foreach(var cp in beam.ControlPoints)
                 clean.ControlPoints.Add(new ControlPoint{Index=clean.ControlPoints.Count,Gantry=cp.Gantry,Collimator=cp.Collimator,Couch=cp.Couch,MetersetWeight=cp.MetersetWeight,
                     GantryRotationDirection=Direction(cp.GantryRotationDirection),CollimatorRotationDirection=Direction(cp.CollimatorRotationDirection),CouchRotationDirection=Direction(cp.CouchRotationDirection),

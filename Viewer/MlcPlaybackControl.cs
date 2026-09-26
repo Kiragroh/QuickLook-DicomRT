@@ -20,6 +20,8 @@ namespace QuickLook.DicomRT
         private readonly ComboBox layerView=Theme.Combo();
         private readonly Canvas markers = new Canvas { Height = 12, Margin = new Thickness(13,0,13,0) };
         private PlanBeam beam; private PlanData plan; private int[] counts = new int[0]; private bool selecting;
+        private string bodyRegion;private bool planNoncoplanar;
+        public void SetBodyRegion(string value){if(bodyRegion==value)return;bodyRegion=value;UpdateFrame();}
         public event Action<Vec3> IsocenterSelected;
         public MlcPlaybackControl()
         {
@@ -38,7 +40,7 @@ namespace QuickLook.DicomRT
             timer.Tick+=(s,e)=>{cursor.Value=Math.Min(cursor.Maximum,cursor.Value+(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds);if(cursor.Value>=cursor.Maximum)Pause();};
             Unloaded+=(s,e)=>Pause();
         }
-        public void SetPlan(PlanData value){Pause();plan=value;counts=plan.Beams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=plan.Beams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
+        public void SetPlan(PlanData value){Pause();plan=value;planNoncoplanar=plan.Beams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=plan.Beams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=plan.Beams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
         private void DrawMarkers(){markers.Children.Clear();int offset=0;foreach(int count in counts){offset+=count;if(count==0)continue;var dot=new System.Windows.Shapes.Ellipse{Width=5,Height=5,Fill=Theme.Accent,ToolTip="Beam end · CP "+offset};Canvas.SetLeft(dot,Math.Max(0,markers.ActualWidth)*(offset-1)/Math.Max(1,cursor.Maximum)-2.5);Canvas.SetTop(dot,3);markers.Children.Add(dot);}}
         private void Pause(){timer.Stop();play.Content="▶ Play";}
         public void Dispose(){Pause();}
@@ -50,6 +52,7 @@ namespace QuickLook.DicomRT
             int i=(int)local,j=Math.Min(i+1,beam.ControlPoints.Count-1);double t=local-i;var a=beam.ControlPoints[i];var b=beam.ControlPoints[j];aperture.Set(a,b,t);
             var layerLabels=new[]{"All layers"}.Concat(a.MlcLayers.Select((l,k)=>"Layer "+(k+1)+" · "+l.Type)).ToArray();
             if(!layerView.Items.Cast<string>().SequenceEqual(layerLabels)){layerView.ItemsSource=layerLabels;layerView.SelectedIndex=0;}
+            orientation.SetContext(beam,bodyRegion,planNoncoplanar);
             orientation.Set(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false));
             double weight=a.MetersetWeight+(b.MetersetWeight-a.MetersetWeight)*t;
             details.Text=$"Beam {bi+1}/{plan.Beams.Count} · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";

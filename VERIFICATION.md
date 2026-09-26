@@ -1,3 +1,11 @@
+# 0.2.2 orientation and context update
+
+The current update passed 130 RT assertions, playback checks, 56 WPF interaction checks, and 44 base 3D checks plus context and slice-guide suites. Tests cover referenced patient-setup selection, eight supported recumbent positions, missing/ambiguous metadata, LPS image-badge orientation, no sum offered for one dose, skin-opacity independence, EXTERNAL exclusion and geometry/cache preservation.
+
+The generic human uses DICOM LPS axes and stable left/right colors. The linac uses the beam's uniquely referenced PatientPosition; unknown or unsupported positions do not display an invented body orientation. The anatomical anchor uses an associated image's BodyPartExamined when recognized. Otherwise head for a noncoplanar couch, or chest, is explicitly labeled assumed. These normalized anchors are not anatomical registration, and the glyph is not patient anatomy. A dashed yellow ray replaces the field cone. Context changes reuse the patient model during playback.
+
+CT skin is an optional context surface, initially enabled at 6% opacity, separately adjustable from structures. EXTERNAL is excluded even when all ROI types are enabled; exact BODY/EXTERNAL names are used only for missing-type fallback. Large ORGAN surfaces use a display-only extent heuristic to reduce occlusion. PTV opacity is unchanged. Source contours, dose and image geometry are unchanged. The 0.2.1 benchmarks below are historical; the default 0.2.2 scene additionally includes CT skin and orientation glyphs.
+
 # Version 0.2.1 verification — 2026-09-26
 
 ## Scope and engineering checks
@@ -57,3 +65,7 @@ Final 0.2.1 packaging: clean Release builds, 32 installer checks and embedded pa
 The linked 2 × 2 MPR view includes a compact fourth 3D pane. Its LPS slice planes intersect the oriented image volume at the current focus. Tests cover oblique volumes, camera fit, unchanged camera and cached surface geometry during focus/source-slice updates, and layout reuse. The guide contains fewer than 150 triangles; it does not rebuild structure meshes while scrolling.
 
 Presentation acceptance: 14 slides and seven six-second videos passed 133 headless-browser assertions at 1600 × 900 and 1280 × 720, including autoplay, navigation, media enlargement, local asset loading and overflow checks. The hero and MPR/3D slides were also visually inspected.
+
+Final 0.2.2 package: clean build, 32 installer checks and standalone embedded-payload verification passed. All 10 installed package files (including manifest) were hash-verified; QuickLook restarted and responded. The previous plugin backup is retained. Public/nonpatient and sanitized MLC captures were visually inspected. Full 3D camera-fit tests additionally cover wide/tall viewports and camera preservation after manual adjustment.
+
+The final 0.2.2 English tour passed 133 browser assertions across 14 slides at 1600 × 900 and 1280 × 720. All seven videos were freshly rendered and verified as 1600 × 900, six seconds and 180 frames. Hero, MPR, skin/3D and sanitized dual-MLC slides were visually inspected.

@@ -1,4 +1,4 @@
-DICOM RT — Feature Tour · Version 0.2.1
+DICOM RT — Feature Tour · Version 0.2.2
 
 Open index.html in a modern browser. Keep screens and media together. The presentation works offline, without external fonts or network requests.
 

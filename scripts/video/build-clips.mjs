@@ -11,23 +11,23 @@ const option = (name, fallback) => {
 };
 if (process.argv.includes('--help')) {
   console.log('node build-clips.mjs [--input=PATH] [--output=PATH] [--work=PATH] [--clip=01-scroll|02-mlc|03-3d|04-dose|05-dvh|06-dual-mlc|07-mpr] [--prepare]');
-  console.log('Defaults: artifacts/presentation/v021/media, artifacts/presentation/output/media and artifacts/presentation/v021/hyperframes. Requires 90 approved English UI frames per clip and manifest.json. No title-only intro.');
+  console.log('Defaults: artifacts/presentation/v022/media, artifacts/presentation/output/media and artifacts/presentation/v022/hyperframes. Requires 90 approved English UI frames per clip and manifest.json. No title-only intro.');
   process.exit(0);
 }
-const root = option('work', path.join(repoRoot, 'artifacts/presentation/v021/hyperframes'));
-const input = option('input', path.join(repoRoot, 'artifacts/presentation/v021/media'));
+const root = option('work', path.join(repoRoot, 'artifacts/presentation/v022/hyperframes'));
+const input = option('input', path.join(repoRoot, 'artifacts/presentation/v022/media'));
 const output = option('output', path.join(repoRoot, 'artifacts/presentation/output/media'));
 const cli = path.join(toolRoot, 'node_modules/hyperframes/bin/hyperframes.mjs');
 const logs = path.join(root, 'logs');
 const env = { ...process.env, HYPERFRAMES_NO_TELEMETRY: '1', HYPERFRAMES_NO_UPDATE_CHECK: '1', NODE_TLS_REJECT_UNAUTHORIZED: '1' };
 const clips = [
   { name: '01-scroll', source: 'scroll', title: 'Navigate CT slices', caption: 'CT with contours · axial slice navigation' },
-  { name: '02-mlc', source: 'mlc', title: 'Explore the plan timeline', caption: 'Plan-wide timeline · interpolated control points, not delivery time' },
-  { name: '03-3d', source: 'orbit', title: 'Explore structures in 3D', caption: 'Selected structures and dose · interactive 3D preview' },
+  { name: '02-mlc', source: 'mlc', title: 'Explore the plan timeline', caption: 'Plan-wide timeline · patient setup and dashed beam-axis schematic' },
+  { name: '03-3d', source: 'orbit', title: 'Explore structures in 3D', caption: 'Transparent skin and enclosing organs · orbit-linked orientation' },
   { name: '04-dose', source: 'dose', title: 'Dose visualization controls', caption: 'Colorwash and isodoses · independent display controls' },
   { name: '05-dvh', source: 'dvh', title: 'Compare structure DVHs', caption: 'Focus a curve · retain dose coverage and sampling context' },
   { name: '06-dual-mlc', source: 'dual-mlc', title: 'Inspect both MLC layers', caption: 'Dual-layer aperture · interpolated control points, not delivery time', provenance: 'approved-sanitized-mlc' },
-  { name: '07-mpr', source: 'mpr', title: 'Navigate synchronized MPR and 3D', caption: 'Axial, coronal, sagittal and 3D · linked coordinate planes' }
+  { name: '07-mpr', source: 'mpr', title: 'Navigate synchronized MPR + 3D', caption: 'MPR + 3D · linked coordinate planes and human orientation badges' }
 ];
 const requested = process.argv.find(a => a.startsWith('--clip='))?.split('=')[1];
 const selected = requested ? clips.filter(c => c.name === requested) : clips;

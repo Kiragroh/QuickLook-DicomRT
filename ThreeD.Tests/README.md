@@ -4,6 +4,8 @@ Public entry point: `ThreeDControl.SetScene(RenderScene)`; dispose with `Dispose
 
 Controls: CT-derived bone threshold (300 HU), CT-derived skin threshold (-350 HU), selected ROI surfaces, dose isosurface, opacity, relative dose level, mouse orbit/wheel zoom, reset. CT threshold controls are disabled for MR backgrounds. Supply a CT-backed scene with registered overlays to display CT surfaces and MR-associated structures together.
 
+CT skin is enabled initially in both full and compact views at 6% opacity. Its independent slider covers 1–25%; changing either opacity slider reuses the prepared meshes. PTV and ORGAN remain the initial ROI types. “All ROI types” never includes EXTERNAL, or exact BODY/EXTERNAL names when the interpreted type is absent. Other names do not affect selection. Large ORGAN surfaces use 18% of the selected ROI opacity when their patient-coordinate bounding box encloses a PTV with at least eight times its box volume and 1.5 times every extent, or occupies at least 15% of the CT envelope box. This display heuristic changes neither contours nor PTV opacity. The small patient orientation badge follows the orbit camera in LPS coordinates.
+
 ## Geometry and limitations
 
 - CT threshold surfaces use marching tetrahedra on a grid bounded to56 samples per axis. These are derived threshold surfaces, not anatomical segmentations; table material/noise can also satisfy a threshold.
@@ -18,6 +20,8 @@ Controls: CT-derived bone threshold (300 HU), CT-derived skin threshold (-350 HU
 `dotnet run --project ThreeD.Tests/ThreeD.Tests.csproj -c Release`
 
 42 checks cover physical threshold interpolation, outward normals, registered ROI placement, XOR-hole retention, explicit unsupported geometry, input limits, cancellation and real WPF background-build/composition using synthetic CT only. No clinical screenshots are produced.
+
+Additional synthetic context tests verify skin defaults in both views, independent skin/ROI transparency, unchanged PTV opacity, the large-organ extent heuristic, EXTERNAL exclusion even with all types selected, and cached skin/ROI geometry reuse. Compact slice-guide checks verify that focus movement preserves the prepared scene, camera orbit and zoom.
 
 `dotnet run --project ThreeD.Tests/ThreeD.Tests.csproj -c Release -- --benchmark <authorized-folder>`
 

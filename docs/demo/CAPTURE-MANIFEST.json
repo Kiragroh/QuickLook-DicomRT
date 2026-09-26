@@ -1,1 +1,307 @@
-{"version":1,"width":1600,"height":900,"framesPerSequence":90,"effectiveFps":15,"sequenceDurationSeconds":6,"tagRedaction":"In-memory display rows only: person/patient identifiers, UID values, dates/times, institution/provider identifiers. DICOM source files remain unchanged.","artifacts":[{"file":"image-clean.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Original CT from the supplied public nonpatient benchmark, with side panels closed.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"rt-overview.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"RT tools on the left: plan, structures and dose on the actual benchmark CT.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"structures-jump.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Structure search and navigation to an actual target centre; ROI display and dose remain physically aligned.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"tags-collapsed.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"RTPLAN: full DICOM hierarchy with collapsed sequences; identifying display values redacted.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"tags-expanded.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"RTPLAN: nested Beam sequences expanded; identifying display values redacted.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"tags-search.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Search across all loaded RTPLAN attributes, including nested Leaf positions.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"dose-wash.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Dose colorwash with adjustable opacity and thresholds relative to dose maximum.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"dose-isodoses.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Actual RTDOSE isodose lines, with colorwash disabled.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"dose-combined.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Colorwash and isodose lines together, with dose controls on the left.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"scroll/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Slice navigation through the actual benchmark CT with RT overlays.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"},{"file":"dose/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Opacity and isodose settings change in the actual dose view.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"},{"file":"dvh.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Large approximate DVH preview for all 55 selected structures; contour and RTDOSE computation fully awaited.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"dvh/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Actual DVH focus interaction: selected curve bold, other curves faded; repeat click restores all.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"},{"file":"dvh-focused.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"A focused DVH curve is drawn thick; other curves stay visible with reduced opacity.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"three-d-all.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Default PTV/ORGAN metadata selection with dose enabled; external and other ROI types excluded.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"three-d-bone.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"CT-derived bone surface and contour-derived target/OAR surfaces. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"three-d-skin.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Transparent CT-derived skin surface. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"three-d-roi.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Contour-derived target/OAR surfaces, with CT threshold surfaces hidden. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"three-d-dose.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Actual 3D isodose and selected ROI surfaces in the same physical coordinate frame; CT threshold surfaces hidden for legibility. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"orbit/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Orbit around actual CT/ROI/dose geometry; bounded derived 3D preview. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"},{"file":"mlc.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Large MLC view with global plan timeline and field boundaries.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"mlc/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Scrubbing actual control points and field boundaries of the benchmark plan.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"},{"file":"dual-mlc/frame-%03d.png","provenance":"approved-sanitized-mlc","uiLanguage":"en","method":"Actual MlcPlaybackControl with whitelist metadata; no patient images or identifiers","durationSeconds":6,"source":"User-approved MLC geometry only","frames":90},{"uiLanguage":"en","file":"dual-layer-mlc.png","provenance":"approved-sanitized-mlc"},{"uiLanguage":"en","file":"rt-only.png","provenance":"approved-sanitized-mlc"},{"file":"mpr-three.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Synchronized 2 × 2 layout: axial, coronal, sagittal and 3D slice-coordinate planes.","width":1600,"height":900,"method":"Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"},{"file":"mpr/frame-%03d.png","source":"user-supplied public nonpatient benchmark","uiLanguage":"en","caption":"Scrolling axial slices moves the 3D coordinate planes in the same LPS frame.","width":1600,"height":900,"frames":90,"effectiveFps":15,"durationSeconds":6,"method":"90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"}],"availability":[{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1},{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1},{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1},{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1},{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1},{"source":"user-supplied public nonpatient benchmark","files":194,"ct":191,"mr":0,"reg":0,"plans":1,"doses":1,"structures":1}],"omissions":[]}
+{
+  "version": 1,
+  "width": 1600,
+  "height": 900,
+  "framesPerSequence": 90,
+  "effectiveFps": 15,
+  "sequenceDurationSeconds": 6,
+  "tagRedaction": "In-memory display rows only: person/patient identifiers, UID values, dates/times, institution/provider identifiers. DICOM source files remain unchanged.",
+  "artifacts": [
+    {
+      "file": "image-clean.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Original CT from the supplied public nonpatient benchmark, with side panels closed.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "rt-overview.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "RT tools on the left: plan, structures and dose on the actual benchmark CT.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "structures-jump.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Structure search and navigation to an actual target centre; ROI display and dose remain physically aligned.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "tags-collapsed.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "RTPLAN: full DICOM hierarchy with collapsed sequences; identifying display values redacted.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "tags-expanded.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "RTPLAN: nested Beam sequences expanded; identifying display values redacted.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "tags-search.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Search across all loaded RTPLAN attributes, including nested Leaf positions.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "dose-wash.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Dose colorwash with adjustable opacity and thresholds relative to dose maximum.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "dose-isodoses.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Actual RTDOSE isodose lines, with colorwash disabled.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "dose-combined.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Colorwash and isodose lines together, with dose controls on the left.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "scroll/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Slice navigation through the actual benchmark CT with RT overlays.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "file": "dose/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Opacity and isodose settings change in the actual dose view.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "file": "dvh.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Large approximate DVH preview for all 55 selected structures; contour and RTDOSE computation fully awaited.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "dvh/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Actual DVH focus interaction: selected curve bold, other curves faded; repeat click restores all.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "file": "dvh-focused.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "A focused DVH curve is drawn thick; other curves stay visible with reduced opacity.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "mlc.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Large MLC view with global plan timeline and field boundaries.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "mlc/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Scrubbing actual control points and field boundaries of the benchmark plan.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "file": "mpr-three.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Synchronized 2 × 2 layout: axial, coronal, sagittal and 3D slice-coordinate planes.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "mpr/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Scrolling axial slices moves the 3D coordinate planes in the same LPS frame.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "file": "three-d-all.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Default PTV/ORGAN metadata selection with dose enabled; external and other ROI types excluded.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "three-d-bone.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "CT-derived bone surface and contour-derived target/OAR surfaces. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "three-d-skin.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Transparent CT-derived skin surface. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "three-d-roi.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Contour-derived target/OAR surfaces, with CT threshold surfaces hidden. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "three-d-dose.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Actual 3D isodose and selected ROI surfaces in the same physical coordinate frame; very transparent CT skin retained for orientation. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.",
+      "width": 1600,
+      "height": 900,
+      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
+    },
+    {
+      "file": "orbit/frame-%03d.png",
+      "source": "user-supplied public nonpatient benchmark",
+      "uiLanguage": "en",
+      "caption": "Orbit around actual CT/ROI/dose geometry; bounded derived 3D preview. 5 explicitly selected target/OAR structures for legibility; source contains 55 structures.",
+      "width": 1600,
+      "height": 900,
+      "frames": 90,
+      "effectiveFps": 15,
+      "durationSeconds": 6,
+      "method": "90 actual settled ViewerControl states; presentation timeline, not a live performance benchmark"
+    },
+    {
+      "source": "User-approved MLC geometry only",
+      "frames": 90,
+      "file": "dual-mlc/frame-%03d.png",
+      "durationSeconds": 6,
+      "uiLanguage": "en",
+      "method": "Actual MlcPlaybackControl with whitelist metadata and nominal PatientPosition; no patient images or identifiers",
+      "provenance": "approved-sanitized-mlc"
+    },
+    {
+      "uiLanguage": "en",
+      "file": "dual-layer-mlc.png",
+      "provenance": "approved-sanitized-mlc"
+    },
+    {
+      "uiLanguage": "en",
+      "file": "rt-only.png",
+      "provenance": "approved-sanitized-mlc"
+    }
+  ],
+  "availability": [
+    {
+      "source": "user-supplied public nonpatient benchmark",
+      "files": 194,
+      "ct": 191,
+      "mr": 0,
+      "reg": 0,
+      "plans": 1,
+      "doses": 1,
+      "structures": 1
+    },
+    {
+      "source": "user-supplied public nonpatient benchmark",
+      "files": 194,
+      "ct": 191,
+      "mr": 0,
+      "reg": 0,
+      "plans": 1,
+      "doses": 1,
+      "structures": 1
+    },
+    {
+      "source": "user-supplied public nonpatient benchmark",
+      "files": 194,
+      "ct": 191,
+      "mr": 0,
+      "reg": 0,
+      "plans": 1,
+      "doses": 1,
+      "structures": 1
+    },
+    {
+      "source": "user-supplied public nonpatient benchmark",
+      "files": 194,
+      "ct": 191,
+      "mr": 0,
+      "reg": 0,
+      "plans": 1,
+      "doses": 1,
+      "structures": 1
+    }
+  ],
+  "omissions": []
+}

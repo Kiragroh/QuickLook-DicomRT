@@ -1,4 +1,4 @@
-# Offline demonstration capture — 0.2.1
+# Offline demonstration capture — 0.2.2
 
 Build the English Viewer and DemoCapture, then run:
 
@@ -17,4 +17,4 @@ The MLC-only output contains `dual-layer-mlc.png`, `frames/frame-000.png` throug
 
 The effective input playback is 15 fps for six seconds. It represents scrubbed UI states, not rendering latency or actual treatment delivery timing. `scripts/video/build-clips.mjs` composes six final clips at 30 fps/180 frames with no title-only introduction. The main tour has 14 slides, five feature videos and a video hero; see [video build instructions](../scripts/video/README.md).
 
-Current raw outputs belong under ignored `artifacts/presentation/v021/media` and the separate `artifacts/presentation/v021/private-mlc` capture directory. Keep raw frames and DICOM files out of source control. Only explicitly approved public nonpatient assets and the approved sanitized MLC-only result may be curated into `docs/demo`.
+Current raw outputs belong under ignored `artifacts/presentation/v022/media` and the separate `artifacts/presentation/v022/private-mlc` capture directory. Keep raw frames and DICOM files out of source control. Only explicitly approved public nonpatient assets and the approved sanitized MLC-only result may be curated into `docs/demo`.

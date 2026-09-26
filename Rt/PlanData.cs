@@ -21,6 +21,8 @@ namespace QuickLook.DicomRT
     public sealed class PlanBeam
     {
         public int Number; public string Name; public Vec3 Isocenter; public double Gantry,Collimator,Couch,Meterset;
+        // Empty when the referenced setup is absent or ambiguous; never assume HFS.
+        public string PatientPosition="";
         public List<ControlPoint> ControlPoints=new List<ControlPoint>();
         public double FinalCumulativeMetersetWeight;
         public override string ToString()=>Name;
@@ -40,7 +42,7 @@ namespace QuickLook.DicomRT
             {
                 if(RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES")throw new NotSupportedException("Enhanced beam limiting device geometry is not supported.");
                 int number=RtDicom.Int(item,DicomTag.BeamNumber,-1);
-                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight)};
+                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item)};
                 List<double> mu; if(metersets.TryGetValue(number,out mu) && mu.Count>0 && mu.All(v=>RtDicom.Finite(v) && Math.Abs(v-mu[0])<1e-6))beam.Meterset=mu[0];
                 var leafDefinitions=new List<MlcLayer>();
                 foreach(var device in RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))
@@ -100,6 +102,13 @@ namespace QuickLook.DicomRT
                 result.Beams.Add(beam);
             }
             return result;
+        }
+        static string PatientSetupPosition(DicomDataset plan,DicomDataset beam)
+        {
+            int reference=RtDicom.Int(beam,DicomTag.ReferencedPatientSetupNumber,-1);
+            if(reference<0)return "";
+            var matches=RtDicom.Items(plan,DicomTag.PatientSetupSequence).Where(s=>RtDicom.Int(s,DicomTag.PatientSetupNumber,-2)==reference).ToArray();
+            return matches.Length==1?RtDicom.Text(matches[0],DicomTag.PatientPosition).Trim().ToUpperInvariant():"";
         }
         // Numeric suffixes are an explicit vendor extension (e.g. MLCX1/MLCX2), not standard enumerated values.
         static bool IsMlc(string type) => type=="MLCX" || type=="MLCY" ||
