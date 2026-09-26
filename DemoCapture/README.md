@@ -1,3 +1,25 @@
+# Approved public feature tour (0.2.6)
+
+The 12-slide English presentation and 106-second film use only the approved nonpatient multi-metastasis benchmark. No private images or generated medical images are included. Conceptual Space-key artwork was generated with built-in GPT Image; prompts and provenance accompany the presentation.
+
+```powershell
+DicomRT.DemoCapture.exe --approved-public-tour <approved-public-nonpatient-source> <capture-output>
+# Optional isolated refreshes after viewer changes:
+DicomRT.DemoCapture.exe --approved-public-tour-refresh <approved-public-nonpatient-source> <capture-output>
+DicomRT.DemoCapture.exe --approved-public-tour-mlc <approved-public-nonpatient-source> <capture-output>
+DicomRT.DemoCapture.exe --approved-public-tour-orbit <approved-public-nonpatient-source> <capture-output>
+node scripts/video/build-feature-film.mjs
+python scripts/BuildFeatureTour.py --require-assets
+node scripts/video/verify-feature-tour.mjs
+```
+
+Default film inputs are `artifacts/presentation/v025-tour/capture` and `assets`; output is the sibling `output` directory. Source UI captures contain 120 frames per principal sequence, 150 for MLC and 90 for tags at nominal 15 fps. The final HyperFrames/GSAP composition runs at 30 fps and starts with actual viewer footage. It is an edited feature demonstration, not measured responsiveness. The case contains CT/RS/RD/RP but no MR/REG, dual-layer MLC or multiple-plan example. Those capabilities are described separately.
+
+The 3D capture intentionally selects all 24 PTVs plus Brainstem. The source labels Brainstem as AVOIDANCE, so Other is explicitly enabled; the viewer default remains PTV only. RT-only capture uses an unchanged approved RTPLAN temporarily isolated from its images. GPU scenes are composited through their actual readback. Global isodose preferences and clipboard content are not changed.
+
+The authoring approach follows [HyperFrames student kit](https://github.com/nateherkai/hyperframes-student-kit): deterministic local media, a registered finite GSAP timeline, clip metadata, lint before render and rendered-frame review. Assets run offline.
+
+---
 # Offline demonstration capture — 0.2.2
 
 Build the English Viewer and DemoCapture, then run:

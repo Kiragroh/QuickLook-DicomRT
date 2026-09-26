@@ -1,9 +1,18 @@
-DICOM RT — Media provenance — 0.2.2
+QuickLook DICOM RT 0.2.6 feature tour
 
-The main source is the user-authorized public nonpatient benchmark: 191 CT images, one RTSTRUCT with 55 structures, one RTPLAN and one RTDOSE. DICOM files are read-only and are not distributed. It contains no MR, REG or second plan; fusion and summation are described without synthetic examples.
+Clinical-looking imagery: actual ViewerControl captures from the explicitly approved public, nonpatient multi-metastasis benchmark. 191 CT files, one RTSTRUCT, one RTPLAN and one RTDOSE. The captured selection contains 24 PTVs and Brainstem (source type AVOIDANCE). No private case imagery or synthetic anatomy appears.
 
-Screenshots and frames are actual WPF viewer/control renders at 1600 × 900. Identifying tag values were redacted in memory. The separately approved dual-layer MLC demonstration uses a whitelist display model with generic labels, actual technical angles and leaf geometry; no patient image, identifiers, original isocenter coordinates or source paths are included. Its standalone plan control also illustrates RTPLAN without CT.
+Conceptual artwork: built-in GPT Image generated the Space key and direct-file graphics. Exact prompts and provenance: art/imagegen-prompts.md.
 
-Seven six-second MP4 videos were composed locally with HyperFrames 0.8.78 using actual settled viewer states. They are feature demonstrations, not measurements of live frame rate or actual treatment delivery time. No DICOM data was sent to a media service. No synthetic DICOM image data or generated application screenshots are included. The shared human is an explicitly schematic orientation model within the actual viewer.
+Film: deterministic local HyperFrames 0.8.78 + GSAP composition at 1600 x 900, 30 fps, 106 seconds. Actual settled UI capture sequences are nominally 15 fps. The film is edited to explain features; it is not a real-time interaction benchmark, treatment delivery timing or clinical validation.
 
-DVH, reformatted outlines, skin/bone thresholds and bounded/smoothed 3D surfaces are inspection approximations. The mini linac is a schematic orientation aid, not a collision model or patient registration.
+Authoring reference: https://github.com/nateherkai/hyperframes-student-kit
+
+Capabilities outside this dataset: MR/spatial registration, dual-layer MLC and multiple-plan dose summation. These are described, not depicted as if present in the benchmark.
+
+Capture notes: CAPTURE-MANIFEST.json. Viewer source and tests: https://github.com/Kiragroh/QuickLook-DicomRT
+
+Background attribution:
+Apple Quick Look: https://support.apple.com/guide/mac-help/preview-a-file-mh14119/mac
+QuickLook for Windows: https://github.com/QL-Win/QuickLook
+Existing DICOM image support: https://github.com/QL-Win/QuickLook/releases

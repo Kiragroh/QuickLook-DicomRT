@@ -19,7 +19,7 @@ namespace QuickLook.DicomRT
         private readonly LinacOrientationControl orientation = new LinacOrientationControl {Width=260,Height=230,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(8,8,12,12)};
         private readonly ComboBox layerView=Theme.Combo();
         private readonly Canvas markers = new Canvas { Height = 12, Margin = new Thickness(13,0,13,0) };
-        private PlanBeam beam; private PlanData plan; private int[] counts = new int[0]; private bool selecting;
+        private PlanBeam beam; private PlanData plan; private PlanBeam[] playbackBeams=new PlanBeam[0]; private int[] counts = new int[0]; private bool selecting;
         private string bodyRegion;private bool planNoncoplanar;
         public void SetBodyRegion(string value){if(bodyRegion==value)return;bodyRegion=value;UpdateFrame();}
         public event Action<Vec3> IsocenterSelected;
@@ -31,7 +31,7 @@ namespace QuickLook.DicomRT
             var controls=new WrapPanel();controls.Children.Add(play);var restart=Theme.Button("↺");restart.ToolTip="Go to plan start";restart.Click+=(s,e)=>cursor.Value=0;controls.Children.Add(restart);
             controls.Children.Add(Theme.Text("CP/s",11,Theme.Muted));speed.ItemsSource=new[]{1,2,5,10,20};speed.SelectedItem=5;controls.Children.Add(speed);bottom.Children.Add(controls);
             bottom.Children.Add(Theme.Text("PLAN TIMELINE · markers indicate beam ends",10,Theme.Muted));bottom.Children.Add(cursor);bottom.Children.Add(markers);
-            bottom.Children.Add(Theme.Text("Interpolated control points · not actual delivery time",10,Theme.Muted));
+            bottom.Children.Add(Theme.Text("MLC fields first · imaging last · interpolated CPs, not delivery time",10,Theme.Muted));
             var jump=Theme.Button("Go to isocenter");jump.Click+=(s,e)=>{if(beam?.ControlPoints.Count>0){int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);IsocenterSelected?.Invoke(beam.ControlPoints[(int)local].Isocenter);}};bottom.Children.Add(jump);
             SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);apertureArea.Children.Add(orientation);Children.Add(apertureArea);
             beams.SelectionChanged+=(s,e)=>{if(selecting)return;Pause();int index=beams.SelectedIndex;if(index>=0)cursor.Value=counts.Take(index).Sum();UpdateFrame();};
@@ -40,7 +40,7 @@ namespace QuickLook.DicomRT
             timer.Tick+=(s,e)=>{cursor.Value=Math.Min(cursor.Maximum,cursor.Value+(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds);if(cursor.Value>=cursor.Maximum)Pause();};
             Unloaded+=(s,e)=>Pause();
         }
-        public void SetPlan(PlanData value){Pause();plan=value;planNoncoplanar=plan.Beams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=plan.Beams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=plan.Beams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
+        public void SetPlan(PlanData value){Pause();plan=value;playbackBeams=MlcTimeline.PlaybackOrder(plan);planNoncoplanar=playbackBeams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=playbackBeams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=playbackBeams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
         private void DrawMarkers(){markers.Children.Clear();int offset=0;foreach(int count in counts){offset+=count;if(count==0)continue;var dot=new System.Windows.Shapes.Ellipse{Width=5,Height=5,Fill=Theme.Accent,ToolTip="Beam end · CP "+offset};Canvas.SetLeft(dot,Math.Max(0,markers.ActualWidth)*(offset-1)/Math.Max(1,cursor.Maximum)-2.5);Canvas.SetTop(dot,3);markers.Children.Add(dot);}}
         private void Pause(){timer.Stop();play.Content="▶ Play";}
         public void Dispose(){Pause();}
@@ -48,7 +48,7 @@ namespace QuickLook.DicomRT
         {
             int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);
             if(plan==null||bi<0){beam=null;orientation.Set(double.NaN,double.NaN);orientation.SetCollimator(double.NaN);aperture.Set(null,null,0);details.Text="No control points";return;}
-            beam=plan.Beams[bi];selecting=true;beams.SelectedIndex=bi;selecting=false;
+            beam=playbackBeams[bi];selecting=true;beams.SelectedIndex=bi;selecting=false;
             int i=(int)local,j=Math.Min(i+1,beam.ControlPoints.Count-1);double t=local-i;var a=beam.ControlPoints[i];var b=beam.ControlPoints[j];aperture.Set(a,b,t);
             var layerLabels=new[]{"All layers"}.Concat(a.MlcLayers.Select((l,k)=>"Layer "+(k+1)+" · "+l.Type)).ToArray();
             if(!layerView.Items.Cast<string>().SequenceEqual(layerLabels)){layerView.ItemsSource=layerLabels;layerView.SelectedIndex=0;}
@@ -56,7 +56,7 @@ namespace QuickLook.DicomRT
             orientation.SetCollimator(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false));
             orientation.Set(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false));
             double weight=a.MetersetWeight+(b.MetersetWeight-a.MetersetWeight)*t;
-            details.Text=$"Beam {bi+1}/{plan.Beams.Count} · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";
+            details.Text=$"Beam {beam.Number} · {bi+1}/{playbackBeams.Length} in preview · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";
         }
         private static string AngleText(double angle)=>double.IsNaN(angle)?"n/a":angle.ToString("0.0")+"°";
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using QuickLook.DicomRT;
 class Program
 {
@@ -6,6 +7,15 @@ class Program
     static int Main()
     {
         try {
+            var setup=new PlanBeam{Number=71,TreatmentDeliveryType="SETUP"};setup.ControlPoints.Add(new ControlPoint());
+            var jaw=new PlanBeam{Number=12,TreatmentDeliveryType="TREATMENT"};jaw.ControlPoints.Add(new ControlPoint());
+            var mlc=new PlanBeam{Number=8,TreatmentDeliveryType="TREATMENT"};mlc.ControlPoints.Add(new ControlPoint());mlc.ControlPoints[0].MlcLayers.Add(new MlcLayer());mlc.ControlPoints.Add(new ControlPoint());
+            var portal=new PlanBeam{Number=99,TreatmentDeliveryType="PORTFILM"};portal.ControlPoints.Add(new ControlPoint());portal.ControlPoints[0].MlcLayers.Add(new MlcLayer());
+            var second=new PlanBeam{Number=3};second.ControlPoints.Add(new ControlPoint{MlcPositions=new[]{1d,2d}});
+            var plan=new PlanData();plan.Beams.AddRange(new[]{setup,jaw,mlc,portal,second});var ordered=MlcTimeline.PlaybackOrder(plan);
+            if(!ordered.SequenceEqual(new[]{mlc,second,jaw,setup,portal})||!plan.Beams.SequenceEqual(new[]{setup,jaw,mlc,portal,second}))throw new Exception("Stable MLC-first preview or unchanged source identity failed");
+            int sortedBeam;double sortedLocal;MlcTimeline.Locate(ordered.Select(x=>x.ControlPoints.Count).ToArray(),2,out sortedBeam,out sortedLocal);if(ordered[sortedBeam]!=second||sortedLocal!=0)throw new Exception("Sorted timeline field boundary failed");
+            if(MlcTimeline.PlaybackOrder(null).Length!=0)throw new Exception("Null plan order failed");
             var cp0=new ControlPoint();var cp1=new ControlPoint();
             cp0.MlcLayers.Add(new MlcLayer{Key="A",Type="MLCX1",Boundaries=new[]{-1d,1d},Positions=new[]{-4d,8d}});
             cp0.MlcLayers.Add(new MlcLayer{Key="B",Type="MLCX2",Boundaries=new[]{-2d,2d},Positions=new[]{-2d,4d}});

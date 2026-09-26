@@ -7,7 +7,7 @@ The standalone .NET Framework 4.6.2 WPF executable embeds a verified `.qlplugin`
 ./scripts/BuildInstaller.ps1
 ```
 
-`BuildInstaller.ps1 -PackagePath <file.qlplugin>` selects a specific package. The default is the most recently written top-level `.qlplugin` in `artifacts`. Output: `artifacts/release/QuickLook-DicomRT-Setup-0.2.5.exe` and its checksum.
+`BuildInstaller.ps1 -PackagePath <file.qlplugin>` selects a specific package. The default is the most recently written top-level `.qlplugin` in `artifacts`. Output: `artifacts/release/QuickLook-DicomRT-Setup-0.2.6.exe` and its checksum.
 
 The installer supports the standard desktop QuickLook installation. It discovers the executable in the current session or standard program folders. Portable (`portable.lock`) and Microsoft Store hosts are rejected before writes because they use different plugin locations; install the `.qlplugin` through those hosts instead. The **Get QuickLook** button opens the official release page and does not download or install QuickLook automatically.
 

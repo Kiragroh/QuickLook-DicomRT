@@ -4,6 +4,10 @@ namespace QuickLook.DicomRT
 {
     public static class MlcTimeline
     {
+        // Display order only: keep source beam identity and relative order within each group.
+        public static PlanBeam[] PlaybackOrder(PlanData plan) => (plan?.Beams??new System.Collections.Generic.List<PlanBeam>()).OrderBy(b=>
+            b.TreatmentDeliveryType=="SETUP"||b.TreatmentDeliveryType=="PORTFILM"?2:
+            b.ControlPoints.Any(c=>c.MlcLayers.Count>0||(c.MlcPositions?.Length??0)>0)?0:1).ToArray();
         public static MlcLayer[] Layers(ControlPoint a, ControlPoint b, double fraction)
         {
             var left=a.MlcLayers;var right=b.MlcLayers;

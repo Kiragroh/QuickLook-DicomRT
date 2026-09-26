@@ -1,9 +1,27 @@
-DICOM RT — Feature Tour · Version 0.2.2
+QuickLook DICOM RT 0.2.6 — English feature tour
 
-Open index.html in a modern browser. Keep screens and media together. The presentation works offline, without external fonts or network requests.
+Open index.html in a modern browser. Keep the screens, media and art folders
+beside it. The presentation works offline without external fonts or scripts.
+The opening and closing chapters link to the Windows installer and source on
+GitHub. These links and the workflow credits need an internet connection.
 
-Arrow keys: slides. F: fullscreen. Click images or use Enlarge for images and videos. The opening slide displays five actual viewer clips immediately; select a smaller preview to bring it forward. The requested opening videos autoplay immediately, including with reduced-motion enabled. Pause previews stops video playback. Reduced-motion disables automatic tile cycling and CSS transitions. Seven MP4 clips can also be played separately.
+Navigate with Previous / Next, the arrow keys, Page Up / Page Down, or Chapters.
+Home / End: first / last chapter. C: chapter menu. F: fullscreen. P: pause/play.
+Each image or video can be enlarged. Videos include native playback controls.
+Watch film · 106 sec opens the complete tour with playback, fullscreen and download.
+Escape closes enlarged media. Focus returns to the control that opened it.
 
-All pictures and footage show the actual WPF viewer. The main case is the authorized nonpatient public benchmark. The dual-layer MLC clip is an approved sanitized MLC-only capture with no patient image or identifiers. There are no synthetic presentation images. Fusion and multi-plan summation are described as capabilities; the benchmark does not depict them.
+The requested video-first opening autoplays muted. Pause stops preview playback.
+Reduced motion disables decorative transitions, not the demonstration video.
+Hidden pages and background videos pause. No automatic chapter changes occur.
 
-HyperFrames compositions show rendered states, not screen-recorded responsiveness or treatment delivery time. DVH, contour reformatting and 3D meshes are approximate previews, not clinical validation.
+Actual viewer screenshots and edited capture footage show the supplied public
+nonpatient dataset: CT 191 images, RS 55 structures, RP 19 beams, one RTDOSE.
+MR, REG/fusion, dual-layer MLC and multi-plan sum are compatibility descriptions
+only; they are not demonstrated by this dataset. RTPLAN-only behavior is shown in the film.
+The two graphite Space-key/file-sheet illustrations are conceptual GPT Image
+artwork, with no synthesized anatomy, clinical imagery, scans or viewer UI.
+
+Edited captures are not latency benchmarks or clinical validation. DVH,
+reformatted contour boundaries, CT-threshold skin and 3D meshes are approximate
+previews. Source DICOM files remain read only. The tool does not replace a TPS.

@@ -1,3 +1,8 @@
+# Version 0.2.6 — MLC-first playback, visible 3D ISO and feature tour
+
+Release builds passed without warnings or errors. RT passed 131 assertions, Playback passed stable MLC-first ordering and timeline/source-preservation checks, and ThreeD passed 44 base checks plus all sub-suites. New checks cover projected ISO position during orbit, clipping and visible cyan pixels. SUPPORT/EXTERNAL are excluded from Other and focus; their controls are absent in both layouts. Installer validation passed 32 archive/path/checksum checks and the embedded 32-file payload check.
+
+The presentation uses fresh actual ViewerControl captures from the approved public nonpatient multi-metastasis case. GPT Image artwork is conceptual only. The 106-second HyperFrames film is edited and is not a performance benchmark, delivery simulator or clinical validation. Full capture and browser/render evidence is documented with the presentation.
 # Version 0.2.5 — background preparation and shared 3D workspace
 
 Targeted Release builds passed without warnings or errors. The WPF interaction suite passed 161 checks, including the Default button, explicit Gy/% mode, local-only Gy edits, ignored legacy Gy files, independent dose contexts and globally persisted/broadcast percentage presets. Tests use isolated temporary settings and do not change the user's preferences.

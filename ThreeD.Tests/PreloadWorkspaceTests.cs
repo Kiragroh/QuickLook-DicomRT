@@ -37,11 +37,15 @@ internal static class PreloadWorkspaceTests
    {
     window.Show();Call(viewer,"SetWorkspace","3D");Ready(control);
     Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"first 3D activation reuses preloaded mesh");
-    foreach(var pair in new[]{Tuple.Create("organs",1),Tuple.Create("support",2),Tuple.Create("external",3),Tuple.Create("allRois",4)})
+    foreach(var pair in new[]{Tuple.Create("organs",1),Tuple.Create("allRois",4)})
     {
      Get<CheckBox>(control,pair.Item1).IsChecked=true;Ready(control);Check(VisibleRois(control).Contains(rois[pair.Item2]),pair.Item1+" independently renders its own DICOM type");
      Get<CheckBox>(control,pair.Item1).IsChecked=false;Ready(control);Check(!VisibleRois(control).Contains(rois[pair.Item2]),pair.Item1+" independently hides its DICOM type");
     }
+    foreach(string field in new[]{"support","external"})Check(!Get<CheckBox>(control,field).IsVisible&&!Get<CheckBox>(control,field).IsEnabled,field+" removed from visible UI");
+    Get<CheckBox>(control,"allRois").IsChecked=true;Ready(control);Check(!VisibleRois(control).Contains(rois[2])&&!VisibleRois(control).Contains(rois[3]),"Other does not admit SUPPORT or EXTERNAL");
+    control.FocusStructure(rois[2]);Check(Get<StructureRoi>(control,"focusedRoi")==null,"SUPPORT cannot bypass filter through selection");
+    Get<CheckBox>(control,"allRois").IsChecked=false;Ready(control);
     Get<CheckBox>(control,"organs").IsChecked=true;Get<Slider>(control,"opacity").Value=.43;Get<Slider>(control,"skinOpacity").Value=.12;
     Get<ComboBox>(control,"doseLevel").SelectedIndex=2;Set(control,"cameraAdjusted",true);Set(control,"yaw",.73);Set(control,"distance",234d);Call(control,"UpdateCamera");Ready(control);
     prepared=Get<object>(control,"prepared");generation=Get<int>(control,"generation");
@@ -50,7 +54,8 @@ internal static class PreloadWorkspaceTests
     Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"layout change retains exact prepared geometry without rebuild");
     Check(Get<CheckBox>(control,"organs").IsChecked==true&&Math.Abs(Get<Slider>(control,"opacity").Value-.43)<1e-8&&Get<ComboBox>(control,"doseLevel").SelectedIndex==2,"MPR retains filter, opacity and dose level");
     Check(Get<double>(control,"yaw")==.73&&Get<double>(control,"distance")==234,"layout change retains manual camera");
-    foreach(string field in new[]{"structures","organs","support","external","allRois","bone","skin","dose"})Check(Get<CheckBox>(control,field).IsVisible,"same "+field+" control available in MPR");
+    foreach(string field in new[]{"structures","organs","allRois","bone","skin","dose"})Check(Get<CheckBox>(control,field).IsVisible,"same "+field+" control available in MPR");
+    foreach(string field in new[]{"support","external"})Check(!Get<CheckBox>(control,field).IsVisible,field+" remains absent in MPR");
     Call(viewer,"SetWorkspace","3D");Ready(control);Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"return to full view retains meshes");
     Call(viewer,"SetWorkspace","Bild");Get<ComboBox>(viewer,"planes").SelectedItem="Native";Call(viewer,"SetWorkspace","3D");Ready(control);Check(ReferenceEquals(prepared,Get<object>(control,"prepared")),"leaving MPR for native image and returning retains meshes");
    }

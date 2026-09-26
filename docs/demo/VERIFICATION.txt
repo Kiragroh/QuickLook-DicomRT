@@ -1,0 +1,5 @@
+Verified final feature tour: 12 English HTML slides, 33 required referenced assets, 106.000 seconds of H.264 video at 1600x900 / 30 fps / 3180 frames, plus seven actual-capture chapter clips and a 12-second opening loop. HyperFrames lint: zero errors/warnings across 21 composition files. The GitHub end card was rendered as its own four-second HyperFrames composition and joined at frame3060; the source generator produces the corrected end card directly.
+
+Browser validation: 1600x1000, 1280x720, 430x932; no horizontal overflow, missing images, script errors or failed media requests. Chapter navigation, 106-second film modal, Escape, explicit Pause and direct file:// offline playback passed. The muted opening autoplays, including when decorative motion is reduced. Actual opening, chapter frames and GitHub ending visually inspected.
+
+Mechanical HTML detector reported one initially empty hidden popup-image src; the image now has a valid default. No other findings. Medical captures and tag labels were source-audited. GPT Image provided conceptual key/file art only. No startup-latency claim is inferred from edited video pacing.

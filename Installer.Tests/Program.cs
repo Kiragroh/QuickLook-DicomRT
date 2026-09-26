@@ -11,7 +11,7 @@ class Program
 {
     static int checks;
     static void Check(bool value,string message){if(!value)throw new Exception(message);checks++;}
-    static byte[] Archive(string extra=null,bool wrongHash=false,bool omit=false,bool duplicate=false,string version="0.2.5")
+    static byte[] Archive(string extra=null,bool wrongHash=false,bool omit=false,bool duplicate=false,string version=Payload.Version)
     {
         var names=Payload.RequiredNames.Where(n=>!omit||n!="QuickLook.Plugin.DicomRT.dll").ToArray();
         var files=names.ToDictionary(n=>n,n=>Encoding.UTF8.GetBytes("synthetic installer test: "+n));

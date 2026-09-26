@@ -15,7 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using QuickLook.DicomRT;
 
-internal static class Program
+internal static partial class Program
 {
  const int Width=1600,Height=900,Frames=90;
  const BindingFlags Fields=BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public;
@@ -173,6 +173,10 @@ internal static class Program
  }
  [STAThread] static int Main(string[] args)
  {
+  if(args.Length==3 && args[0]=="--approved-public-tour-mlc")return RunPublicTour(args[1],args[2],false,false,true);
+  if(args.Length==3 && args[0]=="--approved-public-tour-orbit")return RunPublicTour(args[1],args[2],true,true);
+  if(args.Length==3 && args[0]=="--approved-public-tour-refresh")return RunPublicTour(args[1],args[2],true);
+  if(args.Length==3 && args[0]=="--approved-public-tour")return RunPublicTour(args[1],args[2]);
   if(args.Length==3 && args[0]=="--mlc-only")return MlcOnlyCapture.Run(args[1],args[2]);
   if(args.Length!=3||(args[0]!="--approved-public-ui-review"&&args[0]!="--approved-public-demo"&&args[0]!="--approved-public-metrics"&&args[0]!="--approved-public-orbit"&&args[0]!="--approved-public-metrics-ct"&&args[0]!="--approved-public-mlc"&&args[0]!="--approved-public-mpr")){Console.WriteLine("Usage: --approved-public-demo <public-source> <output>");return 2;}
   output=Path.GetFullPath(args[2]);Directory.CreateDirectory(output);app=new Application();window=new Window{Width=Width,Height=Height,Left=-30000,Top=-30000,ShowInTaskbar=false,ShowActivated=false,WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,Title="DICOM RT demonstration renderer"};int result=0;

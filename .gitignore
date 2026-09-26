@@ -14,3 +14,4 @@ artifacts/
 
 !docs/demo/screens/*.png
 !docs/demo/media/*.png
+!docs/demo/art/*.png
