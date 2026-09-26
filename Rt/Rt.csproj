@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>QuickLook.DicomRT.Rt</AssemblyName></PropertyGroup><ItemGroup><ProjectReference Include="..\Core\Core.csproj" /></ItemGroup></Project>

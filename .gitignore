@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+*.dcm
+*.DCM
+*.png
+*.zip
+*.qlplugin
+!assets/*.png
+
+!docs/demo/screens/*.png
+!docs/demo/media/*.png

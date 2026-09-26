@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF><AssemblyName>DicomRT.DemoCapture</AssemblyName></PropertyGroup><ItemGroup><ProjectReference Include="..\Viewer\Viewer.csproj"/><Reference Include="System.Web.Extensions"/></ItemGroup></Project>

@@ -1,0 +1,14 @@
+DICOM RT — Media provenance
+
+Main case: user-authorised nonpatient benchmark M01, Elements HDSS. 191 CT files, one RTSTRUCT with 55 structures, one RTPLAN and one RTDOSE. Input DICOM files were read only and are not distributed.
+
+Screenshots: actual WPF ViewerControl renders at 1600 × 900. The fusion-picker detail is an actual 480 × 122 Popup.Child render. No generated UI mockups. Identifying tag values were redacted in memory for display only; source DICOMs are unchanged.
+
+Fusion and plan sum: separate, clearly labelled synthetic CT/MR/RT/REG fixtures. The main benchmark contains no MR, REG or second plan.
+
+Videos: actual rendered viewer states composed locally into four short MP4 clips using HyperFrames 0.8.78. These demonstrate features; they do not measure live responsiveness or treatment delivery time. No patient images were sent to a media service.
+
+HyperFrames documentation: https://hyperframes.app/docs/5-packages/cli
+HyperFrames source: https://github.com/heygen-com/hyperframes
+
+Version 0.2.0. DVH, 3D and dose sums are inspection previews with the approximations and coverage limits reported in the viewer.

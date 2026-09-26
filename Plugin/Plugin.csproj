@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>QuickLook.Plugin.DicomRT</AssemblyName>
+    <QuickLookDir Condition="'$(QuickLookDir)' == ''">$(LocalAppData)\Programs\QuickLook</QuickLookDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Viewer\Viewer.csproj" />
+    <Reference Include="QuickLook.Common">
+      <HintPath>$(QuickLookDir)\QuickLook.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <None Include="QuickLook.Plugin.Metadata.config" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="ValidateQuickLookReference" BeforeTargets="ResolveReferences" Condition="!Exists('$(QuickLookDir)\QuickLook.Common.dll')">
+    <Error Text="QuickLook.Common.dll was not found. Install QuickLook or set the QuickLookDir MSBuild property to its installation directory." />
+  </Target>
+</Project>

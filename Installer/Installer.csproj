@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><UseWPF>true</UseWPF>
+    <AssemblyName>QuickLook-DicomRT-Setup</AssemblyName><Version>0.2.0</Version>
+    <ApplicationIcon>..\assets\dicom-rt.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/><Reference Include="System.Web.Extensions"/>
+    <Resource Include="..\assets\dicom-rt.png" Link="Assets\icon.png"/>
+    <EmbeddedResource Include="$(PayloadPath)" LogicalName="Payload.zip" Condition="Exists('$(PayloadPath)')"/>
+    <EmbeddedResource Include="$(PayloadHashPath)" LogicalName="Payload.sha256" Condition="Exists('$(PayloadHashPath)')"/>
+  </ItemGroup>
+  <Target Name="RequirePayload" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(PayloadPath)') Or !Exists('$(PayloadHashPath)')" Text="Use scripts/BuildInstaller.ps1 to supply the verified plugin payload."/>
+  </Target>
+</Project>

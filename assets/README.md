@@ -1,0 +1,5 @@
+# DICOM RT icon
+
+Generated with the built-in GPT Image tool on 2026-09-26 for this project. The PNG is the original selected image; ICO is a standard multi-resolution format conversion (256/128/64/48/32/24/16 px), with transparency retained.
+
+Prompt: Create one polished Windows desktop application icon for a fast DICOM radiotherapy preview app named DICOM RT. No lettering or words. Square icon with transparent outer background, generous but small outer clear margin. A single premium dark graphite rounded-square tile, containing a very simple memorable teal/cyan geometric symbol: three subtly offset medical imaging slice planes, with a precise circular radiotherapy target integrated into the central plane. Crisp strong silhouette, 2-3 broad shapes max so clearly recognizable at 24px and 32px, sophisticated restrained emerald-teal highlights on charcoal, modest dimensional material depth, no photoreal anatomy, no medical cross, no small decorative line clutter, no busy glow, no mockup, no border outside tile. Centered, full tile occupies 90% canvas. High-quality native desktop icon asset, 1024x1024.

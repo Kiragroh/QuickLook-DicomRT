@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Installer\Payload.cs" Link="Payload.cs"/><Compile Include="..\Installer\InstallEngine.cs" Link="InstallEngine.cs"/>
+    <Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/><Reference Include="System.Web.Extensions"/>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><UseWPF>true</UseWPF><OutputType>Exe</OutputType><AssemblyName>DicomRT.Harness</AssemblyName><ApplicationIcon>..\assets\dicom-rt.ico</ApplicationIcon></PropertyGroup><ItemGroup><ProjectReference Include="..\Viewer\Viewer.csproj"/></ItemGroup></Project>

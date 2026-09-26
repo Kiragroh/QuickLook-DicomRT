@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace QuickLook.DicomRT
+{
+ public sealed class SlicePane : FrameworkElement, IDisposable
+ {
+  sealed class OverlayLines {public Pen Pen;public List<WorldLine> Lines;}
+  sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public List<OverlayLines> Lines=new List<OverlayLines>();}
+  RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
+  public RenderScene Scene {get=>scene;set{scene=value;Refresh();}}
+  public event Action<SlicePane,int> Scrolled; public event Action<SlicePane,Vec3> Picked;public event Action<double,double> WindowChanged;
+  public SlicePane(){Focusable=true;ClipToBounds=true;SizeChanged+=(s,e)=>Refresh();MouseWheel+=OnWheel;MouseLeftButtonDown+=OnPick;MouseRightButtonDown+=OnDragStart;MouseMove+=OnDrag;MouseRightButtonUp+=(s,e)=>{ReleaseMouseCapture();e.Handled=true;};}
+  public async void Refresh()
+  {
+   if(disposed)return;
+   int mine=++generation;pending?.Cancel();var cancel=new CancellationTokenSource();pending=cancel;
+   if(scene==null||(scene.Native==null&&scene.Volume==null)){frame=null;status="Select an image";InvalidateVisual();cancel.Dispose();if(pending==cancel)pending=null;return;}
+   var copy=scene.Snapshot();var rect=ImageRect(SliceGeometry.Create(copy));int w=Math.Max(2,(int)Math.Ceiling(rect.Width)),h=Math.Max(2,(int)Math.Ceiling(rect.Height));
+   // Keep pixels, overlays, geometry and crosshair together until the next complete frame is ready.
+   // A genuinely different primary source must never display the previous series while loading.
+   if(frame!=null&&!copy.SameImageSource(frame.Scene))frame=null;
+   status=frame==null?"Rendering…":null;InvalidateVisual();
+   try
+   {
+    var next=await Task.Run(()=>
+    {
+     var pixels=SliceRaster.Render(copy,w,h,cancel.Token);
+     var bitmap=BitmapSource.Create(pixels.Width,pixels.Height,96,96,PixelFormats.Bgra32,null,pixels.Pixels,pixels.Width*4);bitmap.Freeze();
+     var result=new Frame{Bitmap=bitmap,Raster=pixels,Scene=copy};
+     var tolerance=copy.Plane=="Native"&&copy.Volume!=null?Math.Max(.001,copy.Volume.SpacingZ*.49):.01;
+     foreach(var overlay in copy.Structures)
+     {
+      cancel.Token.ThrowIfCancellationRequested();if(overlay?.Roi==null||!overlay.Roi.Visible)continue;
+      var roi=overlay.Roi;var brush=new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue));brush.Freeze();var pen=new Pen(brush,1.3);pen.Freeze();
+      result.Lines.Add(new OverlayLines{Pen=pen,Lines=SliceGeometry.ContourLines(roi,overlay.RoiToImage,pixels.Geometry,tolerance)});
+     }
+     return result;
+    },cancel.Token);
+    if(disposed||mine!=generation)return;frame=next;status=null;InvalidateVisual();
+   }
+   catch(OperationCanceledException){}
+   catch(Exception){if(!disposed&&mine==generation){status=frame==null?"Image display unavailable":"Update failed; showing previous view";InvalidateVisual();}}
+   finally {if(pending==cancel)pending=null;cancel.Dispose();}
+  }
+  Rect ImageRect(SliceGeometry g)
+  {
+   double aw=Math.Max(2,ActualWidth-32),ah=Math.Max(2,ActualHeight-56);double scale=Math.Min(aw/g.WidthMm,ah/g.HeightMm);
+   double w=g.WidthMm*scale,h=g.HeightMm*scale;return new Rect((ActualWidth-w)/2,(ActualHeight-h)/2,w,h);
+  }
+  static Point Project(Vec3 p,SliceGeometry g,Rect rect)=>new Point(rect.Left+g.U(p)*rect.Width,rect.Top+g.V(p)*rect.Height);
+  protected override void OnRender(DrawingContext dc)
+  {
+   base.OnRender(dc);dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(8,12,17)),null,new Rect(0,0,ActualWidth,ActualHeight));
+   if(frame==null){Text(dc,status??"Rendering…",new Point(12,12),Brushes.LightSlateGray);return;}
+   var f=frame;var g=f.Raster.Geometry;var rect=ImageRect(g);
+   dc.DrawImage(f.Bitmap,rect);dc.PushClip(new RectangleGeometry(rect));
+   foreach(var item in f.Lines)foreach(var line in item.Lines)dc.DrawLine(item.Pen,Project(line.A,g,rect),Project(line.B,g,rect));
+   var isoPens=new Dictionary<double,Pen>();foreach(var line in f.Raster.Isolines)
+   {
+    Pen pen;if(!isoPens.TryGetValue(line.DosePercent,out pen))
+    {double red,green,blue;SliceRaster.DoseColor(line.DosePercent,out red,out green,out blue);pen=new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),.9);isoPens.Add(line.DosePercent,pen);}
+    dc.DrawLine(pen,Project(line.A,g,rect),Project(line.B,g,rect));
+   }
+   if(f.Scene.Crosshair&&f.Scene.Entry?.HasGeometry!=false)
+   {
+    var p=Project(f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,216,207)),.8);
+    dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));
+    dc.DrawLine(pen,new Point(p.X,rect.Top),new Point(p.X,p.Y-5));dc.DrawLine(pen,new Point(p.X,p.Y+5),new Point(p.X,rect.Bottom));
+   }
+   dc.Pop();
+   Text(dc,f.Scene.Plane=="Native"?"Original plane":f.Scene.Plane=="Axial"?"Axial":f.Scene.Plane=="Coronal"?"Coronal":"Sagittal",new Point(10,7),Brushes.White);
+   if(f.Scene.Entry?.HasGeometry!=false)
+   {
+    Text(dc,SliceGeometry.Direction(g.Right*-1),new Point(3,ActualHeight/2),Brushes.LightGray);
+    Text(dc,SliceGeometry.Direction(g.Right),new Point(Math.Max(3,ActualWidth-25),ActualHeight/2),Brushes.LightGray);
+    Text(dc,SliceGeometry.Direction(g.Down*-1),new Point(ActualWidth/2,7),Brushes.LightGray);
+    Text(dc,SliceGeometry.Direction(g.Down),new Point(ActualWidth/2,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
+   }
+   Text(dc,string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
+   if(f.Scene.Structures.Count>0&&f.Scene.Plane!="Native")Text(dc,"Contour intersections; no volume reconstruction",new Point(10,26),Brushes.LightSlateGray,10);
+   if(f.Scene.Isodoses&&f.Scene.Doses.Count>0)Text(dc,"Isodoses: "+string.Join(" / ",SliceRaster.IsodoseLevels(f.Scene).Select(x=>x.ToString("0.#",CultureInfo.InvariantCulture)))+" % of each dose maximum",new Point(10,40),Brushes.LightGray,10);
+   if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
+  }
+  void Text(DrawingContext dc,string text,Point p,Brush brush,double size=11)
+  {dc.DrawText(new FormattedText(text??"",CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),size,brush,VisualTreeHelper.GetDpi(this).PixelsPerDip),p);}
+  void OnWheel(object sender,MouseWheelEventArgs e){if(e.Delta==0)return;Scrolled?.Invoke(this,e.Delta>0?1:-1);e.Handled=true;}
+  void OnPick(object sender,MouseButtonEventArgs e)
+  {
+   Focus();if(frame==null)return;var g=frame.Raster.Geometry;var r=ImageRect(g);var p=e.GetPosition(this);if(!r.Contains(p))return;
+   Picked?.Invoke(this,g.WorldAt((p.X-r.X)/r.Width,(p.Y-r.Y)/r.Height));e.Handled=true;
+  }
+  void OnDragStart(object sender,MouseButtonEventArgs e){if(scene==null)return;dragStart=e.GetPosition(this);dragCenter=scene.WindowCenter;dragWidth=scene.WindowWidth;CaptureMouse();e.Handled=true;}
+  void OnDrag(object sender,MouseEventArgs e)
+  {
+   if(!IsMouseCaptured||e.RightButton!=MouseButtonState.Pressed)return;var p=e.GetPosition(this);double speed=Math.Max(1,dragWidth)/300;
+   WindowChanged?.Invoke(dragCenter+(p.Y-dragStart.Y)*speed,Math.Max(1,dragWidth+(p.X-dragStart.X)*speed));e.Handled=true;
+  }
+  public void Dispose(){if(disposed)return;disposed=true;++generation;pending?.Cancel();pending=null;frame=null;scene=null;ReleaseMouseCapture();}
+ }
+}

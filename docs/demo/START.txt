@@ -1,0 +1,7 @@
+DICOM RT — Feature Tour
+
+Open index.html in a modern browser. Keep the screens and media folders together. The presentation works offline, without external fonts or network requests.
+
+Arrow keys: slides. F: fullscreen. Click images to enlarge. Four MP4 clips can also be played separately.
+
+Views were rendered by the actual WPF component. HyperFrames compositions animate actual rendered states; these are demonstrations, not screen-recorded responsiveness measurements. The main case is the user-authorised nonpatient benchmark M01. Registered CT/MR fusion and the two-plan sum use clearly labelled synthetic fixtures.

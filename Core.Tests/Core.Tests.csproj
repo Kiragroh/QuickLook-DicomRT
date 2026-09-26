@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net462</TargetFramework><OutputType>Exe</OutputType><AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Core/Core.csproj" /></ItemGroup>
+</Project>

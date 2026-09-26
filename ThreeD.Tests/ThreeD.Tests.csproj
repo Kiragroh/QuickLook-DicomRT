@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup><ItemGroup><ProjectReference Include="..\Core\Core.csproj"/><ProjectReference Include="..\Rt\Rt.csproj"/><ProjectReference Include="..\Viewer\Viewer.csproj"/></ItemGroup></Project>

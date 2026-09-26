@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net462</TargetFramework><AssemblyName>QuickLook.DicomRT.Core</AssemblyName></PropertyGroup>
+  <ItemGroup><PackageReference Include="fo-dicom.Desktop" Version="4.0.8" /></ItemGroup>
+</Project>
