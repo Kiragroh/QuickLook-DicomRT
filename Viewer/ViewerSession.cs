@@ -26,6 +26,12 @@ namespace QuickLook.DicomRT
                 currentEntry = initialEntry;
                 tagSource.Items.Add(new TagChoice("Current image", null)); tagSource.SelectedIndex = 0;
                 UpdateTags();
+                if(initialEntry.Modality.StartsWith("RT"))
+                {
+                    layersVisible=true;UpdatePanels();
+                    await Task.Run(()=>OnEntryFound(initialEntry),token);
+                    SetWorkspace(initialEntry.Modality=="RTPLAN"?"MLC":"3D");
+                }
                 // The selected image is available before the containing folder is indexed.
                 if (initialEntry.Rows > 0 && initialEntry.Columns > 0 && initialEntry.Modality != "RTDOSE")
                 {
@@ -72,7 +78,7 @@ namespace QuickLook.DicomRT
                     if (wantedSet != null)
                         first = catalog.Stacks.FirstOrDefault(s => s.Entries.Any(e => wantedSet.ReferencedSeries.Contains(e.SeriesUid)));
                     if (first != null) { changing = true; series.SelectedItem = first; changing = false; await SelectStackAsync(first); }
-                    else status.Text = "No unambiguously referenced image series. DICOM tags are available; select an image series above.";
+                    else status.Text = "RT objects ready · no matching image series. MLC, structures and available dose analysis remain usable.";
                 }
                 if (token.IsCancellationRequested) return;
                 // An RT object's attributes stay explicitly selectable after its images appear.
@@ -92,7 +98,8 @@ namespace QuickLook.DicomRT
             seriesLoad?.Cancel(); seriesLoad = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
             var token = seriesLoad.Token; int generation = ++seriesGeneration; ++pixelGeneration;
             var focusMap=RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,stack.FrameUid);
-            Vec3? preservedFocus=currentStack!=null&&focusMap!=null?(Vec3?)focusMap.Transform(focus):null;
+            bool sameImageSeries=currentEntry!=null&&currentEntry.SeriesUid==stack.Entries[0].SeriesUid;
+            Vec3? preservedFocus=HasImage&&focusMap!=null?(Vec3?)focusMap.Transform(focus):null;
             overlayLoad?.Cancel();overlayVolume=null;overlayStack=null;
             currentStack = stack; currentEntry = null; volume = null; native = null; pixelCache.Clear(); pixelOrder.Clear();
             changing = true; planes.SelectedItem = "Native";
@@ -105,7 +112,7 @@ namespace QuickLook.DicomRT
             {
                 await ShowSliceAsync(sliceIndex, preservedFocus.HasValue);
                 if (token.IsCancellationRequested || generation != seriesGeneration) return;
-                SetInitialWindow(); RefreshRt();
+                if(!sameImageSeries)SetInitialWindow(); RefreshRt();
                 if (!stack.CanMpr) { status.Text = "Native image stack · " + stack.GeometryWarning; return; }
                 status.Text = $"{stack.Entries.Count} slices · loading volume in the background …";
                 var loaded = await Task.Run(() => VolumeData.Load(stack, token), token);

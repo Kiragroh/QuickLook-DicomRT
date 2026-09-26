@@ -1,8 +1,22 @@
 using System;
+using System.Linq;
 namespace QuickLook.DicomRT
 {
     public static class MlcTimeline
     {
+        public static MlcLayer[] Layers(ControlPoint a, ControlPoint b, double fraction)
+        {
+            var left=a.MlcLayers;var right=b.MlcLayers;
+            if(left.Count!=right.Count)throw new ArgumentException("MLC layers differ.");
+            return left.Select(layer=>{
+                var other=right.SingleOrDefault(x=>x.Key==layer.Key);
+                if(other==null || other.Type!=layer.Type || !layer.Boundaries.SequenceEqual(other.Boundaries))throw new ArgumentException("MLC geometry differs.");
+                return new MlcLayer {Key=layer.Key,Type=layer.Type,Boundaries=(double[])layer.Boundaries.Clone(),Positions=Positions(layer.Positions,other.Positions,fraction)};
+            }).ToArray();
+        }
+        // IEC FIXED coordinates: +Y points towards gantry, +Z up; normalized schematic source/couch axes.
+        public static double[] SourceDirection(double gantry) {double r=gantry*Math.PI/180;return new[]{Math.Sin(r),0,Math.Cos(r)};}
+        public static double[] CouchDirection(double couch) {double r=couch*Math.PI/180;return new[]{-Math.Sin(r),Math.Cos(r),0};}
         // Each beam owns its CP range; never interpolate across a field boundary.
         public static void Locate(int[] counts,double cursor,out int beam,out double local)
         {

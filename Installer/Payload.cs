@@ -18,7 +18,7 @@ namespace QuickLook.DicomRT.Installer
     }
     public static class Payload
     {
-        public const string Version="0.2.0";
+        public const string Version="0.2.1";
         const long MaxFileBytes=32L*1024*1024, MaxPackageBytes=64L*1024*1024;
         public static readonly string[] RequiredNames={"Dicom.Core.dll","QuickLook.DicomRT.Core.dll","QuickLook.DicomRT.Rt.dll","QuickLook.DicomRT.Viewer.dll","QuickLook.Plugin.DicomRT.dll","QuickLook.Plugin.Metadata.config","README.md","THIRD_PARTY.md","fo-dicom-MS-PL.html"};
         static readonly HashSet<string> Allowed=new HashSet<string>(RequiredNames.Concat(new[]{"Dicom.Native.dll","Dicom.Native64.dll","manifest.json"}),StringComparer.OrdinalIgnoreCase);

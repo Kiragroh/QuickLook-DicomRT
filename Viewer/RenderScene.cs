@@ -15,10 +15,11 @@ namespace QuickLook.DicomRT
   public VolumeData OverlayVolume {get;set;} public Matrix4 ImageToOverlay {get;set;} = Matrix4.Identity;
   public double OverlayOpacity {get;set;} = .5; public double OverlayWindowCenter {get;set;} public double OverlayWindowWidth {get;set;} = 400;
   public List<RoiOverlay> Structures {get;set;} = new List<RoiOverlay>(); public List<DoseOverlay> Doses {get;set;} = new List<DoseOverlay>();
+  public IReadOnlyList<Vec3> Isocenters {get;set;} = new Vec3[0];
   public bool Crosshair {get;set;} = true; public bool Isodoses {get;set;} public double DoseOpacity {get;set;} = .35;
   public bool DoseWash {get;set;} = true; public double DoseMinimumPercent {get;set;} = 5; public double DoseMaximumPercent {get;set;} = 100;
   public double[] IsoLevels {get;set;} = new double[]{20,50,80,95};
-  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();return s; }
+  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();return s; }
   // A pending scroll keeps the complete previous frame, including its own geometry and labels.
   internal bool SameImageSource(RenderScene other)
   {

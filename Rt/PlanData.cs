@@ -4,10 +4,18 @@ using System.Linq;
 using Dicom;
 namespace QuickLook.DicomRT
 {
+    public sealed class MlcLayer
+    {
+        public string Key, Type;
+        public double[] Boundaries = new double[0], Positions = new double[0];
+        public bool IsY => Type != null && Type.StartsWith("MLCY", StringComparison.Ordinal);
+        public MlcLayer Copy() => new MlcLayer {Key=Key,Type=Type,Boundaries=(double[])Boundaries.Clone(),Positions=(double[])Positions.Clone()};
+    }
     public sealed class ControlPoint
     {
         public int Index; public double Gantry,Collimator,Couch,MetersetWeight; public Vec3 Isocenter;
         public double[] MlcPositions,MlcBoundaries,XJaws,YJaws; public string MlcType;
+        public List<MlcLayer> MlcLayers=new List<MlcLayer>();
         public string GantryRotationDirection,CollimatorRotationDirection,CouchRotationDirection;
     }
     public sealed class PlanBeam
@@ -30,19 +38,19 @@ namespace QuickLook.DicomRT
             {int number=RtDicom.Int(beam,DicomTag.ReferencedBeamNumber,-1);double value=RtDicom.Number(beam,DicomTag.BeamMeterset); if(!metersets.ContainsKey(number))metersets[number]=new List<double>();metersets[number].Add(value);}
             foreach(var item in RtDicom.Items(d,DicomTag.BeamSequence))
             {
+                if(RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES")throw new NotSupportedException("Enhanced beam limiting device geometry is not supported.");
                 int number=RtDicom.Int(item,DicomTag.BeamNumber,-1);
                 var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight)};
                 List<double> mu; if(metersets.TryGetValue(number,out mu) && mu.Count>0 && mu.All(v=>RtDicom.Finite(v) && Math.Abs(v-mu[0])<1e-6))beam.Meterset=mu[0];
-                var leafDefinitions=new Dictionary<string,double[]>();
+                var leafDefinitions=new List<MlcLayer>();
                 foreach(var device in RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))
                 {
                     string type=RtDicom.Text(device,DicomTag.RTBeamLimitingDeviceType);
-                    if(type=="MLCX" || type=="MLCY")
+                    if(IsMlc(type))
                     {
-                        if(leafDefinitions.Count>0)throw new NotSupportedException("Multiple MLC layers are not supported.");
                         var boundaries=RtDicom.Numbers(device,DicomTag.LeafPositionBoundaries); int pairs=RtDicom.Int(device,DicomTag.NumberOfLeafJawPairs);
                         if(pairs<1 || boundaries.Length!=pairs+1 || !boundaries.All(RtDicom.Finite) || !Enumerable.Range(1,boundaries.Length-1).All(i=>boundaries[i]>boundaries[i-1])) throw new ArgumentException("Invalid MLC leaf boundaries.");
-                        leafDefinitions[type]=boundaries;
+                        leafDefinitions.Add(new MlcLayer {Key=type+"#"+leafDefinitions.Count(x=>x.Type==type),Type=type,Boundaries=boundaries});
                     }
                 }
                 ControlPoint previous=null;
@@ -51,24 +59,39 @@ namespace QuickLook.DicomRT
                     var current=new ControlPoint {Index=RtDicom.Int(cp,DicomTag.ControlPointIndex,beam.ControlPoints.Count),
                         Gantry=RtDicom.Number(cp,DicomTag.GantryAngle,previous?.Gantry??double.NaN),Collimator=RtDicom.Number(cp,DicomTag.BeamLimitingDeviceAngle,previous?.Collimator??double.NaN),Couch=RtDicom.Number(cp,DicomTag.PatientSupportAngle,previous?.Couch??double.NaN),
                         MetersetWeight=RtDicom.Number(cp,DicomTag.CumulativeMetersetWeight),Isocenter=RtDicom.Vector(RtDicom.Numbers(cp,DicomTag.IsocenterPosition),previous?.Isocenter??new Vec3(double.NaN,double.NaN,double.NaN)),
-                        XJaws=Copy(previous?.XJaws),YJaws=Copy(previous?.YJaws),MlcPositions=Copy(previous?.MlcPositions),MlcBoundaries=Copy(previous?.MlcBoundaries),MlcType=previous?.MlcType??"",
+                        XJaws=Copy(previous?.XJaws),YJaws=Copy(previous?.YJaws),
+                        MlcLayers=(previous==null?leafDefinitions:previous.MlcLayers).Select(x=>x.Copy()).ToList(),
                         GantryRotationDirection=RtDicom.Text(cp,DicomTag.GantryRotationDirection,previous?.GantryRotationDirection??""),
                         CollimatorRotationDirection=RtDicom.Text(cp,DicomTag.BeamLimitingDeviceRotationDirection,previous?.CollimatorRotationDirection??""),
                         CouchRotationDirection=RtDicom.Text(cp,DicomTag.PatientSupportRotationDirection,previous?.CouchRotationDirection??"")};
-                    foreach(var device in RtDicom.Items(cp,DicomTag.BeamLimitingDevicePositionSequence))
+                    var updates=RtDicom.Items(cp,DicomTag.BeamLimitingDevicePositionSequence).ToArray();
+                    var occurrences=new Dictionary<string,int>();
+                    foreach(var device in updates)
                     {
                         string type=RtDicom.Text(device,DicomTag.RTBeamLimitingDeviceType); var positions=RtDicom.Numbers(device,DicomTag.LeafJawPositions);
                         if(positions.Any(v=>!RtDicom.Finite(v)))throw new ArgumentException("Nonfinite aperture coordinates.");
                         if(type=="X" || type=="ASYMX") {if(positions.Length!=2)throw new ArgumentException("Invalid X jaw positions.");current.XJaws=positions;}
                         else if(type=="Y" || type=="ASYMY") {if(positions.Length!=2)throw new ArgumentException("Invalid Y jaw positions.");current.YJaws=positions;}
-                        else if(type=="MLCX" || type=="MLCY")
+                        else if(IsMlc(type))
                         {
-                            double[] boundaries;
-                            if(!leafDefinitions.TryGetValue(type,out boundaries) || positions.Length!=2*(boundaries.Length-1))throw new ArgumentException("Invalid MLC positions.");
-                            current.MlcType=type;current.MlcPositions=positions;current.MlcBoundaries=Copy(boundaries);
+                            var candidates=current.MlcLayers.Where(x=>x.Type==type).ToArray();
+                            int updateCount=updates.Count(x=>RtDicom.Text(x,DicomTag.RTBeamLimitingDeviceType)==type);
+                            int occurrence;occurrences.TryGetValue(type,out occurrence);occurrences[type]=occurrence+1;
+                            MlcLayer layer=null;
+                            // Classic RTPLAN has no layer reference. Complete duplicate-type groups use
+                            // definition/position occurrence order; partial groups require unique geometry.
+                            if(updateCount==candidates.Length && occurrence<candidates.Length)layer=candidates[occurrence];
+                            else if(updateCount==1) {var matching=candidates.Where(x=>positions.Length==2*(x.Boundaries.Length-1)).ToArray();if(matching.Length==1)layer=matching[0];}
+                            if(layer==null)throw new ArgumentException("Ambiguous or undefined MLC layer update.");
+                            if(positions.Length!=2*(layer.Boundaries.Length-1))throw new ArgumentException("Invalid MLC positions.");
+                            layer.Positions=positions;
                         }
                         else throw new NotSupportedException("Unsupported beam limiting device.");
                     }
+                    if(current.MlcLayers.Any(x=>x.Positions.Length!=2*(x.Boundaries.Length-1)))throw new ArgumentException("Missing initial MLC layer positions.");
+                    // Legacy single-layer consumers retain the first layer; the viewer uses MlcLayers.
+                    var firstLayer=current.MlcLayers.FirstOrDefault();
+                    current.MlcType=firstLayer?.Type??"";current.MlcPositions=firstLayer?.Positions??new double[0];current.MlcBoundaries=firstLayer?.Boundaries??new double[0];
                     beam.ControlPoints.Add(current); previous=current;
                 }
                 if(beam.ControlPoints.Count>0)
@@ -78,6 +101,9 @@ namespace QuickLook.DicomRT
             }
             return result;
         }
+        // Numeric suffixes are an explicit vendor extension (e.g. MLCX1/MLCX2), not standard enumerated values.
+        static bool IsMlc(string type) => type=="MLCX" || type=="MLCY" ||
+            (type!=null && type.Length>4 && (type.StartsWith("MLCX",StringComparison.Ordinal)||type.StartsWith("MLCY",StringComparison.Ordinal)) && type.Substring(4).All(char.IsDigit));
         static double[] Copy(double[] values)=>values==null?new double[0]:(double[])values.Clone();
     }
 }

@@ -31,10 +31,17 @@ class Program
             bool jumped=false;mlc.IsocenterSelected+=p=>jumped=true;mlc.SetPlan(new PlanData());var jump=Descendants<Button>(mlc).First(b=>b.Content as string=="Go to isocenter");jump.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Check(!jumped,"Empty plan never uses previous isocenter");mlc.Dispose();
             using(var viewer=new ViewerControl())
             {
+                var setWindow=typeof(ViewerControl).GetMethod("SetWindow",BindingFlags.Instance|BindingFlags.NonPublic);
+                setWindow.Invoke(viewer,new object[]{120d,900d});Check(Field<Slider>(viewer,"miniWidth").Value==900&&Field<Slider>(viewer,"miniLevel").Value==120,"Mini window controls reflect image settings");
+                Field<Slider>(viewer,"miniWidth").Value=850;Check(Field<double>(viewer,"windowWidth")==850,"Mini contrast slider updates rendering width");
+                Field<Slider>(viewer,"miniLevel").Value=95;Check(Field<double>(viewer,"windowCenter")==95,"Mini level slider updates rendering center");
                 Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Only dose"});
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
-                Check(Field<bool>(viewer,"sumMode"),"Dose-only fallback synchronizes sum state");Check(Field<ComboBox>(viewer,"plans").SelectedIndex==0,"Dose-only sum is selected");
+                Check(!Field<bool>(viewer,"sumMode"),"Dose-only opening never selects a sum automatically");Check(Field<ComboBox>(viewer,"plans").SelectedIndex==-1,"Dose-only sum requires explicit selection");
             }
+            RtOnlyScenarios.Run(Check);
+            ReviewScenarios.Run(Check);
+            LinacOrientationScenarios.Run(Check);
             Console.WriteLine("PASS: "+checks+" WPF interaction/contrast/tree/timeline checks");return 0;
         }
         catch(Exception e){Console.WriteLine("FAIL: "+e);return 1;}

@@ -1,7 +1,9 @@
-DICOM RT — Feature Tour
+DICOM RT — Feature Tour · Version 0.2.1
 
-Open index.html in a modern browser. Keep the screens and media folders together. The presentation works offline, without external fonts or network requests.
+Open index.html in a modern browser. Keep screens and media together. The presentation works offline, without external fonts or network requests.
 
-Arrow keys: slides. F: fullscreen. Click images to enlarge. Four MP4 clips can also be played separately.
+Arrow keys: slides. F: fullscreen. Click images or use Enlarge for images and videos. The opening slide displays five actual viewer clips immediately; select a smaller preview to bring it forward. The requested opening videos autoplay immediately, including with reduced-motion enabled. Pause previews stops video playback. Reduced-motion disables automatic tile cycling and CSS transitions. Seven MP4 clips can also be played separately.
 
-Views were rendered by the actual WPF component. HyperFrames compositions animate actual rendered states; these are demonstrations, not screen-recorded responsiveness measurements. The main case is the user-authorised nonpatient benchmark M01. Registered CT/MR fusion and the two-plan sum use clearly labelled synthetic fixtures.
+All pictures and footage show the actual WPF viewer. The main case is the authorized nonpatient public benchmark. The dual-layer MLC clip is an approved sanitized MLC-only capture with no patient image or identifiers. There are no synthetic presentation images. Fusion and multi-plan summation are described as capabilities; the benchmark does not depict them.
+
+HyperFrames compositions show rendered states, not screen-recorded responsiveness or treatment delivery time. DVH, contour reformatting and 3D meshes are approximate previews, not clinical validation.

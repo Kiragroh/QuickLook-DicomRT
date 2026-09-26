@@ -10,9 +10,17 @@ namespace QuickLook.DicomRT
 {
     public sealed partial class ViewerControl
     {
-        private IEnumerable<StructureSet> SelectedStructures => sumMode ? structures.Where(s=>sumResult?.IncludedPlanUids!=null&&planData.Any(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)&&p.StructureSopUid==s.Entry.SopUid)) : selectedPlan != null ? structures.Where(s => s.Entry.SopUid == selectedPlan.StructureSopUid) : planData.Count>1?Enumerable.Empty<StructureSet>():structures;
-        private IEnumerable<DoseGrid> SelectedDoses => sumMode ? (sumResult?.Dose==null?Enumerable.Empty<DoseGrid>():new[]{sumResult.Dose}) : selectedPlan != null ? doses.Where(d => d.PlanUid == selectedPlan.Entry.SopUid) : planData.Count>1?Enumerable.Empty<DoseGrid>():doses;
-        private Matrix4 TransformToImage(string frame) => currentEntry == null ? null : RegistrationReader.Resolve(registrations, frame, currentEntry.FrameUid);
+        private IEnumerable<StructureSet> SelectedStructures => !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTSTRUCT" ? structures.Where(s=>s.Entry.SopUid==initialEntry.SopUid) : !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE"&&selectedPlan==null ? DoseCompatibleStructures : sumMode ? structures.Where(s=>sumResult?.IncludedPlanUids!=null&&planData.Any(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)&&p.StructureSopUid==s.Entry.SopUid)) : selectedPlan != null ? structures.Where(s => s.Entry.SopUid == selectedPlan.StructureSopUid) : planData.Count>1?Enumerable.Empty<StructureSet>():structures;
+        private IEnumerable<StructureSet> DoseCompatibleStructures
+        {
+            get {var dose=doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry?.SopUid);return dose==null?Enumerable.Empty<StructureSet>():structures.Where(s=>s.Rois.Any(r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose.FrameUid)!=null));}
+        }
+        private IEnumerable<DoseGrid> SelectedDoses => !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE" ? doses.Where(d=>d.Entry.SopUid==initialEntry.SopUid) : sumMode ? (sumResult?.Dose==null?Enumerable.Empty<DoseGrid>():new[]{sumResult.Dose}) : selectedPlan != null ? doses.Where(d => d.PlanUid == selectedPlan.Entry.SopUid) : planData.Count>1?Enumerable.Empty<DoseGrid>():doses;
+        private string SceneFrameUid => HasImage&&!string.IsNullOrEmpty(currentEntry?.FrameUid)?currentEntry.FrameUid:
+            !string.IsNullOrEmpty(selectedPlan?.FrameUid)?selectedPlan.FrameUid:
+            !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE"?doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.FrameUid:
+            SelectedStructures.SelectMany(s=>s.Rois).Select(r=>r.FrameUid).Concat(SelectedDoses.Select(d=>d.FrameUid)).FirstOrDefault(f=>!string.IsNullOrEmpty(f));
+        private Matrix4 TransformToImage(string frame) => RegistrationReader.Resolve(registrations,frame,SceneFrameUid);
 
         private void RefreshRt()
         {
@@ -34,11 +42,11 @@ namespace QuickLook.DicomRT
             foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => query.Length == 0 || r.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
             {
                 var transform = TransformToImage(roi.FrameUid); var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
-                var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = transform != null, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
+                var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = workspaceMode=="DVH" || transform != null, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
                 toggle.Checked += (s, e) => { roi.Visible = true; RoiVisibilityChanged(); }; toggle.Unchecked += (s, e) => { roi.Visible = false; RoiVisibilityChanged(); }; DockPanel.SetDock(toggle, Dock.Left); row.Children.Add(toggle);
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
-                var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Left; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = transform != null; jump.ToolTip = transform == null ? "No matching registration to the displayed series" : "Go to structure";
-                jump.Click += async (s, e) => { var map = TransformToImage(roi.FrameUid); if (map != null) await MoveFocusAsync(map.Transform(roi.Center)); };
+                var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Left; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = workspaceMode=="DVH" || transform != null; jump.ToolTip = transform == null ? "No matching registration to the displayed series" : "Go to structure";
+                jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null) await MoveFocusAsync(map.Transform(roi.Center)); };
                 row.Children.Add(jump); roiList.Children.Add(row);
             }
             if (roiList.Children.Count == 0) roiList.Children.Add(Theme.Text("No matching structures", 11, Theme.Muted));
@@ -82,7 +90,7 @@ namespace QuickLook.DicomRT
         {
             if (disposed) return;
             var roiOverlays = new List<RoiOverlay>(); var doseOverlays = new List<DoseOverlay>();
-            if (currentEntry != null && currentEntry.HasGeometry)
+            if (!string.IsNullOrEmpty(SceneFrameUid))
             {
                 foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => r.Visible))
                 {
@@ -91,17 +99,21 @@ namespace QuickLook.DicomRT
                 }
                 foreach (var dose in SelectedDoses.Where(d => d.Visible))
                 {
-                    var transform = RegistrationReader.Resolve(registrations, currentEntry.FrameUid, dose.FrameUid);
+                    var transform = RegistrationReader.Resolve(registrations, SceneFrameUid, dose.FrameUid);
                     if (transform != null) doseOverlays.Add(new DoseOverlay { Dose = dose, ImageToDose = transform });
                 }
             }
-            latestScene = new RenderScene { Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = iso.IsChecked == true,
+            var isocenters=new List<Vec3>();var isoMap=selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid);
+            if(isoMap!=null)foreach(var beam in selectedPlan.Beams)
+            {var point=isoMap.Transform(beam.Isocenter);if(!double.IsNaN(point.X)&&!double.IsNaN(point.Y)&&!double.IsNaN(point.Z)&&!double.IsInfinity(point.X)&&!double.IsInfinity(point.Y)&&!double.IsInfinity(point.Z)&&!isocenters.Any(p=>(p-point).Length<.1))isocenters.Add(point);}
+            latestScene = new RenderScene { Isocenters=isocenters, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = iso.IsChecked == true,
                 DoseWash=wash.IsChecked==true,DoseMinimumPercent=doseMin.Value,DoseMaximumPercent=doseMax.Value,IsoLevels=displayedIsoLevels,
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;}
             if(workspaceMode=="3D"&&threeDView!=null)threeDView.SetScene(latestScene);
+            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="3 planes"&&mprThreeD!=null){mprThreeD.SetScene(latestScene);mprThreeD.SetSlicePlanes(focus,volume);}
             position.Text = $"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";
         }
     }

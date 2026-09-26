@@ -1,1 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><Compile Include="..\Viewer\MlcTimeline.cs" Link="MlcTimeline.cs" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="..\Rt\Rt.csproj"/><Compile Include="..\Viewer\MlcTimeline.cs" Link="MlcTimeline.cs" /></ItemGroup></Project>

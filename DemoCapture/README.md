@@ -1,11 +1,20 @@
-# Offline demonstration capture
+# Offline demonstration capture — 0.2.1
 
-Run after building the current English Viewer:
+Build the English Viewer and DemoCapture, then run:
 
-`DicomRT.DemoCapture.exe --approved-public-demo <approved-public-nonpatient-source> <media-output> <synthetic-fusion-folder> <synthetic-two-plan-folder>`
+```powershell
+DicomRT.DemoCapture.exe --approved-public-demo <approved-public-nonpatient-source> <media-output>
+DicomRT.DemoCapture.exe --mlc-only <explicitly-authorized-source-folder> <mlc-output>
+```
 
-This creates actual settled ViewerControl screenshots and four 90-frame sequences at1600Ã—900. WPF is hosted in an offscreen window; RenderTargetBitmap captures the owned component without desktop automation. Source files are read-only. Identifying tag values are scrubbed only in memory before tag screenshots. The separate fusion-picker PNG is the actual WPF Popup.Child visual, suitable as a labelled detail inset.
+The public mode accepts three arguments including its mode flag. It captures actual settled ViewerControl states from the approved public nonpatient dataset. It has no synthetic supplementary capture mode. Synthetic fixtures remain available in test projects only.
 
-The manifest distinguishes the supplied public nonpatient benchmark from synthetic CT/MR/REG and genuine synthetic two-plan sum cases. Sequence entries include `uiLanguage: en` only once all90 current frames are complete. The effective15fps/6-second presentation playback is not a live rendering benchmark. A selected subset makes the 3D illustration legible; a separate scene-budget regression verifies all55 source structures and dose fit the renderer.
+WPF is hosted offscreen; RenderTargetBitmap captures the owned control without desktop automation or generated UI. Source files remain read-only. Identifying tag values are scrubbed only in memory before tag screenshots. Public sequences contain 90 actual 1600 × 900 frames; the DVH sequence changes curve emphasis using the actual focus control. The 3D default uses PTV/ORGAN types, with other ROI types and CT/dose context opt-in. Selected subsets are described in captions.
 
-Outputs belong in ignored `artifacts/presentation/media`; keep raw frames and DICOM files out of source control. Only explicitly authorised nonpatient, redacted demonstration assets are curated into docs/demo.
+The separately authorized clinical MLC-only mode reads plan metadata and constructs a whitelist display model with generic plan and beam labels. It passes no source DicomEntry, patient/study/frame identifiers, original free text, source paths, images, tag tree or original isocenter coordinates to the control. Only technical aperture geometry, angles, normalized meterset and control-point progression are displayed. It captures MlcPlaybackControl alone, including the layers, global timeline and synchronized schematic linac. This approval does not authorize broader clinical screenshots or private DICOM distribution.
+
+The MLC-only output contains `dual-layer-mlc.png`, `frames/frame-000.png` through `frames/frame-089.png`, and a neutral `manifest.json`. Check labels and pixel dimensions before curating the approved capture into presentation media. Do not store a source case path in scripts or manifests.
+
+The effective input playback is 15 fps for six seconds. It represents scrubbed UI states, not rendering latency or actual treatment delivery timing. `scripts/video/build-clips.mjs` composes six final clips at 30 fps/180 frames with no title-only introduction. The main tour has 14 slides, five feature videos and a video hero; see [video build instructions](../scripts/video/README.md).
+
+Current raw outputs belong under ignored `artifacts/presentation/v021/media` and the separate `artifacts/presentation/v021/private-mlc` capture directory. Keep raw frames and DICOM files out of source control. Only explicitly approved public nonpatient assets and the approved sanitized MLC-only result may be curated into `docs/demo`.

@@ -10,12 +10,12 @@ const option = (name, fallback) => {
   return value ? path.resolve(value.slice(name.length + 3)) : fallback;
 };
 if (process.argv.includes('--help')) {
-  console.log('node build-clips.mjs [--input=PATH] [--output=PATH] [--work=PATH] [--clip=01-scroll|02-mlc|03-3d|04-dose] [--prepare]');
-  console.log('Defaults: artifacts/presentation/{media,output/media,hyperframes}. Requires 90 approved English UI frames per clip and manifest.json.');
+  console.log('node build-clips.mjs [--input=PATH] [--output=PATH] [--work=PATH] [--clip=01-scroll|02-mlc|03-3d|04-dose|05-dvh|06-dual-mlc|07-mpr] [--prepare]');
+  console.log('Defaults: artifacts/presentation/v021/media, artifacts/presentation/output/media and artifacts/presentation/v021/hyperframes. Requires 90 approved English UI frames per clip and manifest.json. No title-only intro.');
   process.exit(0);
 }
-const root = option('work', path.join(repoRoot, 'artifacts/presentation/hyperframes'));
-const input = option('input', path.join(repoRoot, 'artifacts/presentation/media'));
+const root = option('work', path.join(repoRoot, 'artifacts/presentation/v021/hyperframes'));
+const input = option('input', path.join(repoRoot, 'artifacts/presentation/v021/media'));
 const output = option('output', path.join(repoRoot, 'artifacts/presentation/output/media'));
 const cli = path.join(toolRoot, 'node_modules/hyperframes/bin/hyperframes.mjs');
 const logs = path.join(root, 'logs');
@@ -24,7 +24,10 @@ const clips = [
   { name: '01-scroll', source: 'scroll', title: 'Navigate CT slices', caption: 'CT with contours · axial slice navigation' },
   { name: '02-mlc', source: 'mlc', title: 'Explore the plan timeline', caption: 'Plan-wide timeline · interpolated control points, not delivery time' },
   { name: '03-3d', source: 'orbit', title: 'Explore structures in 3D', caption: 'Selected structures and dose · interactive 3D preview' },
-  { name: '04-dose', source: 'dose', title: 'Dose visualization controls', caption: 'Colorwash and isodoses · independent display controls' }
+  { name: '04-dose', source: 'dose', title: 'Dose visualization controls', caption: 'Colorwash and isodoses · independent display controls' },
+  { name: '05-dvh', source: 'dvh', title: 'Compare structure DVHs', caption: 'Focus a curve · retain dose coverage and sampling context' },
+  { name: '06-dual-mlc', source: 'dual-mlc', title: 'Inspect both MLC layers', caption: 'Dual-layer aperture · interpolated control points, not delivery time', provenance: 'approved-sanitized-mlc' },
+  { name: '07-mpr', source: 'mpr', title: 'Navigate synchronized MPR and 3D', caption: 'Axial, coronal, sagittal and 3D · linked coordinate planes' }
 ];
 const requested = process.argv.find(a => a.startsWith('--clip='))?.split('=')[1];
 const selected = requested ? clips.filter(c => c.name === requested) : clips;
@@ -48,21 +51,15 @@ function html(c) {
 #footer{left:0;top:849px;width:1600px;height:51px;background:#131f25;border-top:1px solid #29434b;display:flex;align-items:center;padding:0 45px;gap:20px}
 #footer .line{width:30px;height:3px;background:#68d0bb;flex:none}#footer .caption{font-size:19px;font-weight:450;letter-spacing:.05px}
 #footer .source{margin-left:auto;white-space:nowrap;font-size:14px;color:#9fb4bb}
-#intro{inset:0;background:#0d1318;display:flex;flex-direction:column;justify-content:center;padding-left:130px;z-index:5}
-#intro .kicker{font-size:21px;letter-spacing:4px;color:#68d0bb;margin-bottom:24px}#intro .title{font-size:64px;font-weight:600;letter-spacing:-1.4px;max-width:1300px}
-#intro .rule{width:85px;height:4px;background:#68d0bb;margin-top:34px}
 </style></head><body>
-<main id="root" data-composition-id="main" data-start="0" data-duration="7" data-width="1600" data-height="900" data-fps="30">
-<video id="footage" class="clip" data-start="1" data-duration="6" data-track-index="0" data-media-start="0" src="assets/source.mp4" muted playsinline preload="auto"></video>
-<div id="footer" class="clip" data-start="1" data-duration="6" data-track-index="1"><span class="line"></span><span class="caption">${c.caption}</span><span class="source">Public benchmark · actual viewer capture</span></div>
-<div id="intro" class="clip" data-start="0" data-duration="1" data-track-index="2"><span class="kicker">DICOM RT VIEWER</span><span class="title">${c.title}</span><span class="rule"></span></div>
+<main id="root" data-composition-id="main" data-start="0" data-duration="6" data-width="1600" data-height="900" data-fps="30">
+<video id="footage" class="clip" data-start="0" data-duration="6" data-track-index="0" data-media-start="0" src="assets/source.mp4" muted playsinline preload="auto"></video>
+<div id="footer" class="clip" data-start="0" data-duration="6" data-track-index="1"><span class="line"></span><span class="caption">${c.caption}</span><span class="source">${c.provenance === 'approved-sanitized-mlc' ? 'Sanitized MLC-only viewer capture' : 'Public benchmark · actual viewer capture'}</span></div>
 </main>
 <script>
 window.__timelines=window.__timelines||{};
 const tl=gsap.timeline({paused:true});
-tl.fromTo('#intro .title',{opacity:0,y:12},{opacity:1,y:0,duration:.24,ease:'power2.out'},0);
-tl.fromTo('#intro .kicker',{opacity:0},{opacity:1,duration:.2},0);
-tl.to('#intro',{opacity:0,duration:.2,ease:'none'},.8);
+tl.to('#footage',{opacity:1,duration:6,ease:'none'},0);
 window.__timelines.main=tl;
 </script></body></html>`;
 }
@@ -70,6 +67,7 @@ window.__timelines.main=tl;
 for (const clip of selected) {
   const manifest = JSON.parse(fs.readFileSync(path.join(input, 'manifest.json'), 'utf8').replace(/^\uFEFF/, ''));
   const capture = manifest.artifacts.find(a => a.file === `${clip.source}/frame-%03d.png`);
+  if (clip.provenance && capture?.provenance !== clip.provenance) throw new Error(`${clip.source}: approved sanitized MLC-only provenance must be explicit in the manifest`);
   if (capture?.uiLanguage !== 'en') throw new Error(`${clip.source}: completed English UI capture not yet confirmed in source manifest`);
   const sourceDir = path.join(input, clip.source);
   const frames = fs.readdirSync(sourceDir).filter(n => /^frame-\d{3}\.png$/.test(n)).sort();
@@ -88,7 +86,7 @@ for (const clip of selected) {
   run(process.execPath,[cli,'render',dir,'--output',target,'--fps','30','--quality','high','--workers','2','--video-frame-format','png','--strict-all','--frames-cache-dir',path.join(root,'frames-cache')],clip.name+'-render');
   const probe = JSON.parse(run('ffprobe',['-v','error','-show_entries','format=duration,size:stream=codec_name,width,height,r_frame_rate,nb_frames','-of','json',target],clip.name+'-probe'));
   const video = probe.streams.find(s=>s.width);
-  if (video.width!==1600 || video.height!==900 || Math.abs(Number(probe.format.duration)-7)>.05 || video.nb_frames!=='210') throw new Error('Unexpected rendered metadata for '+clip.name);
+  if (video.width!==1600 || video.height!==900 || Math.abs(Number(probe.format.duration)-6)>.05 || video.nb_frames!=='180') throw new Error('Unexpected rendered metadata for '+clip.name);
   fs.writeFileSync(path.join(logs,clip.name+'-probe.json'),JSON.stringify(probe,null,2));
-  console.log('VERIFIED '+clip.name+': 1600×900, 7 seconds, 210 frames, final composition rendered by HyperFrames');
+  console.log('VERIFIED '+clip.name+': 1600×900, 6 seconds, 180 frames, final composition rendered by HyperFrames');
 }

@@ -29,13 +29,13 @@ internal static class Program
         return DoseGrid.Load(new DicomEntry {Dataset=d});
     }
     static DvhResult Calc(StructureRoi r,DoseGrid d,Matrix4 m=null)=>DvhCalculator.Calculate(r,d,m??Matrix4.Identity,CancellationToken.None);
-    static void Main(string[] args)
+    [STAThread] static void Main(string[] args)
     {
         if(args.Length==2 && args[0]=="--private"){PrivateSmoke(args[1]);return;}
         SumTests();
         var dose=Dose();var result=Calc(Roi(),dose);
         Assert(result.Status==DvhStatus.Complete,"constant full coverage");Near(result.EstimatedVolumeCc,.4,"half-spacing slab volume");Near(result.SampledVolumeCc,.4,"covered cc");Near(result.CoverageFraction,1,"coverage");
-        Near(result.CumulativeVolumePercent[0],100,"V0");Near(result.CumulativeVolumePercent[256],100,"inclusive threshold at constant max");Near(result.CumulativeVolumePercent[257],0,"tail zero");
+        Near(result.CumulativeVolumePercent[0],100,"V0");Near(result.CumulativeVolumePercent[result.DoseValues.Length-2],100,"inclusive threshold at constant max");Near(result.CumulativeVolumePercent.Last(),0,"tail zero");
         Assert(result.CumulativeVolumePercent.Zip(result.CumulativeVolumePercent.Skip(1),(a,b)=>a>=b).All(x=>x),"monotone cumulative");
         var holes=Roi(type:"CLOSEDPLANAR_XOR");holes.Contours.Add(Rectangle(3,3,4,4,2,"CLOSEDPLANAR_XOR"));holes.Contours.Add(Rectangle(3,3,4,4,4,"CLOSEDPLANAR_XOR"));
         Near(Calc(holes,dose).EstimatedVolumeCc,.336,"XOR excludes hole");
@@ -58,7 +58,87 @@ internal static class Program
         var gradient=Calc(Roi(),Dose(true));int threshold=Array.FindIndex(gradient.DoseValues,x=>x>=5);Near(gradient.CumulativeVolumePercent[threshold],50,"linear gradient V5");
         var cancelled=new CancellationTokenSource();cancelled.Cancel();bool threw=false;try{DvhCalculator.Calculate(Roi(),dose,Matrix4.Identity,cancelled.Token);}catch(OperationCanceledException){threw=true;}Assert(threw,"cancellation observed");
         var large=Calc(Roi(0,200000),dose);Assert(large.SamplingStepMm>1,"adaptive bounded grid");
+        Assert(result.DoseValues.Length==2050,"2048 dose intervals plus inclusive maximum and zero tail");
+        Near(result.SamplingStepMm,.5,"half-mm sampling for small structures");
+        Assert(gradient.CumulativeVolumePercent.Zip(gradient.CumulativeVolumePercent.Skip(1),(a,b)=>a>=b).All(x=>x),"gradient interpolation knots never increase");
+        Assert(gradient.DoseValues.Zip(gradient.DoseValues.Skip(1),(a,b)=>a<b).All(x=>x),"interpolation dose knots strictly increase");
+        Assert(partial.CumulativeVolumePercent.All(v=>v>=0&&v<=50.000001),"partial curve stays within covered-volume bound");
+        InteractionTests();
         Console.WriteLine("DVH checks passed: "+checks);
+    }
+    static T Field<T>(object target,string name)=>(T)target.GetType().GetField(name,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(target);
+    static void Finish(DvhControl control)
+    {
+        if(control.Completion.IsCompleted)return;
+        var dispatcher=System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        var frame=new System.Windows.Threading.DispatcherFrame();
+        control.Completion.ContinueWith(t=>dispatcher.BeginInvoke(new Action(()=>frame.Continue=false)));
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+        control.Completion.GetAwaiter().GetResult();
+    }
+    static System.Collections.Generic.IEnumerable<System.Windows.Media.DrawingGroup> Groups(System.Windows.Media.DrawingGroup group)
+    {
+        yield return group;
+        foreach(var child in group.Children.OfType<System.Windows.Media.DrawingGroup>())foreach(var descendant in Groups(child))yield return descendant;
+    }
+    static void VerifyFocusDrawing(DvhControl view)
+    {
+        view.Measure(new System.Windows.Size(1000,700));view.Arrange(new System.Windows.Rect(0,0,1000,700));view.UpdateLayout();
+        var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1000,700,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(view);
+        var plot=Field<System.Windows.FrameworkElement>(view,"plot");
+        var groups=Groups(System.Windows.Media.VisualTreeHelper.GetDrawing(plot)).ToArray();
+        var strokes=groups.SelectMany(g=>g.Children.OfType<System.Windows.Media.GeometryDrawing>()).Where(g=>g.Pen!=null&&g.Geometry is System.Windows.Media.StreamGeometry).ToArray();
+        Assert(strokes.Length==2,"both focused and unfocused curves remain drawn");
+        Assert(strokes.Last().Pen.Thickness==3.5&&strokes.First().Pen.Thickness==1.5,"focused curve is thicker and drawn last");
+        Assert(groups.Any(g=>Math.Abs(g.Opacity-.18)<1e-9),"other curves fade to 18 percent opacity");
+        var path=System.Windows.Media.PathGeometry.CreateFromGeometry(strokes.Last().Geometry);
+        var points=path.Figures[0].Segments.OfType<System.Windows.Media.PolyLineSegment>().SelectMany(p=>p.Points).ToArray();
+        Assert(points.Length==2049,"curve uses single interpolated segment per dose interval");
+    }
+    static void InteractionTests()
+    {
+        var app=new System.Windows.Application();
+        SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
+        var a=Roi();var b=Roi(2);b.Name="Second synthetic";var dose=Dose(true);
+        using(var view=new DvhControl())
+        {
+            view.SetData(new[]{a,b},dose,r=>Matrix4.Identity);Finish(view);
+            Assert(view.CalculationCount==2,"initial curves calculated once");
+            Assert(view.StatusText.StartsWith("2 complete"),"asynchronous curves complete");
+            var legend=Field<System.Windows.Controls.StackPanel>(view,"legend");
+            var row=(System.Windows.Controls.Border)legend.Children[0];
+            var contents=(System.Windows.Controls.StackPanel)row.Child;
+            var heading=(System.Windows.Controls.DockPanel)contents.Children[0];
+            var box=(System.Windows.Controls.CheckBox)heading.Children[0];
+            var name=(System.Windows.Controls.Button)heading.Children[1];
+            name.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Assert(ReferenceEquals(view.FocusedStructure,a)&&box.IsChecked==true,"structure name focuses without toggling visibility");
+            VerifyFocusDrawing(view);
+            name.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Assert(view.FocusedStructure==null,"same structure name restores all curves");
+            row.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,System.Windows.Input.MouseButton.Left) {RoutedEvent=System.Windows.UIElement.MouseLeftButtonUpEvent});
+            Assert(ReferenceEquals(view.FocusedStructure,a)&&box.IsChecked==true,"row outside checkbox focuses without hiding");
+            row.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice,0,System.Windows.Input.MouseButton.Left) {RoutedEvent=System.Windows.UIElement.MouseLeftButtonUpEvent});
+            Assert(view.FocusedStructure==null,"same row restores all curves");
+            view.FocusStructure(b);box.IsChecked=false;
+            Assert(ReferenceEquals(view.FocusedStructure,b),"visibility checkbox does not change focus");
+            Assert(view.CalculationCount==2,"focus and visibility never recalculate");
+            var watch=Stopwatch.StartNew();
+            view.SetData(new[]{b},dose,r=>Matrix4.Identity);Finish(view);
+            view.SetData(new[]{a,b},dose,r=>new Matrix4(Matrix4.Identity.Values));Finish(view);
+            Assert(view.CalculationCount==2,"ROI selection changes reuse dose/transform cache");
+            Assert(view.Completion.IsCompleted&&watch.ElapsedMilliseconds<1000,"cached selection completes promptly");
+            legend=Field<System.Windows.Controls.StackPanel>(view,"legend");
+            box=(System.Windows.Controls.CheckBox)((System.Windows.Controls.DockPanel)((System.Windows.Controls.StackPanel)((System.Windows.Controls.Border)legend.Children[0]).Child).Children[0]).Children[0];
+            Assert(box.IsChecked==false,"curve visibility retained across cached refresh");
+            view.SetData(new[]{a},dose,r=>new Matrix4(new double[]{1,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1}));Finish(view);
+            Assert(view.CalculationCount==3,"registration changes invalidate cached ROI curve");
+            view.SetData(new[]{a},Dose(),r=>Matrix4.Identity);Finish(view);
+            Assert(view.CalculationCount==4&&view.FocusedStructure==null,"dose changes invalidate cache and focus");
+            view.Measure(new System.Windows.Size(1000,700));view.Arrange(new System.Windows.Rect(0,0,1000,700));view.UpdateLayout();
+            var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap(1000,700,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(view);
+            Assert(bitmap.PixelWidth==1000,"interpolated DVH renders");
+        }
     }
     static void SumTests()
     {

@@ -1,43 +1,42 @@
-# Viewer demonstration clips
+# Viewer demonstration clips — 0.2.1
 
-These local [HyperFrames](https://hyperframes.app/docs/5-packages/cli) compositions produce four English, 1600 × 900 MP4 clips. Each contains a one-second title followed by six seconds of actual viewer captures, with a small caption. HyperFrames renders the final composition. FFmpeg encodes the input image sequence; it does not replace the HyperFrames composition step.
+These local HyperFrames compositions produce seven English 1600 × 900 MP4 clips. Actual viewer footage begins on the first frame, without a title-only introduction. Each clip lasts seven seconds and contains 180 output frames at 30 fps, with a compact caption. HyperFrames renders the composition; FFmpeg prepares the input sequence.
 
 ## Rebuild
 
-Install Node.js (22 or newer), FFmpeg and FFprobe. Run from this directory:
+Install Node.js 22 or newer, FFmpeg and FFprobe. From this directory:
 
 ```powershell
 npm ci --no-audit --no-fund
 node build-clips.mjs
 ```
 
-Dependencies are pinned in `package-lock.json` and installed locally. Do not run `hyperframes init` or `hyperframes skills install`: the source composition is already in `build-clips.mjs`. Rendering uses local Chromium and local media. The first render may download the Chromium runtime; no media is uploaded. Telemetry and update checks are disabled for the render subprocesses.
+Dependencies are pinned in `package-lock.json`. The composition is already defined in `build-clips.mjs`; initialization or skill installation is unnecessary. Rendering uses local Chromium and local media. The first run may download Chromium; media is not uploaded. Render subprocess telemetry and update checks are disabled.
 
-The default input is `artifacts/presentation/media`, relative to the repository root. It must contain exactly 90 consecutive 1600 × 900 PNG frames in each of `scroll`, `mlc`, `orbit`, and `dose`, named `frame-000.png` through `frame-089.png`. The original viewer frames are interpreted at 15 frames per second. They are settled UI states, not a performance measurement or treatment delivery timing.
+Default input: `artifacts/presentation/v021/media`, relative to the repository root. Each of `scroll`, `mlc`, `orbit`, `dose`, `dvh` and `dual-mlc` must contain exactly 90 consecutive 1600 × 900 PNG frames, named `frame-000.png` through `frame-089.png`. Input footage is interpreted at 15 fps. These settled UI states are not live rendering benchmarks or treatment delivery times.
 
-Place `manifest.json` beside these folders and mark each sequence complete only after all English frames have been approved:
+Place `manifest.json` alongside the folders. Mark each completed sequence with its path and `uiLanguage: en` only after all frames are verified. The first five sequences use the approved public nonpatient benchmark. The seventh uses the separately approved actual clinical MLC-only capture with a whitelist display model and generic labels. It contains no source images, identifiers, original names, tag tree or source paths. Synthetic inputs are not used in this presentation; synthetic fixtures remain confined to tests.
 
-```json
-{
-  "artifacts": [
-    { "file": "scroll/frame-%03d.png", "uiLanguage": "en" },
-    { "file": "mlc/frame-%03d.png", "uiLanguage": "en" },
-    { "file": "orbit/frame-%03d.png", "uiLanguage": "en" },
-    { "file": "dose/frame-%03d.png", "uiLanguage": "en" }
-  ]
-}
-```
+The seventh clip's provenance is `approved-sanitized-mlc`. Its caption identifies sanitized MLC-only viewer capture; do not describe it as nonpatient data or synthetic data. This authorization does not extend to other clinical views.
 
-The supplied captions describe the public benchmark captures used for this presentation. Only use approved public or synthetic inputs; if adapting the script for another source, update its provenance caption accurately. Do not put clinical data or identifying screenshots into a public repository.
-
-Optional arguments use `--name=value` syntax; relative paths are resolved from the current directory:
+Optional arguments use `--name=value`; relative paths resolve from the current directory:
 
 ```powershell
-node build-clips.mjs --clip=03-3d
+node build-clips.mjs --clip=05-dvh
+node build-clips.mjs --clip=06-dual-mlc
 node build-clips.mjs --input=./approved-frames --output=./clips --work=./render-work
 node build-clips.mjs --prepare
 ```
 
-`--prepare` generates the compositions, encodes source videos, and runs the native HyperFrames linter without final rendering. Generated HTML, local assets, render logs, lint JSON and FFprobe JSON are retained in the work directory. The default work and output directories are under ignored `artifacts/`. The script verifies every final clip as 1600 × 900, 7 seconds and 210 frames at 30 fps.
+`--prepare` creates compositions, encodes source videos and runs the native HyperFrames linter without final rendering. Generated HTML, local assets, logs and FFprobe JSON remain in the ignored work directory, by default `artifacts/presentation/v021/hyperframes`. Final metadata checks require 1600 × 900, seven seconds and 180 frames at 30 fps.
 
-Outputs: `01-scroll.mp4`, `02-mlc.mp4`, `03-3d.mp4`, and `04-dose.mp4` in `artifacts/presentation/output/media`. Raw captures, generated videos, caches and `node_modules` are not source files.
+Outputs in `artifacts/presentation/output/media`:
+
+- `01-scroll.mp4`: image navigation.
+- `02-mlc.mp4`: public-plan MLC playback.
+- `03-3d.mp4`: 3D orbit.
+- `04-dose.mp4`: dose display controls.
+- `05-dvh.mp4`: curve focus and comparison.
+- `06-dual-mlc.mp4`: approved sanitized dual-layer MLC playback.
+
+The 14-slide tour uses five feature videos plus a video hero. Raw captures, generated clips, caches and `node_modules` are not source files.

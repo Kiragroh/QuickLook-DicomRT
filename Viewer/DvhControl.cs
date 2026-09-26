@@ -21,6 +21,18 @@ namespace QuickLook.DicomRT
         CancellationTokenSource calculation;
         bool disposed,compact;
         int requestedCount;
+        DoseGrid cachedDose;
+        readonly Dictionary<StructureRoi,CachedResult> cache=new Dictionary<StructureRoi,CachedResult>();
+        readonly Dictionary<StructureRoi,bool> visibility=new Dictionary<StructureRoi,bool>();
+        public StructureRoi FocusedStructure => plot.FocusedStructure;
+        public int CalculationCount { get; private set; }
+        sealed class CachedResult { public double[] Transform;public DvhResult Result; }
+        public void FocusStructure(StructureRoi roi)
+        {
+            if(disposed)return;
+            plot.FocusedStructure=ReferenceEquals(plot.FocusedStructure,roi)?null:roi;
+            plot.InvalidateVisual();
+        }
         public string StatusText => status.Text;
         public Task Completion { get; private set; } = Task.CompletedTask;
         public DvhControl()
@@ -54,8 +66,10 @@ namespace QuickLook.DicomRT
         }
         public void SetData(IReadOnlyList<StructureRoi> rois,DoseGrid dose,Func<StructureRoi,Matrix4> transform)
         {
-            if(disposed)return;Cancel();legend.Children.Clear();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
-            requestedCount=rois?.Count??0;
+            if(disposed)return;Cancel();
+            if(!ReferenceEquals(cachedDose,dose)){cache.Clear();visibility.Clear();cachedDose=dose;plot.FocusedStructure=null;}
+            legend.Children.Clear();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
+            requestedCount=rois?.Count??0;Completion=Task.CompletedTask;
             if(dose==null || rois==null || rois.Count==0){status.Text="No visible structures with a matching RTDOSE are available.";return;}
             // Snapshot mapping on the UI thread. Loaded contour/dose data are immutable.
             var selected=rois.Take(128).Select(r=>new Work {Roi=r,Transform=transform?.Invoke(r)}).ToArray();
@@ -71,18 +85,42 @@ namespace QuickLook.DicomRT
             {
                 foreach(var work in rois)
                 {
-                    var result=await Task.Run(()=>DvhCalculator.Calculate(work.Roi,dose,work.Transform,owner.Token),owner.Token);
+                    var matrix=work.Transform?.Values;
+                    CachedResult saved;DvhResult result;
+                    if(cache.TryGetValue(work.Roi,out saved) && (matrix==null?saved.Transform==null:saved.Transform!=null&&matrix.SequenceEqual(saved.Transform)))result=saved.Result;
+                    else
+                    {
+                        CalculationCount++;
+                        result=await Task.Run(()=>DvhCalculator.Calculate(work.Roi,dose,work.Transform,owner.Token),owner.Token);
+                    }
                     if(disposed || owner!=calculation)return;
                     owner.Token.ThrowIfCancellationRequested();
+                    cache[work.Roi]=new CachedResult {Transform=matrix,Result=result};
                     if(result.Status==DvhStatus.Complete)complete++;else if(result.Status==DvhStatus.PartialCoverage)partial++;else unsupported++;
                     var brush=new SolidColorBrush(Color.FromRgb(work.Roi.Red,work.Roi.Green,work.Roi.Blue));brush.Freeze();
-                    var curve=new DvhPlot.Curve {Result=result,Color=brush,Visible=true};plot.Curves.Add(curve);
-                    var box=new CheckBox { Content=work.Roi.Name,IsChecked=true,Foreground=brush,FontWeight=FontWeights.SemiBold,Margin=new Thickness(0,4,0,2),IsEnabled=result.DoseValues.Length>0 };
-                    box.Checked+=(s,e)=>{curve.Visible=true;plot.InvalidateVisual();};box.Unchecked+=(s,e)=>{curve.Visible=false;plot.InvalidateVisual();};legend.Children.Add(box);
+                    bool shown; if(!visibility.TryGetValue(work.Roi,out shown))shown=true;
+                    var curve=new DvhPlot.Curve {Roi=work.Roi,Result=result,Color=brush,Visible=shown};plot.Curves.Add(curve);
+                    var row=new Border {Background=Brushes.Transparent,Padding=new Thickness(0,4,0,9)};
+                    var contents=new StackPanel();row.Child=contents;
+                    var heading=new DockPanel();contents.Children.Add(heading);
+                    var box=new CheckBox {IsChecked=shown,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,7,0),IsEnabled=result.DoseValues.Length>0,ToolTip="Show or hide curve"};
+                    System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.Name);
+                    DockPanel.SetDock(box,Dock.Left);heading.Children.Add(box);
+                    var name=new Button {Content=work.Roi.Name,Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
+                    name.Click+=(s,e)=>{FocusStructure(work.Roi);e.Handled=true;};heading.Children.Add(name);
+                    box.Checked+=(s,e)=>{visibility[work.Roi]=curve.Visible=true;plot.InvalidateVisual();};
+                    box.Unchecked+=(s,e)=>{visibility[work.Roi]=curve.Visible=false;plot.InvalidateVisual();};
+                    row.MouseLeftButtonUp+=(s,e)=>
+                    {
+                        for(var source=e.OriginalSource as DependencyObject;source!=null&&source!=row;source=VisualTreeHelper.GetParent(source))
+                            if(source is CheckBox || source is Button)return;
+                        FocusStructure(work.Roi);e.Handled=true;
+                    };
                     string metrics=result.EstimatedVolumeCc>0?$"{result.EstimatedVolumeCc:0.##} cm³ · coverage {result.CoverageFraction:P1} · grid ≤ {result.SamplingStepMm:0.##} mm":"No curve";
-                    legend.Children.Add(Theme.Text(metrics,10,Theme.Muted));
-                    legend.Children.Add(Theme.Text(result.Message,10,result.Status==DvhStatus.Complete?Theme.Muted:Theme.Accent));
-                    legend.Children.Add(new Border {Height=1,Background=Theme.Panel,Margin=new Thickness(0,9,0,9)});
+                    contents.Children.Add(Theme.Text(metrics,10,Theme.Muted));
+                    contents.Children.Add(Theme.Text(result.Message,10,result.Status==DvhStatus.Complete?Theme.Muted:Theme.Accent));
+                    legend.Children.Add(row);
+                    legend.Children.Add(new Border {Height=1,Background=Theme.Panel,Margin=new Thickness(0,0,0,5)});
                     plot.InvalidateVisual();status.Text=$"{plot.Curves.Count} / {rois.Length} structures calculated …";
                 }
                 status.Text=$"{complete} complete · {partial} with partial coverage · {unsupported} without a curve"+(totalRequested>rois.Length?$" · {totalRequested-rois.Length} not processed (limit: 128 structures).":"");
@@ -92,11 +130,12 @@ namespace QuickLook.DicomRT
             finally { if(owner==calculation)calculation=null;owner.Dispose(); }
         }
         public void Cancel(){var active=calculation;if(active!=null){calculation=null;active.Cancel();if(!disposed)status.Text=$"Calculation canceled · {Math.Max(0,requestedCount-plot.Curves.Count)} not processed. Completed curves remain visible.";}}
-        public void Dispose(){disposed=true;Cancel();}
+        public void Dispose(){disposed=true;Cancel();cache.Clear();visibility.Clear();}
 
         sealed class DvhPlot : FrameworkElement
         {
-            public sealed class Curve { public DvhResult Result;public Brush Color;public bool Visible; }
+            public sealed class Curve { public StructureRoi Roi;public DvhResult Result;public Brush Color;public bool Visible; }
+            public StructureRoi FocusedStructure;
             public readonly List<Curve> Curves=new List<Curve>();
             public string Units;
             protected override void OnRender(DrawingContext dc)
@@ -117,7 +156,9 @@ namespace QuickLook.DicomRT
                 Text(dc,"Volume (%)",new Point(12,3),Theme.Muted,10);
                 Text(dc,Units=="GY"?"Dose (Gy)":Units=="RELATIVE"?"Relative dose (DICOM values)":"Dose",new Point(bounds.Left+bounds.Width*.4,h-22),Theme.Muted,11);
                 dc.PushClip(new RectangleGeometry(bounds));
-                foreach(var curve in usable)
+                bool focused=usable.Any(c=>ReferenceEquals(c.Roi,FocusedStructure));
+                // Draw the emphasized curve last so overlapping faint curves cannot obscure it.
+                foreach(var curve in usable.OrderBy(c=>focused&&ReferenceEquals(c.Roi,FocusedStructure)?1:0))
                 {
                     var r=curve.Result;var geometry=new StreamGeometry();
                     using(var context=geometry.Open())
@@ -126,11 +167,13 @@ namespace QuickLook.DicomRT
                         for(int i=1;i<r.DoseValues.Length;i++)
                         {
                             double xx=bounds.Left+r.DoseValues[i]/max*bounds.Width;
-                            context.LineTo(new Point(xx,bounds.Bottom-r.CumulativeVolumePercent[i-1]/100*bounds.Height),true,false);
                             context.LineTo(new Point(xx,bounds.Bottom-r.CumulativeVolumePercent[i]/100*bounds.Height),true,false);
                         }
                     }
-                    geometry.Freeze();var pen=new Pen(curve.Color,2);if(r.Status==DvhStatus.PartialCoverage)pen.DashStyle=DashStyles.Dash;dc.DrawGeometry(null,pen,geometry);
+                    geometry.Freeze();bool emphasized=focused&&ReferenceEquals(curve.Roi,FocusedStructure);
+                    var pen=new Pen(curve.Color,emphasized?3.5:focused?1.5:2) {LineJoin=PenLineJoin.Round};
+                    if(r.Status==DvhStatus.PartialCoverage)pen.DashStyle=DashStyles.Dash;
+                    dc.PushOpacity(focused&&!emphasized?.18:1);dc.DrawGeometry(null,pen,geometry);dc.Pop();
                 }
                 dc.Pop();
                 if(usable.Length==0)Text(dc,"No calculated curves yet",new Point(bounds.Left+20,bounds.Top+bounds.Height*.45),Theme.Muted,13);

@@ -31,7 +31,11 @@ namespace QuickLook.DicomRT
             var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();if(doses.Count>0)choices.Add(new PlanChoice{Sum=true});
             bool prior=changing;changing=true;plans.ItemsSource=choices;
             var choice=sumMode?choices.FirstOrDefault(c=>c.Sum):choices.FirstOrDefault(c=>!c.Sum&&c.Plan==selectedPlan);
-            if(choice==null){var opened=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==initialEntry?.SopUid);choice=opened??choices.FirstOrDefault(c=>c.Plan!=null)??choices.FirstOrDefault(c=>c.Sum);selectedPlan=choice?.Plan;sumMode=choice?.Sum==true;}
+            if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTDOSE")
+            {var reference=doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.PlanUid;choice=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==reference);selectedPlan=choice?.Plan;}
+            if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTSTRUCT")
+            {var matches=choices.Where(c=>c.Plan!=null&&c.Plan.StructureSopUid==initialEntry.SopUid).ToArray();choice=matches.Length==1?matches[0]:null;selectedPlan=choice?.Plan;}
+            if(choice==null){var opened=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==initialEntry?.SopUid);bool referencedOnly=initialEntry?.Modality=="RTDOSE"||initialEntry?.Modality=="RTSTRUCT";choice=opened??(referencedOnly?null:choices.FirstOrDefault(c=>c.Plan!=null));selectedPlan=choice?.Plan;sumMode=false;}
             plans.SelectedItem=choice;changing=prior;
             if(viewButtons.ContainsKey("MLC"))viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
         }
@@ -64,9 +68,9 @@ namespace QuickLook.DicomRT
         // Called by the scanner on its worker thread. Only matching patient's RT objects are decoded.
         private void OnEntryFound(DicomEntry entry)
         {
-            if(!(entry.Modality.StartsWith("RT")||entry.Modality=="REG"))return;
+            if(!(entry.Modality.StartsWith("RT")||entry.Modality=="REG")||loadedRt.Contains(entry.SopUid))return;
             bool same=initialEntry.PatientKey!="|"&&!string.IsNullOrEmpty(initialEntry.PatientKey)?entry.PatientKey==initialEntry.PatientKey:!string.IsNullOrEmpty(initialEntry.StudyUid)&&entry.StudyUid==initialEntry.StudyUid;
-            if(!same)return;lifetime.Token.ThrowIfCancellationRequested();
+            if(!same&&!SamePath(entry.Path,initialEntry.Path))return;lifetime.Token.ThrowIfCancellationRequested();
             StructureSet structure=null;DoseGrid dose=null;PlanData plan=null;bool failed=false;
             try
             {

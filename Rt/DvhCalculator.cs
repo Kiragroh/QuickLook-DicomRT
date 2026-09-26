@@ -29,7 +29,7 @@ namespace QuickLook.DicomRT
     /// </summary>
     public static class DvhCalculator
     {
-        const int Bins = 256, MaxCells = 600000;
+        const int Bins = 2048, MaxCells = 600000;
         sealed class Polygon { public double[] X, Y; public double Z; }
         sealed class Plane { public double Z; public List<Polygon> Polygons = new List<Polygon>(); }
         struct Interval { public double A, B; public Interval(double a,double b){A=a;B=b;} }
@@ -80,7 +80,7 @@ namespace QuickLook.DicomRT
             double extentX=maxX-minX,extentY=maxY-minY;
             double minZ=planes[0].Z-(planes[1].Z-planes[0].Z)/2,maxZ=planes.Last().Z+(planes.Last().Z-planes[planes.Count-2].Z)/2;
             if(extentX<=0 || extentY<=0 || !Finite(extentX*extentY*(maxZ-minZ)))return Fail(result,DvhStatus.Unsupported,"Invalid contour volume.");
-            double step=Math.Max(1,Math.Pow(extentX*extentY*(maxZ-minZ)/MaxCells,1.0/3));
+            double step=Math.Max(.5,Math.Pow(extentX*extentY*(maxZ-minZ)/MaxCells,1.0/3));
             double cells;int nx,ny;int[] nz;
             do
             {
@@ -120,10 +120,10 @@ namespace QuickLook.DicomRT
             if(total==0)return Fail(result,DvhStatus.Empty,"Structure is smaller than the sampling grid or has no interior volume.");
             if(covered==0)return Fail(result,DvhStatus.PartialCoverage,"No sample points inside the dose grid; no curve.");
             result.DoseValues=new double[Bins+2];result.CumulativeVolumePercent=new double[Bins+2];double cumulative=0;
-            for(int i=Bins;i>=0;i--){cumulative+=histogram[i];result.DoseValues[i]=maxDose*i/Bins;result.CumulativeVolumePercent[i]=100*cumulative/total;}
+            for(int i=Bins;i>=0;i--){cumulative+=histogram[i];result.DoseValues[i]=maxDose*i/Bins;result.CumulativeVolumePercent[i]=Math.Min(100*covered/total,100*cumulative/total);}
             result.DoseValues[Bins+1]=maxDose*(Bins+1)/Bins;
             result.Status=covered/total<.999999?DvhStatus.PartialCoverage:DvhStatus.Complete;
-            result.Message=result.Status==DvhStatus.PartialCoverage?"Partial coverage: the curve is a lower bound; missing dose remains unknown.":"Approximate preview · contour slabs with half-spacing end caps · 256 dose intervals.";
+            result.Message=result.Status==DvhStatus.PartialCoverage?"Partial coverage: the curve is a lower bound; missing dose remains unknown.":"Approximate preview · contour slabs with half-spacing end caps · 2048 dose intervals; linear display interpolation.";
             return result;
         }
         static bool Finite(double v)=>!double.IsNaN(v)&&!double.IsInfinity(v);

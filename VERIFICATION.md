@@ -1,56 +1,59 @@
-# Version 0.2.0 verification — 2026-09-26
+# Version 0.2.1 verification — 2026-09-26
 
-## Automated checks
+## Scope and engineering checks
 
-Release builds and synthetic verification passed. The English UI build completed with zero compiler warnings and errors.
+Targeted builds completed without compiler warnings or errors. Synthetic fixtures remain part of automated tests; they are not presentation material. These checks do not establish clinical commissioning, machine validity or TPS equivalence.
 
 | Area | Evidence |
 | --- | --- |
-| Core | 10 synthetic groups: geometry, intensity decoding, catalog behavior and metadata |
-| RT | 53 assertions: dose geometry, registration, structures and plan interpretation |
-| Renderer | 333 coordinate, fusion, dose and frame-swap checks |
-| Playback | Directed rotations and whole-plan beam boundaries |
-| DVH / plan sum | 48 checks: union/XOR/keyholes, coverage, limits, sum eligibility, duplicates, rigid mapping, NaN boundaries and cancellation |
-| 3D | 42 geometry/composition checks, including bounded input and lifecycle; popup lifecycle also checked |
-| WPF interaction | 16 checks: slider binding, contrast, tag-tree search/expansion, global timeline and sum-only selection |
+| Core | 10 synthetic test groups |
+| RT | 65 assertions, including independent vendor-suffixed layers, duplicate device occurrences, inherited positions, geometry mismatch and ambiguous-update rejection |
+| Playback | Directed rotations, full turns, beam boundaries, independent layer interpolation, unchanged inputs and cardinal IEC schematic directions |
+| WPF / RT-only loading | 49 checks, including RTPLAN without image or dose, RTSTRUCT-only 3D scene, dose-plus-structures DVH without plan/CT, no automatic sum, and independent sidebar ROI focus/visibility interactions |
+| Rendering | 333 renderer checks plus 39 reformat checks; original native contours retained |
+| DVH | 71 checks covering bounded calculation, coverage, cancellation, curve focus and cache reuse |
+| 3D | Type-based default selection, geometry, bounded smoothing, mesh caching, input limits and lifecycle checks |
 
-An RTDOSE-opening test confirmed selection of its explicitly referenced plan rather than the first discovered plan. Final catalog REG inference includes exact referenced images. Source files stayed read-only. These are engineering checks, not clinical commissioning or proof of TPS equivalence.
+The RT-only scenarios generate minimal synthetic fo-dicom RP/RS/RD fixtures inside a uniquely named temporary directory and remove that directory afterward. They require neither ignored local fixture folders nor Python. Source DICOM files remain read-only. Initial RTPLAN opens MLC; RTSTRUCT and RTDOSE open 3D. An absent CT or dose does not block independent RT capabilities. A dose sum requires an explicit user selection.
 
 ## Public nonpatient benchmark
 
-The supplied public benchmark contained 194 files: 191 CT instances plus RTSTRUCT, RTPLAN and RTDOSE, with 55 ROIs.
+The supplied benchmark contains 194 files: 191 CT instances plus RTSTRUCT, RTPLAN and RTDOSE, with 55 ROIs. Updated measurements were made locally with warm data and bounded preview settings:
 
-- **DVH:** all 55 ROIs produced complete curves, each with 100% sampled dose coverage. No unsupported, empty or budget-limited results occurred. Scan, loading and all calculations together took 27.259 seconds; maximum adaptive spacing was 3.11 mm. UI limits remain 128 ROIs and 30 seconds per view, with unprocessed ROIs reported.
-- **3D:** the full scene check retained all 55 ROIs, one dose surface and both CT context surfaces. Preparation used about 420,000 triangles and 822 ms. This timer excludes catalog and volume loading. Adaptive detail and the 600,000-triangle cap remain active.
-- Demo captures may show selected ROI subsets to make overlapping surfaces legible. The UI reports the prepared selected ROI-surface count.
+| Workload | Result | Measured time |
+| --- | --- | ---: |
+| Updated DVH calculation | 55 complete curves, full sampled dose coverage, 2,048 dose intervals | 1,983 ms |
+| New default 3D selection | 52 PTV/ORGAN ROIs, 119,936 triangles | 615 ms |
+| Reuse of cached default 3D scene | Unchanged geometry | 0 ms at millisecond timer resolution |
+| Updated all-object 3D workload | 55 ROIs plus dose and CT context, 223,716 triangles | 1,204 ms |
+| Earlier all-object 3D workload | 420,340 triangles, including additional object types/context | 1,673 ms |
 
-The final CT performance capture used a fresh viewer after prior dataset access, so OS caches were warm:
+Default and all-object 3D workloads contain different objects and triangle counts. Their timings are not an equal-work speedup measurement. A reported 0 ms means below timer resolution, not zero computational cost. Calculation/preparation timings exclude QuickLook startup and are not a live display frame rate. DVH remains an approximate contour-slab estimate; increasing histogram resolution and interpolating its display do not establish agreement with a TPS.
 
-| Event | CT opening | RTPLAN opening |
-| --- | ---: | ---: |
-| First image decoded/prepared | 31 ms | 2,391 ms |
-| First RT available | 290 ms | 1,039 ms |
-| First plan available | 1,448 ms | 1,644 ms |
-| Directory index complete | 2,199 ms | 2,371 ms |
+The earlier 0.2.0 CT-opening measurement observed initial image preparation at 31 ms, first RT at 290 ms, first plan at 1,448 ms and indexing at 2,199 ms. Those historical warm-cache values are not remeasured 0.2.1 loading results. Image preparation is recorded before redraw, not when pixels become visible.
 
-**The image metric is recorded before redraw. It measures decoding/preparation, not pixels appearing on screen.** All values exclude QuickLook startup. They are observed timings for this machine and cache state, not general latency guarantees. RT-first loading changes discovery order while still scanning the complete direct folder.
+## MLC acceptance and approved capture
 
-The benchmark data is not bundled with the source or installer. Public demonstration assets remain separate from private local acceptance material.
+The authorized read-only clinical MLC check parsed one plan, three beams and 184 control points, including 182 dual-layer control points. The observed layer definitions have 28 and 29 leaf pairs with separate supplied boundary arrays. No missing geometry was invented. Enhanced beam-limiting-device sequences remain explicitly unsupported; ambiguous partial duplicate-type updates are rejected.
 
-## Other local observations
+Separate explicit authorization permits MLC-only presentation capture from this source. A whitelist display model contains generic plan/beam labels, technical layer geometry and angles only. It has no source entry, original free text, patient/study/frame identifiers, source path, image data, tag tree or original isocenter coordinates. Source files are unchanged; no DICOM copies are produced. The resulting still and 90 unique frames were verified at 1600 × 900, with the still and endpoint frames visually inspected. Playback is 15 fps for six seconds of presentation time, not actual delivery timing.
 
-A separate authorized read-only local case gave warm observations of 280 ms for initial image preparation, 2,187 ms for first RT, 2,278 ms for first plan and 5,409 ms for indexing. Its DVH run produced 22 curves from 23 ROIs: 21 with full coverage, one partial and one unsupported, in about 5.1 seconds including scan/load/calculation. These are aggregate measurements only; no identifiers or images from that case are released.
+The synchronized linac/couch view is an IEC fixed-frame schematic with an explicitly unregistered patient glyph. It is not a TPS, collision model or machine simulation.
 
-Adaptive sampling can be coarse for large ROIs and is displayed. A synthetic 512×512 image/dose/isodose raster took about 41 ms of CPU preparation; this is not an end-to-end display frame-rate claim.
+## Geometry and interaction boundaries
 
-## Acceptance boundaries
+Native-plane contours remain original. Reformatted planes draw a labeled approximate boundary between supported parallel contour planes; unsupported stacks fall back to actual plane intersections. Interpolated reformat outlines and bounded 3D smoothing are display approximations, not replacement structures. PTV/ORGAN defaults use DICOM interpreted types without guessing from names; other types, CT context and dose are opt-in.
 
-Offscreen WPF tests and public demonstration rendering do not establish interactive Explorer Space-key acceptance in an installed QuickLook host. End-to-end interactive host behavior remains a separate acceptance step. Installer publication and installation must be checked independently of component builds.
+Ctrl-wheel zoom retains the current viewport. Compact width/level readouts and plan ISO crosses use the displayed scene; off-plane isocenters are dotted and include signed distance. DVH curve focus is separate from checkbox visibility and reuses compatible cached calculation results.
 
-No private DICOMs, private identifiers or patient screenshots are packaged. Dose sums use stored physical values without a treatment judgment. DVH slab sampling, bounded 3D surfaces and MLC playback remain engineering previews, not clinical or machine validation.
+## Presentation and release acceptance
 
-## Release packaging checks
+The 0.2.1 presentation uses only approved public nonpatient data and the separately authorized sanitized MLC-only capture. Synthetic fixtures remain confined to engineering tests. Raw DICOM files and private identifiers are not release assets. Captures use actual WPF controls in offscreen windows, not fabricated UI.
 
-Installer archive/path/host tests: 32 passed. The standalone executable passed `--verify-payload` with all 10 embedded files verified. A separate review checked host location handling, exact current-session process matching, backup/rollback and archive allowlisting. No installer-button installation test was performed; the final plugin was independently copied to the local normal QuickLook installation, all 10 installed-file hashes matched, and the restarted host was responsive.
+Offscreen tests and component builds do not establish Explorer Space-key acceptance, installer-button behavior, or cold-start performance in an installed QuickLook host. Final package hashes, installer payload checks, presentation asset checks and interactive host acceptance must be recorded separately for the final release; earlier 0.2.0 packaging results do not prove 0.2.1 installation.
 
-The English HTML tour has 14 slides, 20 real viewer screenshots and four locally rendered HyperFrames clips (1600 × 900, 30 fps, seven seconds each). Browser checks at 1600 × 900 and 1280 × 720 found no slide overflow, missing images or script errors; video decoding, navigation, image zoom and tag-view switching passed.
+Final 0.2.1 packaging: clean Release builds, 32 installer checks and embedded payload verification passed. Installed plugin payload hashes were matched to the package manifest, a previous-version backup retained, and the restarted QuickLook process confirmed responsive. This verifies the deployment files/process, not a manual Explorer Space-key interaction.
+
+The linked 2 × 2 MPR view includes a compact fourth 3D pane. Its LPS slice planes intersect the oriented image volume at the current focus. Tests cover oblique volumes, camera fit, unchanged camera and cached surface geometry during focus/source-slice updates, and layout reuse. The guide contains fewer than 150 triangles; it does not rebuild structure meshes while scrolling.
+
+Presentation acceptance: 14 slides and seven six-second videos passed 133 headless-browser assertions at 1600 × 900 and 1280 × 720, including autoplay, navigation, media enlargement, local asset loading and overflow checks. The hero and MPR/3D slides were also visually inspected.

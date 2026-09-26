@@ -13,6 +13,11 @@ namespace QuickLook.DicomRT
         public float Maximum; public bool Visible=true;
         int width,height,depth; float[] values; double[] offsets;
         Vec3 origin,xAxis,yAxis,zAxis; double sx,sy;
+        // Geometry-only sampling bounds also cover nonuniform frame offsets.
+        // Values must still be read through Sample, never through this proxy grid.
+        public VolumeData SamplingBounds => Volume ?? (offsets==null||depth<1?null:new VolumeData {
+            Width=width,Height=height,Depth=depth,Origin=origin+zAxis*offsets[0],AxisX=xAxis,AxisY=yAxis,AxisZ=zAxis,
+            SpacingX=sx,SpacingY=sy,SpacingZ=depth>1?(offsets[depth-1]-offsets[0])/(depth-1):1,Max=Maximum });
         public static DoseGrid Load(DicomEntry entry)
         {
             var d=RtDicom.Full(entry);

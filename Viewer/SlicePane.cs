@@ -17,7 +17,7 @@ namespace QuickLook.DicomRT
   sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public List<OverlayLines> Lines=new List<OverlayLines>();}
   RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
   public RenderScene Scene {get=>scene;set{scene=value;Refresh();}}
-  public event Action<SlicePane,int> Scrolled; public event Action<SlicePane,Vec3> Picked;public event Action<double,double> WindowChanged;
+  public event Action<SlicePane,int> Scrolled; public event Action<SlicePane,Vec3> Picked;public event Action<double,double> WindowChanged;public event Action<double> ZoomChanged;
   public SlicePane(){Focusable=true;ClipToBounds=true;SizeChanged+=(s,e)=>Refresh();MouseWheel+=OnWheel;MouseLeftButtonDown+=OnPick;MouseRightButtonDown+=OnDragStart;MouseMove+=OnDrag;MouseRightButtonUp+=(s,e)=>{ReleaseMouseCapture();e.Handled=true;};}
   public async void Refresh()
   {
@@ -41,7 +41,7 @@ namespace QuickLook.DicomRT
      {
       cancel.Token.ThrowIfCancellationRequested();if(overlay?.Roi==null||!overlay.Roi.Visible)continue;
       var roi=overlay.Roi;var brush=new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue));brush.Freeze();var pen=new Pen(brush,1.3);pen.Freeze();
-      result.Lines.Add(new OverlayLines{Pen=pen,Lines=SliceGeometry.ContourLines(roi,overlay.RoiToImage,pixels.Geometry,tolerance)});
+      result.Lines.Add(new OverlayLines{Pen=pen,Lines=copy.Plane=="Native"?SliceGeometry.ContourLines(roi,overlay.RoiToImage,pixels.Geometry,tolerance):ReformatContours.Outline(roi,overlay.RoiToImage,pixels.Geometry,tolerance,cancel.Token)});
      }
      return result;
     },cancel.Token);
@@ -76,6 +76,16 @@ namespace QuickLook.DicomRT
     dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));
     dc.DrawLine(pen,new Point(p.X,rect.Top),new Point(p.X,p.Y-5));dc.DrawLine(pen,new Point(p.X,p.Y+5),new Point(p.X,rect.Bottom));
    }
+   foreach(var iso in f.Scene.Isocenters??new Vec3[0])
+   {
+    double distance=(iso-g.Center).Dot(g.Normal);var isoVolume=f.Scene.Volume;double isoStep=isoVolume==null?1:f.Scene.Plane=="Native"?isoVolume.SpacingZ:Math.Min(isoVolume.SpacingX,Math.Min(isoVolume.SpacingY,isoVolume.SpacingZ));double tolerance=Math.Max(.01,isoStep*.51);
+    var point=Project(iso,g,rect);var brush=Math.Abs(distance)<=tolerance?Brushes.Gold:Brushes.DarkGoldenrod;
+    var pen=new Pen(brush,1.7);if(Math.Abs(distance)>tolerance)pen.DashStyle=DashStyles.Dot;
+    dc.DrawLine(new Pen(Brushes.Black,3.8),new Point(point.X-9,point.Y),new Point(point.X+9,point.Y));
+    dc.DrawLine(new Pen(Brushes.Black,3.8),new Point(point.X,point.Y-9),new Point(point.X,point.Y+9));
+    dc.DrawLine(pen,new Point(point.X-9,point.Y),new Point(point.X+9,point.Y));dc.DrawLine(pen,new Point(point.X,point.Y-9),new Point(point.X,point.Y+9));
+    Text(dc,Math.Abs(distance)<=tolerance?"ISO":$"ISO {distance:+0.0;-0.0} mm",new Point(point.X+12,point.Y-8),brush,10);
+   }
    dc.Pop();
    Text(dc,f.Scene.Plane=="Native"?"Original plane":f.Scene.Plane=="Axial"?"Axial":f.Scene.Plane=="Coronal"?"Coronal":"Sagittal",new Point(10,7),Brushes.White);
    if(f.Scene.Entry?.HasGeometry!=false)
@@ -86,13 +96,13 @@ namespace QuickLook.DicomRT
     Text(dc,SliceGeometry.Direction(g.Down),new Point(ActualWidth/2,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
    }
    Text(dc,string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
-   if(f.Scene.Structures.Count>0&&f.Scene.Plane!="Native")Text(dc,"Contour intersections; no volume reconstruction",new Point(10,26),Brushes.LightSlateGray,10);
+   if(f.Scene.Structures.Count>0&&f.Scene.Plane!="Native")Text(dc,"Interpolated contour-stack boundary",new Point(10,26),Brushes.LightSlateGray,10);
    if(f.Scene.Isodoses&&f.Scene.Doses.Count>0)Text(dc,"Isodoses: "+string.Join(" / ",SliceRaster.IsodoseLevels(f.Scene).Select(x=>x.ToString("0.#",CultureInfo.InvariantCulture)))+" % of each dose maximum",new Point(10,40),Brushes.LightGray,10);
    if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
   }
   void Text(DrawingContext dc,string text,Point p,Brush brush,double size=11)
   {dc.DrawText(new FormattedText(text??"",CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),size,brush,VisualTreeHelper.GetDpi(this).PixelsPerDip),p);}
-  void OnWheel(object sender,MouseWheelEventArgs e){if(e.Delta==0)return;Scrolled?.Invoke(this,e.Delta>0?1:-1);e.Handled=true;}
+  void OnWheel(object sender,MouseWheelEventArgs e){if(e.Delta==0)return;if((Keyboard.Modifiers&ModifierKeys.Control)!=0){ZoomChanged?.Invoke(e.Delta>0?1.15:1/1.15);e.Handled=true;return;}Scrolled?.Invoke(this,e.Delta>0?1:-1);e.Handled=true;}
   void OnPick(object sender,MouseButtonEventArgs e)
   {
    Focus();if(frame==null)return;var g=frame.Raster.Geometry;var r=ImageRect(g);var p=e.GetPosition(this);if(!r.Contains(p))return;

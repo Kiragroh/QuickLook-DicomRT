@@ -6,7 +6,7 @@ namespace QuickLook.DicomRT
 {
  public sealed class ThreeDMeshData
  {
-  public readonly List<Vec3> Points=new List<Vec3>();public readonly List<int> Indices=new List<int>();
+  public readonly List<Vec3> Points=new List<Vec3>();public readonly List<int> Indices=new List<int>();public readonly List<Vec3> Normals=new List<Vec3>();
   internal void Triangle(Vec3 a,Vec3 b,Vec3 c)
   {
    if((b-a).Cross(c-a).Length<1e-10)return;
@@ -16,6 +16,65 @@ namespace QuickLook.DicomRT
  }
  public static class ThreeDGeometry
  {
+  struct VertexKey : IEquatable<VertexKey>
+  {
+   readonly long x,y,z;public VertexKey(Vec3 p){x=(long)Math.Round(p.X*1000);y=(long)Math.Round(p.Y*1000);z=(long)Math.Round(p.Z*1000);}
+   VertexKey(long a,long b,long c){x=a;y=b;z=c;}public VertexKey Offset(int a,int b,int c)=>new VertexKey(x+a,y+b,z+c);
+   public bool Equals(VertexKey other)=>x==other.x&&y==other.y&&z==other.z;
+   public override bool Equals(object other)=>other is VertexKey&&Equals((VertexKey)other);
+   public override int GetHashCode(){unchecked{return (x.GetHashCode()*397^y.GetHashCode())*397^z.GetHashCode();}}
+  }
+  public static bool DefaultRoi(StructureRoi roi)=>roi!=null&&(string.Equals(roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)||string.Equals(roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase));
+  // Weld coincident marching-tetrahedron vertices before smoothing. Each vertex
+  // remains within maxDisplacement mm of its original sampled surface position.
+  // This is a bounded display approximation, never a replacement for contours.
+  public static ThreeDMeshData Smooth(ThreeDMeshData source,double maxDisplacement,CancellationToken token)
+  {
+   var mesh=new ThreeDMeshData();var map=new Dictionary<VertexKey,int>();var indices=new int[source.Points.Count];
+   for(int i=0;i<source.Points.Count;i++)
+   {
+    if((i&4095)==0)token.ThrowIfCancellationRequested();var p=source.Points[i];var key=new VertexKey(p);int k;
+    if(!map.TryGetValue(key,out k))
+    {
+     k=-1;for(int dz=-1;dz<=1&&k<0;dz++)for(int dy=-1;dy<=1&&k<0;dy++)for(int dx=-1;dx<=1&&k<0;dx++){int candidate;if(map.TryGetValue(key.Offset(dx,dy,dz),out candidate)&&(mesh.Points[candidate]-p).Length<.001)k=candidate;}
+     if(k<0){k=mesh.Points.Count;mesh.Points.Add(p);}map.Add(key,k);
+    }indices[i]=k;
+   }
+   for(int i=0;i<source.Indices.Count;i+=3){int a=indices[source.Indices[i]],b=indices[source.Indices[i+1]],c=indices[source.Indices[i+2]];if(a==b||b==c||a==c)continue;mesh.Indices.Add(a);mesh.Indices.Add(b);mesh.Indices.Add(c);}
+   if(maxDisplacement>0)
+   {
+   var neighbors=new List<int>[mesh.Points.Count];for(int i=0;i<neighbors.Length;i++)neighbors[i]=new List<int>(12);
+   for(int i=0;i<mesh.Indices.Count;i+=3)for(int j=0;j<3;j++){int a=mesh.Indices[i+j],b=mesh.Indices[i+(j+1)%3];neighbors[a].Add(b);neighbors[b].Add(a);}
+   var original=mesh.Points.ToArray();var next=new Vec3[original.Length];
+   // Six Taubin pairs reduce voxel stair steps without accumulating shrinkage.
+   for(int pass=0;pass<12&&maxDisplacement>0;pass++)
+   {
+    token.ThrowIfCancellationRequested();double weight=pass%2==0?.5:-.53;
+    for(int i=0;i<next.Length;i++)
+    {
+     var sum=new Vec3();foreach(int n in neighbors[i])sum+=mesh.Points[n];var p=neighbors[i].Count==0?mesh.Points[i]:mesh.Points[i]+(sum/neighbors[i].Count-mesh.Points[i])*weight;
+     var delta=p-original[i];if(delta.Length>maxDisplacement)p=original[i]+delta*(maxDisplacement/delta.Length);next[i]=p;
+    }
+    for(int i=0;i<next.Length;i++)mesh.Points[i]=next[i];
+   }
+   // Prevent display smoothing from turning an original triangle inside out.
+   // Restore affected vertices; if restoration cannot converge, retain the
+   // original welded surface rather than publish inverted faces.
+   for(int attempt=0;attempt<12;attempt++)
+   {
+    bool restored=false;
+    for(int i=0;i<mesh.Indices.Count;i+=3)
+    {
+     int a=mesh.Indices[i],b=mesh.Indices[i+1],c=mesh.Indices[i+2];var reference=(original[b]-original[a]).Cross(original[c]-original[a]);var normal=(mesh.Points[b]-mesh.Points[a]).Cross(mesh.Points[c]-mesh.Points[a]);
+     if(reference.Length>1e-10&&normal.Dot(reference)<=0){mesh.Points[a]=original[a];mesh.Points[b]=original[b];mesh.Points[c]=original[c];restored=true;}
+    }
+    if(!restored)break;if(attempt==11)for(int i=0;i<original.Length;i++)mesh.Points[i]=original[i];
+   }
+   }
+   var normals=new Vec3[mesh.Points.Count];
+   for(int i=0;i<mesh.Indices.Count;i+=3){int a=mesh.Indices[i],b=mesh.Indices[i+1],c=mesh.Indices[i+2];var normal=(mesh.Points[b]-mesh.Points[a]).Cross(mesh.Points[c]-mesh.Points[a]);normals[a]+=normal;normals[b]+=normal;normals[c]+=normal;}
+   foreach(var normal in normals)mesh.Normals.Add(normal.Length>1e-12?normal.Normalized():new Vec3(0,0,1));return mesh;
+  }
   static readonly int[,] Tetra={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}};
   static readonly int[,] Edge={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};
   public static ThreeDMeshData Isosurface(VolumeData bounds,Func<Vec3,float> sample,double level,int limit,CancellationToken token)
@@ -54,7 +113,7 @@ namespace QuickLook.DicomRT
    return mesh;
   }
   sealed class Loop {public Vec3[] Points;public double Level;}
-  public static VolumeData VoxelizeRoi(StructureRoi roi,Matrix4 transform,int limit,CancellationToken token,out string reason)
+  public static VolumeData VoxelizeRoi(StructureRoi roi,Matrix4 transform,int limit,CancellationToken token,out string reason,bool smoothField=false)
   {
    reason=null;limit=Math.Max(8,Math.Min(64,limit));token.ThrowIfCancellationRequested();
    if(roi?.Contours==null||roi.Contours.Count==0){reason="No contours";return null;}
@@ -92,14 +151,40 @@ namespace QuickLook.DicomRT
     }
     masks.Add(mask);
    }
+   var fields=smoothField?masks.Select(m=>SignedDistance(m,nx,ny,sx,sy,token)).ToArray():null;
    var volume=new VolumeData{Width=nx,Height=ny,Depth=nz,Origin=u*minU+v*minV+normal*minZ,AxisX=u,AxisY=v,AxisZ=normal,SpacingX=sx,SpacingY=sy,SpacingZ=sz,Values=new float[nx*ny*nz],Min=0,Max=1};
    for(int z=0;z<nz;z++)
    {
     token.ThrowIfCancellationRequested();double pz=minZ+z*sz;int closest=0;for(int i=1;i<levels.Length;i++)if(Math.Abs(levels[i]-pz)<Math.Abs(levels[closest]-pz))closest=i;
     // Do not bridge absent contour planes across gaps larger than the regular contour interval.
-    if(Math.Abs(pz-levels[closest])>stepZ*.50001)continue;var mask=masks[closest];for(int k=0;k<mask.Length;k++)if(mask[k])volume.Values[z*nx*ny+k]=1;
+    if(Math.Abs(pz-levels[closest])>stepZ*.50001)continue;
+    if(!smoothField){var mask=masks[closest];for(int k=0;k<mask.Length;k++)if(mask[k])volume.Values[z*nx*ny+k]=1;continue;}
+    // Interpolate a continuous display distance field only across regular adjacent
+    // contour planes. Segmentation masks themselves retain their nearest-plane mode.
+    int low=closest,high=closest;if(pz>levels[closest]&&closest+1<levels.Length)high=closest+1;else if(pz<levels[closest]&&closest>0)low=closest-1;
+    if(levels[high]-levels[low]>stepZ*1.5)low=high=closest;
+    double fraction=low==high?0:(pz-levels[low])/(levels[high]-levels[low]);
+    double cap=Math.Min(pz-(levels[0]-.5*stepZ),levels[levels.Length-1]+.5*stepZ-pz);
+    for(int k=0;k<nx*ny;k++){double distance=Math.Min(cap,fields[low][k]*(1-fraction)+fields[high][k]*fraction);volume.Values[z*nx*ny+k]=(float)(.5+distance/Math.Max(sx,sy));}
    }
    reason="Voxelized from contours (bounded resolution)";return volume;
+  }
+  static float[] SignedDistance(bool[] mask,int width,int height,double sx,double sy,CancellationToken token)
+  {
+   var inside=new float[mask.Length];var outside=new float[mask.Length];const float far=1000000;
+   for(int i=0;i<mask.Length;i++){inside[i]=mask[i]?0:far;outside[i]=mask[i]?far:0;}
+   double diagonal=Math.Sqrt(sx*sx+sy*sy);
+   foreach(var field in new[]{inside,outside})for(int pass=0;pass<2;pass++)
+   {
+    token.ThrowIfCancellationRequested();int direction=pass==0?1:-1;
+    for(int y=pass==0?0:height-1;y>=0&&y<height;y+=direction)for(int x=pass==0?0:width-1;x>=0&&x<width;x+=direction)
+    {
+     int k=y*width+x,previousX=x-direction,previousY=y-direction;
+     if(previousX>=0&&previousX<width)field[k]=Math.Min(field[k],(float)(field[y*width+previousX]+sx));
+     if(previousY>=0&&previousY<height){field[k]=Math.Min(field[k],(float)(field[previousY*width+x]+sy));foreach(int dx in new[]{-1,1})if(x+dx>=0&&x+dx<width)field[k]=Math.Min(field[k],(float)(field[previousY*width+x+dx]+diagonal));}
+    }
+   }
+   double half=.5*Math.Min(sx,sy);for(int i=0;i<mask.Length;i++)inside[i]=(float)(mask[i]?outside[i]-half:half-inside[i]);return inside;
   }
   public static ThreeDMeshData ContourLines(StructureRoi roi,Matrix4 transform,CancellationToken token)
   {

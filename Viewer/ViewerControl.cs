@@ -39,6 +39,18 @@ namespace QuickLook.DicomRT
         private PixelPlane native;
         private Vec3 focus;
         private double windowCenter = 40, windowWidth = 400, zoom = 1;
+        private Slider miniWidth,miniLevel;private bool updatingWindowControls;
+        private UIElement BuildWindowControls()
+        {
+            var panel=new StackPanel();
+            miniWidth=new Slider {Minimum=1,Maximum=Math.Max(5000,windowWidth),Value=windowWidth,Width=130,ToolTip="Window width (contrast)"};
+            miniLevel=new Slider {Minimum=Math.Min(-1500,windowCenter),Maximum=Math.Max(3500,windowCenter),Value=windowCenter,Width=130,ToolTip="Window level (brightness)"};
+            foreach(var item in new[]{Tuple.Create("W",miniWidth),Tuple.Create("L",miniLevel)})
+            {var row=new StackPanel {Orientation=Orientation.Horizontal};var label=Theme.Text(item.Item1,10,Theme.Muted);label.Width=20;label.VerticalAlignment=VerticalAlignment.Center;row.Children.Add(label);row.Children.Add(item.Item2);panel.Children.Add(row);}
+            miniWidth.ValueChanged+=(s,e)=>{if(!updatingWindowControls)SetWindow(windowCenter,e.NewValue);};
+            miniLevel.ValueChanged+=(s,e)=>{if(!updatingWindowControls)SetWindow(e.NewValue,windowWidth);};
+            return new Border {Child=panel,Padding=new Thickness(8,3,8,3),CornerRadius=new CornerRadius(5),Background=new SolidColorBrush(Color.FromArgb(220,15,20,22)),HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(0,0,12,28)};
+        }
         private int sliceIndex, pixelGeneration, seriesGeneration;
         private bool changing, disposed;
         private List<TagRow> tags = new List<TagRow>();
@@ -123,28 +135,33 @@ namespace QuickLook.DicomRT
             dock.Children.Add(tagTree);return Theme.Box(dock);
         }
 
-        private void SetWindow(double center, double width) { windowCenter = center; windowWidth = Math.Max(1, width); Redraw(); }
+        private void SetWindow(double center, double width) { windowCenter = center; windowWidth = Math.Max(1, width);if(miniWidth!=null){updatingWindowControls=true;miniWidth.Maximum=Math.Max(5000,windowWidth);miniLevel.Minimum=Math.Min(-1500,windowCenter);miniLevel.Maximum=Math.Max(3500,windowCenter);miniWidth.Value=windowWidth;miniLevel.Value=windowCenter;miniWidth.ToolTip=$"Window width {windowWidth:0}";miniLevel.ToolTip=$"Window level {windowCenter:0}";updatingWindowControls=false;} Redraw(); }
         private void UpdatePanels(){if(rightColumn==null||leftColumn==null)return;leftColumn.Width=new GridLength(layersVisible?290:0);rightColumn.Width=new GridLength(tagsVisible?345:0);if(leftPanel!=null)leftPanel.Visibility=layersVisible?Visibility.Visible:Visibility.Collapsed;if(rightPanel!=null)rightPanel.Visibility=tagsVisible?Visibility.Visible:Visibility.Collapsed;}
         private void AutoWindow() { float min = native?.Min ?? volume?.Min ?? 0, max = native?.Max ?? volume?.Max ?? 1000; SetWindow((min + max) / 2.0, Math.Max(1, max - min)); }
         private void RebuildPanes()
         {
             foreach (var pane in panes) pane.Dispose(); panes.Clear(); imageGrid.Children.Clear(); imageGrid.ColumnDefinitions.Clear(); imageGrid.RowDefinitions.Clear();
             string selected = (string)planes.SelectedItem ?? "Native"; var views = selected == "3 planes" ? new[] { "Axial", "Coronal", "Sagittal" } : new[] { selected };
+            bool quad=views.Length==3;
+            imageGrid.ColumnDefinitions.Add(new ColumnDefinition());
+            imageGrid.RowDefinitions.Add(new RowDefinition());
+            if(quad){imageGrid.ColumnDefinitions.Add(new ColumnDefinition());imageGrid.RowDefinitions.Add(new RowDefinition());}
             for (int i = 0; i < views.Length; i++)
             {
-                imageGrid.ColumnDefinitions.Add(new ColumnDefinition());
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
-                pane.Picked += (p, point) => { focus = point; Redraw(); }; pane.WindowChanged += SetWindow;
-                Grid.SetColumn(pane, i); imageGrid.Children.Add(pane); panes.Add(pane);
+                pane.Picked += (p, point) => { focus = point; Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
+                Grid.SetColumn(pane, quad?i%2:0);Grid.SetRow(pane,quad?i/2:0); imageGrid.Children.Add(pane); panes.Add(pane);
             }
+            if(quad){if(mprThreeD==null)mprThreeD=new ThreeDControl(compact:true);Grid.SetColumn(mprThreeD,1);Grid.SetRow(mprThreeD,1);imageGrid.Children.Add(mprThreeD);}
+            var mini=BuildWindowControls();imageGrid.Children.Add(mini);
             Redraw();
         }
 
         public void Dispose()
         {
             if (disposed) return; if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
-            foreach (var pane in panes) pane.Dispose(); centralPlayback?.Dispose(); dvhView?.Dispose(); threeDView?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
+            foreach (var pane in panes) pane.Dispose(); centralPlayback?.Dispose(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }
 }

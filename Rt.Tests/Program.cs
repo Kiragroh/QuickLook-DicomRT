@@ -124,8 +124,40 @@ internal static class Program
         beam.AddOrUpdate(new DicomSequence(DicomTag.BeamLimitingDeviceSequence,
             new DicomDataset().Add(DicomTag.RTBeamLimitingDeviceType,"MLCX").Add(DicomTag.NumberOfLeafJawPairs,2).Add(DicomTag.LeafPositionBoundaries,-20d,0d,20d),
             new DicomDataset().Add(DicomTag.RTBeamLimitingDeviceType,"MLCY").Add(DicomTag.NumberOfLeafJawPairs,2).Add(DicomTag.LeafPositionBoundaries,-20d,0d,20d)));
-        invalid=false;try {PlanData.Load(new DicomEntry {Dataset=d});}catch(NotSupportedException){invalid=true;}
-        Assert(invalid,"multilayer MLC explicitly unsupported");
+        invalid=false;try {PlanData.Load(new DicomEntry {Dataset=d});}catch(ArgumentException){invalid=true;}
+        Assert(invalid,"missing initial layer rejected");
+    }
+    static DicomDataset Definition(string type,params double[] bounds)=>new DicomDataset().Add(DicomTag.RTBeamLimitingDeviceType,type).Add(DicomTag.NumberOfLeafJawPairs,bounds.Length-1).Add(DicomTag.LeafPositionBoundaries,bounds);
+    static PlanData LayerPlan(DicomDataset[] definitions,params DicomDataset[] points)=>PlanData.Load(new DicomEntry {Dataset=new DicomDataset().Add(new DicomSequence(DicomTag.BeamSequence,new DicomDataset().Add(DicomTag.BeamNumber,1).Add(new DicomSequence(DicomTag.BeamLimitingDeviceSequence,definitions)).Add(new DicomSequence(DicomTag.ControlPointSequence,points))))});
+    static DicomDataset Aperture(params DicomDataset[] devices)=>new DicomDataset().Add(new DicomSequence(DicomTag.BeamLimitingDevicePositionSequence,devices));
+    static void LayerTests()
+    {
+        var definitions=new[]{Definition("MLCX1",-20,0,20),Definition("MLCX2",-30,-10,10,30)};
+        var p=LayerPlan(definitions,Aperture(Device("MLCX1",-5,-6,5,6),Device("MLCX2",-7,-8,-9,7,8,9)),Aperture(Device("MLCX2",-10,-11,-12,10,11,12)),new DicomDataset());
+        var cp=p.Beams[0].ControlPoints;
+        Assert(cp[0].MlcLayers.Count==2,"vendor double layer retained");Near(cp[1].MlcLayers[0].Positions[0],-5,"first layer independently inherited");Near(cp[1].MlcLayers[1].Positions[0],-10,"second layer updated");
+        Near(cp[2].MlcLayers[1].Positions[1],-11,"whole sequence omission inherits layers");cp[2].MlcLayers[1].Positions[1]=100;Near(cp[1].MlcLayers[1].Positions[1],-11,"layer arrays independent");
+        var duplicate=new[]{Definition("MLCX",-20,0,20),Definition("MLCX",-30,-10,10,30)};
+        p=LayerPlan(duplicate,Aperture(Device("MLCX",-5,-6,5,6),Device("MLCX",-7,-8,-9,7,8,9)),Aperture(Device("MLCX",-10,-11,-12,10,11,12)));
+        Assert(p.Beams[0].ControlPoints[0].MlcLayers.Select(l=>l.Key).Distinct().Count()==2,"duplicate types preserve occurrence identity");Near(p.Beams[0].ControlPoints[1].MlcLayers[0].Positions[0],-5,"unique pair count partial update inherits other duplicate layer");
+        p=LayerPlan(new[]{Definition("MLCY",-20,0,20),Definition("MLCY",-20,0,20)},Aperture(Device("MLCY",-5,-6,5,6),Device("MLCY",-7,-8,7,8)),Aperture(Device("MLCY",-1,-2,1,2),Device("MLCY",-3,-4,3,4)));
+        Near(p.Beams[0].ControlPoints[1].MlcLayers[0].Positions[0],-1,"complete duplicate group first occurrence");Near(p.Beams[0].ControlPoints[1].MlcLayers[1].Positions[0],-3,"complete duplicate group second occurrence");Assert(p.Beams[0].ControlPoints[1].MlcLayers.All(l=>l.IsY),"Y layer orientation preserved");
+        bool rejected=false;try{LayerPlan(new[]{Definition("MLCX",-20,0,20),Definition("MLCX",-20,0,20)},Aperture(Device("MLCX",-5,-6,5,6),Device("MLCX",-7,-8,7,8)),Aperture(Device("MLCX",-1,-2,1,2)));}catch(ArgumentException){rejected=true;}Assert(rejected,"ambiguous duplicate partial update rejected");
+        rejected=false;try{LayerPlan(definitions,Aperture(Device("MLCX1",-5,-6,5,6),Device("MLCX2",-7,-8,-9,7,8,9)),Aperture(Device("MLCX2",-1,1)));}catch(ArgumentException){rejected=true;}Assert(rejected,"malformed second layer rejected");
+    }
+    static void PrivateMlcAcceptance(string folder)
+    {
+        int plans=0,beams=0,cps=0,dual=0;
+        foreach(var path in Directory.EnumerateFiles(folder))
+        {
+            DicomFile file;try {file=DicomFile.Open(path,FileReadOption.ReadLargeOnDemand);}catch {continue;}
+            if(file.Dataset.GetSingleValueOrDefault(DicomTag.Modality,"")!="RTPLAN")continue;
+            // Dataset retained only in memory; never print paths, names, UIDs or arbitrary metadata.
+            var plan=PlanData.Load(new DicomEntry{Dataset=file.Dataset});plans++;
+            foreach(var beam in plan.Beams){beams++;foreach(var cp in beam.ControlPoints){cps++;if(cp.MlcLayers.Count==2)dual++;foreach(var layer in cp.MlcLayers)Assert(layer.Positions.Length==2*(layer.Boundaries.Length-1),"private layer geometry valid");}}
+        }
+        Assert(plans>0 && dual>0,"private double-layer data exercised");
+        Console.WriteLine("PASS private MLC only: plans="+plans+" beams="+beams+" control_points="+cps+" dual_layer_control_points="+dual);
     }
     static void PrivateAcceptance(string folder)
     {
@@ -145,8 +177,9 @@ internal static class Program
     }
     public static int Main(string[] args)
     {
+        if(args.Length==2 && args[0]=="--private-mlc") {try {PrivateMlcAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private MLC: "+ex.GetType().Name);return 1;}}
         if(args.Length==2 && args[0]=="--private") {try {PrivateAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private acceptance: "+ex.GetType().Name);return 1;}}
-        try { MatrixTests(); RegistrationTests(); DoseTests(); StructureTests(); PlanTests(); Console.WriteLine("PASS RT assertions: " + checks); return 0; }
+        try { MatrixTests(); RegistrationTests(); DoseTests(); StructureTests(); PlanTests(); LayerTests(); Console.WriteLine("PASS RT assertions: " + checks); return 0; }
         catch(Exception ex) { Console.WriteLine("FAIL RT assertion: " + ex.Message); return 1; }
     }
 }

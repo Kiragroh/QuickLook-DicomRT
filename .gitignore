@@ -10,5 +10,7 @@ artifacts/
 *.qlplugin
 !assets/*.png
 
+**/__pycache__/
+
 !docs/demo/screens/*.png
 !docs/demo/media/*.png
