@@ -20,7 +20,6 @@
     "screens/tags-expanded.png",
     "screens/tags-restored.png",
     "screens/tags-search.png",
-    "screens/teaser.png",
     "screens/three-d-dose.png",
     "screens/three-d-focused.png",
     "screens/three-d-roi.png",
@@ -28,13 +27,13 @@
     "media/dose.mp4",
     "media/dvh.mp4",
     "media/feature-tour.mp4",
-    "media/hero-loop.mp4",
     "media/mlc.mp4",
     "media/mpr.mp4",
     "media/orbit.mp4",
     "media/scroll.mp4",
     "media/tags.mp4",
     "art/direct-files.png",
-    "art/space-key.png"
+    "art/space-key.png",
+    "art/space-magic.png"
   ]
 }

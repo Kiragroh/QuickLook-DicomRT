@@ -4,7 +4,7 @@ Clinical-looking imagery: actual ViewerControl captures from the explicitly appr
 
 Conceptual artwork: built-in GPT Image generated the Space key and direct-file graphics. Exact prompts and provenance: art/imagegen-prompts.md.
 
-Film: deterministic local HyperFrames 0.8.78 + GSAP composition at 1600 x 900, 30 fps, 106 seconds. Actual settled UI capture sequences are nominally 15 fps. The film is edited to explain features; it is not a real-time interaction benchmark, treatment delivery timing or clinical validation.
+Film: deterministic local HyperFrames 0.8.78 + GSAP composition at 1600 x 900, 30 fps, 112 seconds. Actual settled UI capture sequences are nominally 15 fps. DVH and tag footage are slowed for readability. The film is edited to explain features; it is not a real-time interaction benchmark, treatment delivery timing or clinical validation.
 
 Authoring reference: https://github.com/nateherkai/hyperframes-student-kit
 
@@ -17,4 +17,8 @@ Apple Quick Look: https://support.apple.com/guide/mac-help/preview-a-file-mh1411
 QuickLook for Windows: https://github.com/QL-Win/QuickLook
 Existing DICOM image support: https://github.com/QL-Win/QuickLook/releases
 
-Revised opening: 0–4 s abstract DICOM-file schematics, 4–8 s conceptual Space-key animation, then the actual viewer reveal. The 16-second opening loop includes that reveal. The final six seconds display the Windows installation call to action with the GitHub address and software prerequisites.
+Revised film: conceptual Space-key art (0–6 s), Space-key press (6–8 s), then actual viewer reveal. Enlarged DVH (58–68 s) and full DICOM tag search (80–90 s) have explicit headings. The final ten seconds (102–112 s) say Available now on GitHub with the large repository address, Windows installation call to action and software prerequisites.
+
+Music: One Key, an original instrumental bed synthesized locally with scripts/video/compose-soundtrack.py. No third-party recordings or samples. Soft electric piano, pads, bass and percussion; 120 BPM, four beats per bar. Every scene boundary falls on a two-second bar. Final mix targets -20 LUFS / -2 dBTP. Player controls can mute the soundtrack.
+
+HTML revision: static GPT Image space-magic.png opening; no opening video or persistent film CTA. The full film is offered on the final chapter. New art is purely conceptual; all actual medical captures remain unchanged.

@@ -6,7 +6,7 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 [Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.6.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
 
-[Watch the 106-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
+[Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
 
 ![DICOM RT workspace](docs/demo/screens/rt-overview.png)
 
@@ -87,7 +87,7 @@ Optional read-only checks emit aggregate results without patient names, identifi
 
 `scripts/CreateSynthetic.py` creates a synthetic CT/MR/RT/REG example. `Harness <file> --verify` loads the same WPF control in an offscreen test window and exits after verification. This does not replace interactive acceptance in QuickLook.
 
-Synthetic fixtures are for tests only. The 0.2.6 presentation and 106-second HyperFrames feature film use only the approved public nonpatient multi-metastasis benchmark. GPT Image created conceptual Space-key and direct-file artwork, never anatomy or viewer screenshots. The edited film demonstrates features rather than measured interaction latency. This case has no MR/REG, dual-layer MLC or multiple-plan demonstration. `Rt.Tests --private-mlc <authorized-folder>` provides aggregate-only dual-layer acceptance.
+Synthetic fixtures are for tests only. The 0.2.6 presentation and 112-second HyperFrames feature film use only the approved public nonpatient multi-metastasis benchmark. GPT Image created conceptual Space-key and direct-file artwork, never anatomy or viewer screenshots. The edited film demonstrates features rather than measured interaction latency. This case has no MR/REG, dual-layer MLC or multiple-plan demonstration. `Rt.Tests --private-mlc <authorized-folder>` provides aggregate-only dual-layer acceptance.
 
 ## Reuse and contribute
 

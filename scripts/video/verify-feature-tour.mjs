@@ -30,6 +30,10 @@ try{
   const result=await page.evaluate(()=>({title:document.title,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,video:[...document.querySelectorAll('video')].map(v=>({src:v.getAttribute('src')||v.querySelector('source')?.getAttribute('src'),ready:v.readyState,width:v.videoWidth,paused:v.paused})),images:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src)}));
   if(result.scrollWidth>w)failures.push(`Horizontal overflow ${w}`);if(result.images.length)failures.push(...result.images);logs.push(result);
   await page.screenshot({path:path.join(qa,`hero-${w}.png`),fullPage:true});
+  if(await page.$('main video'))failures.push('Opening must not autoplay a video');
+  if(await page.$('#watch-film'))failures.push('Film action must be reserved for the final chapter');
+  const artLoaded=await page.evaluate(async()=>{const image=new Image();image.src='art/space-magic.png';await image.decode();return image.naturalWidth>0;});
+  if(!artLoaded)failures.push('Opening artwork missing');
  }
  await page.setViewport({width:1600,height:1000});await page.goto(url,{waitUntil:'networkidle0'});
  for(let i=0;i<13;i++){
@@ -38,13 +42,18 @@ try{
   if([1,3,5,8,11].includes(i))await page.screenshot({path:path.join(qa,`slide-${i+2}.png`),fullPage:true});
  }
  for(const l of logs){if(l.missing?.length)failures.push(...l.missing);if(l.overflow)failures.push(`Slide overflow ${l.hash}`);}
- await page.click('#watch-film');await page.waitForFunction(()=>document.querySelector('#zoom-video').readyState>=1,{timeout:15000});
+ await page.click('#closing-film');await page.waitForFunction(()=>document.querySelector('#zoom-video').readyState>=1,{timeout:15000});
  const film=await page.evaluate(()=>{const v=document.querySelector('#zoom-video');return {open:document.querySelector('dialog').open,duration:v.duration,width:v.videoWidth,source:v.currentSrc};});
- if(!film.open||film.width!==1600||Math.abs(film.duration-106)>.1)failures.push('Film dialog/metadata mismatch');logs.push({film});
+ if(!film.open||film.width!==1600||Math.abs(film.duration-112)>.1)failures.push('Film dialog/metadata mismatch');logs.push({film});
  await page.keyboard.press('Escape');if(await page.$eval('dialog',d=>d.open))failures.push('Escape did not close film');
  await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);await page.goto(url,{waitUntil:'networkidle0'});
- await page.click('#motion');if(!await page.$eval('main video',v=>v.paused))failures.push('Explicit Pause should stop the requested video-first preview');
+ await page.click('#explore');if(await page.evaluate(()=>location.hash)!=='#2')failures.push('Explore button did not advance');
+ await page.keyboard.press('ArrowRight');await page.waitForFunction(()=>document.querySelector('main video')?.readyState>=1,{timeout:15000});
+ await page.click('#motion');if(!await page.$eval('main video',v=>v.paused))failures.push('Explicit Pause should stop chapter playback');
  await page.goto('file:///'+path.join(root,'index.html').replaceAll('\\','/'),{waitUntil:'networkidle0'});
+ const offlineArt=await page.evaluate(async()=>{const image=new Image();image.src='art/space-magic.png';await image.decode();return {width:image.naturalWidth,videoCount:document.querySelectorAll('main video').length};});
+ logs.push({offlineArt});if(!offlineArt.width||offlineArt.videoCount)failures.push('Offline opening artwork failed');
+ await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
  await page.waitForFunction(()=>document.querySelector('main video')?.readyState>=1,{timeout:15000});
  logs.push({offlineFile:await page.$eval('main video',v=>({width:v.videoWidth,ready:v.readyState}))});
  fs.writeFileSync(path.join(qa,'browser-verification.json'),JSON.stringify({logs,failures},null,2));

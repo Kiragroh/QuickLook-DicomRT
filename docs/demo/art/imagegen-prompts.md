@@ -47,3 +47,11 @@ Materials/textures: thin polished translucent glass sheets and fine textured mat
 Text (verbatim): "SPACE" only, small crisp white uppercase type centered on the key. No other lettering.
 Constraints: purely conceptual brand illustration. Absolutely no anatomy, no body parts, no brains, no medical imagery, no CT or MR scans, no dose maps, no viewer screenshots, no simulated software UI, no clinical data, no charts, no icons, no logos, no watermark, no people, no hands. All glass sheets blank. No extra decorative objects.
 ```
+
+## Quiet opening: space-magic.png
+
+Generated with the built-in GPT Image tool. Conceptual artwork only; no viewer or medical imagery. Used as a static opening slide. Full video is offered on the final slide.
+
+Final prompt:
+
+Use case: stylized-concept. Create a restrained, premium conceptual opening illustration for an English presentation about QuickLook DICOM RT, a Windows Space-key file preview tool. Wide 16:9 composition. Matte graphite background #101316. Leave the LEFT 42 percent calm and almost empty for HTML title text. On the RIGHT, a beautifully crafted dark keyboard SPACE key floats just above the surface, seen in elegant three-quarter view. The key has only the small engraved word SPACE. A quiet ribbon of cool blue light emerges from the key and unfolds upward into four small delicate translucent abstract objects: a layered stack of glass image planes, a few organic contour loops (abstract geometry, not anatomy), nested dose-like contour rings, and an abstract multileaf collimator aperture made of opposing thin bars. These objects should feel like one coherent, restrained sculpture emerging from a single keystroke: 'the magic inside Space'. Precise dimensional product illustration, soft studio light, subtle blue edge highlights, generous negative space, sophisticated understated editorial feel. No fireworks, no starfield, no strong neon glow, no bright white panels, no UI windows, no screenshots, no CT/MR images, no patients or body parts, no medical anatomical image, no logos, no titles or other text. This is conceptual art only, never fake clinical imagery. Keep all sculptural elements within the rightmost 55 percent and inside frame. Art direction: quieter and less in-your-face than a product video.
