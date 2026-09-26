@@ -39,7 +39,7 @@ internal static class PreloadWorkspaceTests
     Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"first 3D activation reuses preloaded mesh");
     foreach(var pair in new[]{Tuple.Create("organs",1),Tuple.Create("allRois",4)})
     {
-     Get<CheckBox>(control,pair.Item1).IsChecked=true;Ready(control);Check(VisibleRois(control).Contains(rois[pair.Item2]),pair.Item1+" independently renders its own DICOM type");
+     Get<CheckBox>(control,pair.Item1).IsChecked=true;Check(Get<object>(control,"prepared")!=null&&VisibleRois(control).Contains(rois[0]),"existing PTV remains visible while missing surfaces build");Ready(control);Check(VisibleRois(control).Contains(rois[pair.Item2]),pair.Item1+" independently renders its own DICOM type");
      Get<CheckBox>(control,pair.Item1).IsChecked=false;Ready(control);Check(!VisibleRois(control).Contains(rois[pair.Item2]),pair.Item1+" independently hides its DICOM type");
     }
     foreach(string field in new[]{"support","external"})Check(!Get<CheckBox>(control,field).IsVisible&&!Get<CheckBox>(control,field).IsEnabled,field+" removed from visible UI");

@@ -22,6 +22,11 @@ namespace QuickLook.DicomRT
         private readonly TextBlock tagStatus = Theme.Text("", 11, Theme.Muted);
         private readonly StackPanel roiList = new StackPanel(), doseList = new StackPanel();
         private readonly Grid imageGrid = new Grid();
+        private readonly TextBlock patientIdentity=Theme.Text("",11,Theme.Muted);
+        private readonly CheckBox showFields=new CheckBox{Content="Fields",Foreground=Theme.Foreground,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(6),ToolTip="Beam aperture intersections and projected central axes on the displayed slice; other beams at their first control point"};
+        private bool movingCrosshair;private bool focusDirty;
+        private readonly DispatcherTimer focusTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(45)};
+        private PlanBeam activeField;private ControlPoint activeFieldPoint;
         private ColumnDefinition leftColumn,rightColumn;
         private UIElement leftPanel,rightPanel;
         private bool layersVisible=false,tagsVisible=false;
@@ -100,6 +105,7 @@ namespace QuickLook.DicomRT
             sliceSlider.ValueChanged += async (s, e) => { if (!changing && currentStack != null) await ShowSliceAsync((int)Math.Round(e.NewValue), true); };
             IsVisibleChanged+=(s,e)=>{if(!IsVisible){if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();}};
             Unloaded+=(s,e)=>{if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();};
+            focusTimer.Tick+=(s,e)=>{if(!focusDirty)return;focusDirty=false;Redraw();};
             RebuildPanes();
         }
 
@@ -122,11 +128,12 @@ namespace QuickLook.DicomRT
             var dock = new DockPanel { Margin = new Thickness(8, 0, 8, 0) };
             var top = new StackPanel();var images=new StackPanel();imageHeader=images;top.Children.Add(images);
             var sourceRow=new DockPanel();var fusion=BuildFusionButton();DockPanel.SetDock(fusion,Dock.Right);sourceRow.Children.Add(fusion);var isoJump=BuildIsocenterButton();DockPanel.SetDock(isoJump,Dock.Right);sourceRow.Children.Add(isoJump);series.ToolTip="Change the base image · RT follows when a matching registration is available";sourceRow.Children.Add(series);images.Children.Add(sourceRow);
-            var tools = new WrapPanel(); planes.ItemsSource = new[] { "Native", "Axial", "Coronal", "Sagittal", "MPR + 3D" }; planes.SelectedIndex = 0; tools.Children.Add(planes);
+            var tools = new WrapPanel(); planes.ItemsSource = new[] { "Native", "Axial", "Coronal", "Sagittal", "MPR + 3D" }; planes.SelectedIndex = 0; tools.Children.Add(planes);tools.Children.Add(showFields);showFields.Checked+=(s,e)=>Redraw();showFields.Unchecked+=(s,e)=>Redraw();
             Button soft = Theme.Button("Soft tissue"), bone = Theme.Button("Bone"), auto = Theme.Button("Auto"), fit = Theme.Button("Fit"), zin = Theme.Button("＋"), zout = Theme.Button("−");
             soft.Click += (s, e) => SetWindow(40, 400); bone.Click += (s, e) => SetWindow(400, 1800); auto.Click += (s, e) => AutoWindow(); fit.Click += (s, e) => { zoom = 1; Redraw(); }; zin.Click += (s, e) => { zoom = Math.Min(8, zoom * 1.25); Redraw(); }; zout.Click += (s, e) => { zoom = Math.Max(.25, zoom / 1.25); Redraw(); };
             foreach (var b in new[] { soft, bone, auto, fit, zin, zout }) tools.Children.Add(b); images.Children.Add(tools);
             DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
+            patientIdentity.HorizontalAlignment=HorizontalAlignment.Right;patientIdentity.TextAlignment=TextAlignment.Right;patientIdentity.TextTrimming=TextTrimming.CharacterEllipsis;patientIdentity.Margin=new Thickness(8,4,8,2);DockPanel.SetDock(patientIdentity,Dock.Bottom);dock.Children.Add(patientIdentity);
             var bottom = new StackPanel(); imageFooter=bottom; bottom.Children.Add(sliceSlider); bottom.Children.Add(position); DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom); workspace.Children.Add(imageGrid); dock.Children.Add(workspace); return dock;
         }
 
@@ -151,7 +158,8 @@ namespace QuickLook.DicomRT
             {
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
-                pane.Picked += (p, point) => { focus = point; Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
+                pane.PickInteraction+=active=>{movingCrosshair=active;if(active)focusTimer.Start();else{focusTimer.Stop();focusDirty=false;Redraw();}};
+                pane.Picked += (p, point) => { focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
                 var cell=new Grid();cell.Children.Add(pane);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }
@@ -165,7 +173,7 @@ namespace QuickLook.DicomRT
         public void Dispose()
         {
             isodosePreferences.Changed -= GlobalIsodosesChanged;
-            if (disposed) return; CloseDosePopups(); if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
+            if (disposed) return; CloseDosePopups(); if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Dispose(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }

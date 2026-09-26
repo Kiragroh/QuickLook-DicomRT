@@ -4,6 +4,18 @@ namespace QuickLook.DicomRT
 {
     public static class MlcTimeline
     {
+        public static double WheelStep(double cursor,double maximum,int delta,ref int remainder)
+        {
+            remainder+=delta;int ticks=remainder/120;remainder-=ticks*120;
+            if(ticks==0)return cursor;
+            return Math.Max(0,Math.Min(maximum,ticks>0?Math.Ceiling(cursor)-ticks:Math.Floor(cursor)-ticks));
+        }
+        public static ControlPoint Interpolate(ControlPoint a,ControlPoint b,double t)
+        {
+            return new ControlPoint {Gantry=Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),Couch=Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false),Collimator=Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false),
+                Isocenter=a.Isocenter+(b.Isocenter-a.Isocenter)*t,GantryPitch=a.GantryPitch+(b.GantryPitch-a.GantryPitch)*t,TablePitch=a.TablePitch+(b.TablePitch-a.TablePitch)*t,TableRoll=a.TableRoll+(b.TableRoll-a.TableRoll)*t,TableEccentric=a.TableEccentric+(b.TableEccentric-a.TableEccentric)*t,
+                XJaws=Positions(a.XJaws,b.XJaws,t),YJaws=Positions(a.YJaws,b.YJaws,t),MlcLayers=Layers(a,b,t).ToList()};
+        }
         // Display order only: keep source beam identity and relative order within each group.
         public static PlanBeam[] PlaybackOrder(PlanData plan) => (plan?.Beams??new System.Collections.Generic.List<PlanBeam>()).OrderBy(b=>
             b.TreatmentDeliveryType=="SETUP"||b.TreatmentDeliveryType=="PORTFILM"?2:

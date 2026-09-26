@@ -20,6 +20,7 @@ namespace QuickLook.DicomRT
   PerspectiveCamera sourceCamera;
   readonly H.GroupModel3D surfaces=new H.GroupModel3D(), guides=new H.GroupModel3D();
   readonly Dictionary<MeshGeometry3D,H.MeshGeometry3D> meshes=new Dictionary<MeshGeometry3D,H.MeshGeometry3D>();
+  readonly Dictionary<MeshGeometry3D,H.MeshGeometryModel3D> nodes=new Dictionary<MeshGeometry3D,H.MeshGeometryModel3D>();
   internal Direct3DSurface()
   {
    effects=new H.DefaultEffectsManager();
@@ -43,14 +44,18 @@ namespace QuickLook.DicomRT
   }
   internal void SetSurfaces(Model3DGroup source)
   {
-   surfaces.Children.Clear();var retained=new HashSet<MeshGeometry3D>();
+   var retained=new HashSet<MeshGeometry3D>();
    if(source!=null)foreach(var model in source.Children.OfType<GeometryModel3D>())
    {
     var mesh=model.Geometry as MeshGeometry3D;if(mesh==null)continue;retained.Add(mesh);
     H.MeshGeometry3D geometry;if(!meshes.TryGetValue(mesh,out geometry))meshes[mesh]=geometry=ConvertMesh(mesh);
-    surfaces.Children.Add(ConvertModel(model,geometry));
+    H.MeshGeometryModel3D node;var appearance=ConvertModel(model,geometry);
+    if(!nodes.TryGetValue(mesh,out node)){nodes[mesh]=node=appearance;}else{node.Material=appearance.Material;node.IsTransparent=appearance.IsTransparent;node.CullMode=appearance.CullMode;}
+    if(!surfaces.Children.Contains(node))surfaces.Children.Add(node);
    }
-   foreach(var key in meshes.Keys.Where(k=>!retained.Contains(k)).ToArray())meshes.Remove(key);
+   foreach(var pair in nodes.Where(k=>!retained.Contains(k.Key)).ToArray())surfaces.Children.Remove(pair.Value);
+   // Retain detached nodes for quick type toggles, bounded independently of the CPU cache.
+   if(nodes.Count>96||meshes.Keys.Sum(m=>(long)m.TriangleIndices.Count)>24000000)foreach(var key in nodes.Keys.Where(k=>!retained.Contains(k)).ToArray()){nodes.Remove(key);meshes.Remove(key);}
   }
   internal void SetGuides(Model3DGroup source)
   {
@@ -75,6 +80,6 @@ namespace QuickLook.DicomRT
     CullMode=model.BackMaterial==null?D.Direct3D11.CullMode.Back:D.Direct3D11.CullMode.None,IsHitTestVisible=false};
   }
   internal BitmapSource Capture()=>H.ViewportExtensions.RenderBitmap(View);
-  public void Dispose(){View.Items.Clear();View.Dispose();effects.Dispose();meshes.Clear();}
+  public void Dispose(){View.Items.Clear();View.Dispose();effects.Dispose();meshes.Clear();nodes.Clear();}
  }
 }

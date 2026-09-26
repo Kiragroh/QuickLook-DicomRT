@@ -19,3 +19,5 @@ Normative geometry references:
 `Rt.Tests` contains synthetic assertions and an optional `--private <folder>` mode. Private mode prints only aggregate counts. Neither synthetic tests nor file-level read-only acceptance constitutes clinical validation.
 
 `--private-mlc <folder>` limits acceptance to plan/MLC interpretation and reports aggregate plan, beam, control-point and dual-layer counts. It creates no images or DICOM copies.
+
+Beam projection uses the recorded source-axis distance and referenced setup position. DRR integrates CT HU along divergent source rays using the same collimator-rotated isocenter plane as ROI projection. Gantry pitch, table pitch/roll and eccentric rotation are parsed/inherited and block anatomical projection when nonzero. No unknown position or SAD is silently substituted. `Rt.Tests --private-beam <authorized-folder>` checks geometry and CT associations without exporting identifiers.

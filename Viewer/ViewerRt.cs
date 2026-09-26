@@ -67,10 +67,11 @@ namespace QuickLook.DicomRT
         private async Task MoveFocusAsync(Vec3 world)
         {
             focus = world;
-            if (currentStack != null && (string)planes.SelectedItem == "Native")
+            if (workspaceMode=="Bild" && currentStack != null && (string)planes.SelectedItem == "Native")
             {
                 int nearest = Enumerable.Range(0, currentStack.Entries.Count).OrderBy(i => Math.Abs((currentStack.Entries[i].Origin - world).Dot(currentStack.Entries[i].AxisX.Cross(currentStack.Entries[i].AxisY)))).First();
                 await ShowSliceAsync(nearest, true);
+                return; // ShowSliceAsync already redraws; do not cancel that frame with a duplicate.
             }
             Redraw();
         }
@@ -89,6 +90,10 @@ namespace QuickLook.DicomRT
         private void Redraw()
         {
             if (disposed) return;
+            var identitySource=(workspaceMode=="MLC"?selectedPlan?.Entry:null)??currentEntry??selectedPlan?.Entry??initialEntry;
+            var patientName=identitySource?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.PatientName,"")??"";
+            var patientId=identitySource?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.PatientID,"")??"";
+            patientIdentity.Text=(string.IsNullOrWhiteSpace(patientName)?"Name unavailable":patientName.Replace('^',' '))+"  ·  ID: "+(string.IsNullOrWhiteSpace(patientId)?"unavailable":patientId);patientIdentity.ToolTip=patientIdentity.Text;
             if(workspaceMode=="MLC"&&centralPlayback!=null)centralPlayback.SetBodyRegion(HasImage&&selectedPlan!=null&&TransformToImage(selectedPlan.FrameUid)!=null?currentEntry?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.BodyPartExamined,""):null);
             var roiOverlays = new List<RoiOverlay>(); var doseOverlays = new List<DoseOverlay>();
             if (!string.IsNullOrEmpty(SceneFrameUid))
@@ -106,13 +111,15 @@ namespace QuickLook.DicomRT
             }
             var isocenters=IsocenterNavigation.MappedPoints(selectedPlan,selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid));
             UpdateIsocenterButton(isocenters);UpdateIsodoseContext();UpdateIsodoseLegend(doseOverlays);
-            latestScene = new RenderScene { Isocenters=isocenters, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = iso.IsChecked == true,
+            latestScene = new RenderScene { InteractionPreview=movingCrosshair,Plan=selectedPlan,PlanToImage=selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid),ShowFields=showFields.IsChecked==true,
+                ActiveBeam=selectedPlan?.Beams.Contains(activeField)==true?activeField:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault(),ActiveControlPoint=selectedPlan?.Beams.Contains(activeField)==true?activeFieldPoint:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault()?.ControlPoints.FirstOrDefault(),Isocenters=isocenters, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = !movingCrosshair&&iso.IsChecked == true,
                 DoseWash=wash.IsChecked==true,DoseMinimumPercent=doseMin.Value,DoseMaximumPercent=doseMax.Value,IsoLevels=displayedIsoLevels,AbsoluteIsodoses=absoluteIsodoses,IsoColorMaximum=isodoseMaximum,IsoColors=new Dictionary<double,int>(isodoseColors),
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
+            if(workspaceMode=="MLC"&&centralPlayback!=null)centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
-            if(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
+            if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);
             if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,volume);}
             position.Text = $"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";

@@ -1,3 +1,18 @@
+# Version 0.2.7 — DRR, projected ROI silhouettes and responsive interaction
+
+Validated 2026-09-26 on the Windows development workstation. These are engineering checks, not clinical acceptance.
+
+- Analytic beam tests: source-view IEC basis, perspective magnification, registered coordinate transforms, eight supported patient positions, directed control-point interpolation, HU line integrals, cancellation, missing geometry and nonrigid mapping rejection.
+- WPF tests: wheel navigation across field boundaries, sub-detent accumulation, continuous crosshair mapping/clamping, current patient identity and identity clearing, concave projected silhouettes with internal mesh edges removed.
+- 3D checks: retained scene during additive ROI selection, exact mesh/camera retention between full and MPR layouts, focus cancellation and geometry/opacity regression checks.
+- Public nonpatient multimets review: actual CT-derived DRRs, 24 PTV silhouettes plus an independently enabled organ, noncoplanar beam, mini/main field arrangements and additive 3D. Captures are local engineering artifacts, not synthetic anatomy.
+- Warm public benchmark, 1200 × 800, hidden tag panel, 20 slice changes: median dispatch **2.24 ms**, complete-frame settle **31.58 ms**. Another 1600 × 900 scripted review measured approximately **124 ms** per structure jump and **258 ms** per settled 384-pixel DRR update. The latter includes debounce and capture-settle overhead; no cold-start or real-time delivery claim.
+- Additional authorized private inputs, aggregate-only: two breast plans, two CT associations, 18 beams and all 56 control points accepted by the geometry gate; dual-layer case retained 182 double-layer control points out of 184. No private screenshots or source data were exported.
+
+DRR limitations: scalar CT HU integration, automatic display normalization, 192-pixel playback / 384-pixel settled raster, 512-pixel ROI silhouette masks. ROI surfaces are approximate; incomplete CT coverage stays incomplete. Pitch/roll/eccentric rotations and missing setup/SAD are explicitly unsupported. Field arrangement intersects the jaw envelope (or leaf-position envelope when jaws are absent) with the selected plane; other beams use their first CP and centerlines are projected, not integrated dose or a delivery simulation.
+
+---
+
 # Version 0.2.6 — MLC-first playback, visible 3D ISO and feature tour
 
 Release builds passed without warnings or errors. RT passed 131 assertions, Playback passed stable MLC-first ordering and timeline/source-preservation checks, and ThreeD passed 44 base checks plus all sub-suites. New checks cover projected ISO position during orbit, clipping and visible cyan pixels. SUPPORT/EXTERNAL are excluded from Other and focus; their controls are absent in both layouts. Installer validation passed 32 archive/path/checksum checks and the embedded 32-file payload check.

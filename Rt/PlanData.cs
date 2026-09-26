@@ -13,6 +13,7 @@ namespace QuickLook.DicomRT
     }
     public sealed class ControlPoint
     {
+        public double GantryPitch,TablePitch,TableRoll,TableEccentric;
         public int Index; public double Gantry,Collimator,Couch,MetersetWeight; public Vec3 Isocenter;
         public double[] MlcPositions,MlcBoundaries,XJaws,YJaws; public string MlcType;
         public List<MlcLayer> MlcLayers=new List<MlcLayer>();
@@ -24,6 +25,7 @@ namespace QuickLook.DicomRT
         // Empty when the referenced setup is absent or ambiguous; never assume HFS.
         public string PatientPosition="",TreatmentDeliveryType="";
         public List<ControlPoint> ControlPoints=new List<ControlPoint>();
+        public double SourceAxisDistance=double.NaN;
         public double FinalCumulativeMetersetWeight;
         public override string ToString()=>Name;
     }
@@ -42,7 +44,7 @@ namespace QuickLook.DicomRT
             {
                 if(RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES")throw new NotSupportedException("Enhanced beam limiting device geometry is not supported.");
                 int number=RtDicom.Int(item,DicomTag.BeamNumber,-1);
-                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item),TreatmentDeliveryType=RtDicom.Text(item,DicomTag.TreatmentDeliveryType)};
+                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),SourceAxisDistance=RtDicom.Number(item,DicomTag.SourceAxisDistance),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item),TreatmentDeliveryType=RtDicom.Text(item,DicomTag.TreatmentDeliveryType)};
                 List<double> mu; if(metersets.TryGetValue(number,out mu) && mu.Count>0 && mu.All(v=>RtDicom.Finite(v) && Math.Abs(v-mu[0])<1e-6))beam.Meterset=mu[0];
                 var leafDefinitions=new List<MlcLayer>();
                 foreach(var device in RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))
@@ -60,6 +62,7 @@ namespace QuickLook.DicomRT
                 {
                     var current=new ControlPoint {Index=RtDicom.Int(cp,DicomTag.ControlPointIndex,beam.ControlPoints.Count),
                         Gantry=RtDicom.Number(cp,DicomTag.GantryAngle,previous?.Gantry??double.NaN),Collimator=RtDicom.Number(cp,DicomTag.BeamLimitingDeviceAngle,previous?.Collimator??double.NaN),Couch=RtDicom.Number(cp,DicomTag.PatientSupportAngle,previous?.Couch??double.NaN),
+                        GantryPitch=RtDicom.Number(cp,new DicomTag(0x300a,0x014a),previous?.GantryPitch??0),TablePitch=RtDicom.Number(cp,new DicomTag(0x300a,0x0140),previous?.TablePitch??0),TableRoll=RtDicom.Number(cp,new DicomTag(0x300a,0x0144),previous?.TableRoll??0),TableEccentric=RtDicom.Number(cp,new DicomTag(0x300a,0x0125),previous?.TableEccentric??0),
                         MetersetWeight=RtDicom.Number(cp,DicomTag.CumulativeMetersetWeight),Isocenter=RtDicom.Vector(RtDicom.Numbers(cp,DicomTag.IsocenterPosition),previous?.Isocenter??new Vec3(double.NaN,double.NaN,double.NaN)),
                         XJaws=Copy(previous?.XJaws),YJaws=Copy(previous?.YJaws),
                         MlcLayers=(previous==null?leafDefinitions:previous.MlcLayers).Select(x=>x.Copy()).ToList(),

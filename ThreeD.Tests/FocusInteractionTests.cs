@@ -31,11 +31,11 @@ internal static class FocusInteractionTests
    var window=new Window{Width=620,Height=480,Left=-30000,Top=-30000,ShowActivated=false,ShowInTaskbar=false,WindowStyle=WindowStyle.None,Content=control};
    try
    {
-    window.Show();control.SetScene(new RenderScene{Structures=new List<RoiOverlay>{new RoiOverlay{Roi=organ},new RoiOverlay{Roi=avoidance,RoiToImage=transform},new RoiOverlay{Roi=additional},new RoiOverlay{Roi=external}}});FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null,10);
+    window.Show();control.SetScene(new RenderScene{Structures=new List<RoiOverlay>{new RoiOverlay{Roi=organ},new RoiOverlay{Roi=avoidance,RoiToImage=transform},new RoiOverlay{Roi=additional},new RoiOverlay{Roi=external}}});FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null&&Get<object>(control,"pending")==null,10);
     var original=Get<object>(control,"prepared");int generation=Get<int>(control,"generation");double yaw=Get<double>(control,"yaw"),pitch=Get<double>(control,"pitch"),distance=Get<double>(control,"distance");
     control.FocusStructure(organ);Check(ReferenceEquals(original,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"default ROI focus reuses scene meshes");
     Check(((Model3DGroup)Get<ModelVisual3D>(control,"visual").Content).Children.OfType<GeometryModel3D>().Any(m=>m.Material is MaterialGroup&&((MaterialGroup)m.Material).Children.OfType<EmissiveMaterial>().Any()),"focused ROI has emissive highlight");
-    control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null,10);
+    control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null&&Get<object>(control,"pending")==null,10);
     Check((Get<Vec3>(control,"target")-transform.Transform(avoidance.Center)).Length<1e-8,"focus maps representative center through registration");
     Check(Get<double>(control,"yaw")==yaw&&Get<double>(control,"pitch")==pitch&&Get<double>(control,"distance")>=distance,"focus preserves orientation and useful magnification");
     Check(Parts(control).Count(p=>Roi(p)==avoidance)==1&&Parts(control).All(p=>Roi(p)!=additional&&Roi(p)!=external),"explicit nondefault focus adds only chosen ROI and excludes EXTERNAL");
@@ -49,8 +49,8 @@ internal static class FocusInteractionTests
     var volume=new VolumeData{Width=4,Height=4,Depth=4,SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)};
     control.SetSlicePlanes(new Vec3(1,1,1),volume);control.SetSlicePlanes(new Vec3(1,1,2),volume);Check(!Get<bool>(control,"interacting"),"MPR scroll preserves full detail and transparency");FrameBenchmark.Pump(()=>!Get<bool>(control,"interacting"),2);Check(ReferenceEquals(quality,Get<ModelVisual3D>(control,"visual").Content),"MPR scroll idle restores full detail");
     Call(control,"BeginInteraction");Call(control,"QueueQualityRestore");window.Hide();Check(!Get<bool>(control,"interacting")&&!Get<DispatcherTimer>(control,"interactionIdle").IsEnabled,"hidden view stops pending restoration timer");window.Show();
-    control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null,10);Check(Get<StructureRoi>(control,"focusedRoi")==null&&Parts(control).All(p=>Roi(p)!=avoidance),"repeat selection clears highlight and temporary nondefault surface");
-    control.FocusStructure(avoidance);control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null,10);Check(Parts(control).All(p=>Roi(p)!=avoidance),"cancelled focus build cannot publish stale selected surface");
+    control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null&&Get<object>(control,"pending")==null,10);Check(Get<StructureRoi>(control,"focusedRoi")==null&&Parts(control).All(p=>Roi(p)!=avoidance),"repeat selection clears highlight and temporary nondefault surface");
+    control.FocusStructure(avoidance);control.FocusStructure(avoidance);FrameBenchmark.Pump(()=>Get<object>(control,"prepared")!=null&&Get<object>(control,"pending")==null,10);Check(Parts(control).All(p=>Roi(p)!=avoidance),"cancelled focus build cannot publish stale selected surface");
     Call(control,"BeginInteraction");Call(control,"QueueQualityRestore");control.Dispose();Check(!Get<DispatcherTimer>(control,"interactionIdle").IsEnabled&&Get<ModelVisual3D>(control,"visual").Content==null,"disposed view cancels restoration and releases scene");
    }
    finally{window.Close();}

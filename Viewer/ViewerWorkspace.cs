@@ -123,7 +123,7 @@ namespace QuickLook.DicomRT
             if(mode=="Bild")imageGrid.Visibility=Visibility.Visible;
             else if(mode=="MLC")
             {
-                if(centralPlayback==null){centralPlayback=new MlcPlaybackControl();centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
+                if(centralPlayback==null){centralPlayback=new MlcPlaybackControl();centralPlayback.FrameChanged+=(b,cp)=>{activeField=b;activeFieldPoint=cp;};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
                 if(selectedPlan!=null&&centralPlan!=selectedPlan){centralPlayback.SetPlan(selectedPlan);centralPlan=selectedPlan;}
                 centralPlayback.Visibility=Visibility.Visible;if(selectedPlan==null)status.Text="Select an RTPLAN on the left to open the MLC view.";
             }

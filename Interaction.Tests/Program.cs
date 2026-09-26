@@ -17,6 +17,7 @@ class Program
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--private-bev")return PrivateBeamAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
         var preferenceScope=new IsodosePreferenceScenarios.TestScope();
         try
@@ -45,7 +46,7 @@ class Program
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==1&&!Field<bool>(viewer,"sumMode"),"Multiple doses offer a sum without selecting it automatically");
             }
-            RtOnlyScenarios.Run(Check);
+            BeamInteractionScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
