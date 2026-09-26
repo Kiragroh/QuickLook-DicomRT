@@ -21,7 +21,7 @@ const cache=path.join(process.env.USERPROFILE,'.cache/puppeteer/chrome');
 const versions=fs.readdirSync(cache).sort((a,b)=>parseInt(b.slice(6))-parseInt(a.slice(6)));
 const browser=await puppeteer.launch({executablePath:path.join(cache,versions[0],'chrome-win64/chrome.exe'),headless:true,args:['--autoplay-policy=no-user-gesture-required']});
 const page=await browser.newPage(),failures=[],logs=[];page.on('pageerror',e=>failures.push(e.message));page.on('response',r=>{if(r.status()>=400&&!r.url().endsWith('/favicon.ico'))failures.push(`${r.status()} ${r.url()}`);});
-const url=`http://127.0.0.1:${server.address().port}/index.html`;
+const url=process.env.FEATURE_TOUR_URL||`http://127.0.0.1:${server.address().port}/index.html`;
 try{
  for(const [w,h] of [[1600,1000],[1280,720],[430,932]]){
   await page.setViewport({width:w,height:h});await page.goto(url,{waitUntil:'networkidle0'});

@@ -17,8 +17,8 @@ Apple Quick Look: https://support.apple.com/guide/mac-help/preview-a-file-mh1411
 QuickLook for Windows: https://github.com/QL-Win/QuickLook
 Existing DICOM image support: https://github.com/QL-Win/QuickLook/releases
 
-Revised film: conceptual Space-key art (0–6 s), Space-key press (6–8 s), then actual viewer reveal. Enlarged DVH (58–68 s) and full DICOM tag search (80–90 s) have explicit headings. The final ten seconds (102–112 s) say Available now on GitHub with the large repository address, Windows installation call to action and software prerequisites.
+Revised film: conceptual Space-key art (0–6 s), Space-key press (6–8 s), then actual viewer reveal. Enlarged DVH (58–68 s) and full DICOM tag search (80–90 s) have explicit headings. The final fourteen seconds (98–112 s) say Available now on GitHub with the large repository address, Windows installation call to action and software prerequisites.
 
-Music: One Key, an original instrumental bed synthesized locally with scripts/video/compose-soundtrack.py. No third-party recordings or samples. Soft electric piano, pads, bass and percussion; 120 BPM, four beats per bar. Every scene boundary falls on a two-second bar. Final mix targets -20 LUFS / -2 dBTP. Player controls can mute the soundtrack.
+Music: One Key - Upbeat, an original electronic track synthesized locally with scripts/video/compose-soundtrack.py. No third-party recordings or samples. Four-on-the-floor kick, backbeat claps, offbeat synth bass, bright chord stabs and a melodic hook; 120 BPM, four beats per bar. Every scene boundary falls on a two-second bar. Final mix targets -15 LUFS / -1.5 dBTP. Player controls can mute the soundtrack.
 
 HTML revision: static GPT Image space-magic.png opening; no opening video or persistent film CTA. The full film is offered on the final chapter. New art is purely conceptual; all actual medical captures remain unchanged.

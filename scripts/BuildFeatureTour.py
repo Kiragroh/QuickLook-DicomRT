@@ -135,6 +135,7 @@ def build(require_assets=False):
 
 Open index.html in a modern browser. Keep the screens, media and art folders
 beside it. The presentation works offline without external fonts or scripts.
+Online version: https://kiragroh.github.io/QuickLook-DicomRT/
 The closing chapter offers the complete film, Windows installer and source on
 GitHub. These links and the workflow credits need an internet connection.
 
