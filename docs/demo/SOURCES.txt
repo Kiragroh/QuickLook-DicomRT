@@ -16,3 +16,5 @@ Background attribution:
 Apple Quick Look: https://support.apple.com/guide/mac-help/preview-a-file-mh14119/mac
 QuickLook for Windows: https://github.com/QL-Win/QuickLook
 Existing DICOM image support: https://github.com/QL-Win/QuickLook/releases
+
+Revised opening: 0–4 s abstract DICOM-file schematics, 4–8 s conceptual Space-key animation, then the actual viewer reveal. The 16-second opening loop includes that reveal. The final six seconds display the Windows installation call to action with the GitHub address and software prerequisites.
