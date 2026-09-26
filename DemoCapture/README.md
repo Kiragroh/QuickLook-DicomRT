@@ -11,7 +11,11 @@ DicomRT.DemoCapture.exe --approved-public-tour-orbit <approved-public-nonpatient
 node scripts/video/build-feature-film.mjs
 python scripts/BuildFeatureTour.py --require-assets
 node scripts/video/verify-feature-tour.mjs
+python scripts/BuildStandaloneTour.py
+node scripts/video/verify-standalone-tour.mjs
 ```
+
+For a portal upload, use `artifacts/release/QuickLook-DicomRT-Feature-Tour-0.2.6-Standalone.html`. This 52.7 MiB file embeds all 33 assets once and creates local Blob URLs on demand. Verification isolates the HTML, blocks all external requests, checks every embedded image/video, exercises all 12 slides, seeks and decodes audio in the complete film, and tests navigation/playback inside a sandboxed iframe. No live portal upload is implied by that generic embedding check.
 
 Default film inputs are `artifacts/presentation/v025-tour/capture` and `assets`; output is the sibling `output` directory. Source UI captures contain 120 frames per principal sequence, 150 for MLC and 90 for tags at nominal 15 fps. The final HyperFrames/GSAP composition runs at 30 fps and opens with conceptual Space-key art before revealing actual viewer footage. DVH and tag inspection receive enlarged views and ten seconds each; the final GitHub card stays for fourteen seconds. `compose-soundtrack.py` uses Python/NumPy to synthesize an original sample-free 120 BPM upbeat electronic track; all scene changes fall on two-second bar boundaries. DVH and tags are slowed editorially for readability. This is an edited feature demonstration, not measured responsiveness. The case contains CT/RS/RD/RP but no MR/REG, dual-layer MLC or multiple-plan example. Those capabilities are described separately.
 

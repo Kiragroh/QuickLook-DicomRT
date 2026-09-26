@@ -8,6 +8,8 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 [Open the HTML presentation in your browser](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
 
+[Download the single-file HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6-Standalone.html) for portal uploads: all images, chapter clips and the complete film with music are embedded in one 52.7 MiB HTML file. No companion folders or external media requests are needed. GitHub and installer links remain optional online links.
+
 ![DICOM RT workspace](docs/demo/screens/rt-overview.png)
 
 ## Install
