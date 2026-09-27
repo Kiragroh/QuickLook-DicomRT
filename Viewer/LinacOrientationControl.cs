@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -18,9 +18,11 @@ namespace QuickLook.DicomRT
         readonly Model3DGroup patientHost=new Model3DGroup();
         readonly Model3DGroup couchTop=new Model3DGroup();
         readonly CollimatorIndicator collimator=new CollimatorIndicator();
+        readonly OrientationAvatarPreferences avatarPreferences=OrientationAvatarPreferences.Current;
         PlanBeam contextBeam;string contextRegion,contextPosition;bool contextSet;bool? contextNoncoplanar;
         public LinacOrientationControl()
         {
+            System.ComponentModel.PropertyChangedEventManager.AddHandler(avatarPreferences,AvatarChanged,"Selected");
             IsHitTestVisible=false;CornerRadius=new CornerRadius(8);Background=Theme.Brush("#B8111314");Padding=new Thickness(9,5,9,5);
             var root=new Grid();root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});root.RowDefinitions.Add(new RowDefinition());root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});Child=root;
             angles=Theme.Text("LINAC · IEC",10,Theme.Muted);var heading=new StackPanel();heading.Children.Add(angles);heading.Children.Add(collimator);root.Children.Add(heading);Grid.SetRow(viewport,1);root.Children.Add(viewport);
@@ -57,6 +59,7 @@ namespace QuickLook.DicomRT
             foreach(var axis in new[]{new Vector3D(.105,0,0),new Vector3D(0,.105,0),new Vector3D(0,0,.105)})Rod(scene,new Point3D()-axis,new Point3D()+axis,.011,gold);
             viewport.Children.Add(new ModelVisual3D{Content=scene});
         }
+        void AvatarChanged(object sender,System.ComponentModel.PropertyChangedEventArgs e){if(!contextSet)return;contextSet=false;SetContext(contextBeam,contextRegion,contextNoncoplanar);}
         public void SetContext(PlanBeam beam,string bodyRegion=null,bool? planNoncoplanar=null)
         {
             if(contextSet&&ReferenceEquals(contextBeam,beam)&&contextRegion==bodyRegion&&contextPosition==beam?.PatientPosition&&contextNoncoplanar==planNoncoplanar)return;

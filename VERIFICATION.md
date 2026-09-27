@@ -4,6 +4,12 @@
 - Read-only inspection of the user-specified private case found two treatment arcs, each with 40 control points and no zero angular-meterset intervals. Identifiers and source metadata were not copied into repository files or screenshots.
 - Readout reports the planned interval average, not measured dose rate. Delivery timing and source DICOM files are unchanged.
 
+## 0.2.28 — Orientation character picker
+
+- Release build without warnings/errors; 397 WPF checks passed. Added tests cover left-click handling, all five choices, synchronized badge/LINAC updates, unchanged orientation camera, shared frozen models, normalized bounds, persistence and rejection of unknown IDs.
+- Character sheet rendered from the actual procedural WPF meshes and visually inspected. No patient data or downloaded character models are included. Obelisk's styling references the user's existing blue winged Codex pet; models are schematic orientation cues.
+- One initial interaction-suite run failed the existing CP wheel assertion; two subsequent full runs passed. No wheel handling was changed in this release.
+
 ## 0.2.27 — DRR default and 3D LINAC
 
 - Release build without warnings/errors; 368 WPF checks passed. Additional checks cover the High contrast opening default, both 3D layouts, collapsed settings and settings retention across layout switches, gantry/couch/collimator updates, neutral selection, non-intercepting overlay input, and reuse of patient geometry without camera or anatomy rebuilds.

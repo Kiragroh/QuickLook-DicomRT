@@ -2,6 +2,13 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.28 — Choose your orientation character
+
+- Click the orientation character in a slice or 3D view to open a dark preview picker: Human, Freeza (Dragon Ball), Obelisk (the custom Codex pet), Elsa (Frozen), or Saitama (One-Punch Man).
+- Stylized procedural 3D characters remain correctly oriented in axial, coronal, sagittal and orbit views. Selection updates all badges and LINAC patient models together and is remembered locally.
+- The character picker consumes its click rather than moving the slice crosshair. The change reuses cached immutable character geometry and does not reload patient images, contours or meshes.
+- Left/right accents, patient-position transforms and the schematic isocenter reference remain independent of character choice.
+
 ## 0.2.27 — LINAC orientation throughout 3D
 
 - The 2 × 2 3D pane now uses one compact playback row and a **3D settings ▾** menu. This frees vertical space for closer default framing and a larger LINAC model; settings remain shared with full 3D.

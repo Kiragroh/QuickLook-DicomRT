@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 namespace QuickLook.DicomRT
 {
     // Shared normalized human in DICOM LPS: +X left, +Y posterior, +Z superior.
     // Chest at origin; this is a generic orientation cue, never patient anatomy.
-    internal static class PatientOrientationGlyph
+    internal static partial class PatientOrientationGlyph
     {
         public const string LeftColor="#53C9CF",RightColor="#F0A15E";
-        public static Model3DGroup Create()
+        private static Model3DGroup CreateHuman()
         {
             var model=new Model3DGroup();var body=Material("#D9D2C0");
             Ellipsoid(model,new Point3D(0,0,.55),.12,.12,.15,body);

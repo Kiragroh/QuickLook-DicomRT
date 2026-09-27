@@ -1,10 +1,10 @@
 ﻿# DICOM RT for QuickLook
 
-**Version 0.2.27** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
+**Version 0.2.28** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.27.exe) · [Open the presentation](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 30-second announcement](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Announcement-30s-0.2.20.mp4)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.28.exe) · [Open the presentation](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 30-second announcement](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Announcement-30s-0.2.20.mp4)
 
 ![Four linked views with dose, structures and active field geometry](docs/demo/screens/hero-quad-fields.png)
 
@@ -15,6 +15,8 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 Images now start with the **DICOM** window preset, using the stored window center and width. Auto remains selectable and is used as fallback when stored values are absent. To update another Windows PC, run the installer for the new version; an older installer does not download updates.
 
 DRRs start with **High contrast** and offer an automatic contrast window and a compact **DRR ▾** menu with Soft, High contrast, Original and Custom presets. Manual brightness and contrast reuse cached projections. The active field’s LINAC orientation model is also visible in full 3D and in the 3D pane of the 2 × 2 view, synchronized with gantry, couch and collimator. In 2 × 2, **3D settings ▾** keeps controls out of the scene while field selection and playback stay directly accessible. A top-right indicator identifies background image, 3D, DRR and outline work. Initial isocenter positioning is checked again after volume loading; zooming does not cancel it.
+
+Click the small orientation character in a slice or 3D view to choose **Human, Freeza, Obelisk (Codex pet), Elsa or Saitama**. The stylized 3D character is shared with the LINAC model and saved locally; anatomical axes and left/right colors remain fixed.
 
 ## What you can inspect
 
@@ -71,7 +73,7 @@ The DRR is a HU-derived display projection, not a calibrated treatment image. It
 
 Install and start [QuickLook for Windows](https://github.com/QL-Win/QuickLook) first. The plugin was developed against QuickLook 4.5 and targets .NET Framework 4.6.2; the .NET Framework 4.8 runtime is required. Direct3D 11 provides the main 3D renderer. QuickLook is a separate dependency and is not bundled.
 
-Download **QuickLook-DicomRT-Setup-0.2.27.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
+Download **QuickLook-DicomRT-Setup-0.2.28.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
 
 For manual installation, download `QuickLook.Plugin.DicomRT-0.2.20.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
 
