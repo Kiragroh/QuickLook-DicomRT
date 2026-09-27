@@ -7,9 +7,9 @@ namespace QuickLook.DicomRT {
   readonly LinacOrientationControl linacOrientation=new LinacOrientationControl{Width=300,Height=260};
   Viewbox linacOverlay;PlanData linacPlan;bool linacNoncoplanar;
   void BuildLinacOverlay(Grid host){
-   linacOverlay=new Viewbox{Child=linacOrientation,Width=compact?170:240,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,34,8,8),IsHitTestVisible=false,Visibility=Visibility.Collapsed};
+   linacOverlay=new Viewbox{Child=linacOrientation,Width=compact?225:240,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,34,8,8),IsHitTestVisible=false,Visibility=Visibility.Collapsed};
    host.Children.Add(linacOverlay);
-   host.SizeChanged+=(s,e)=>{linacOverlay.Width=Math.Max(90,Math.Min(compact?170:240,Math.Min(Math.Max(90,host.ActualWidth*.35),Math.Max(90,(host.ActualHeight-50)*300/260*.85))));};
+   host.SizeChanged+=(s,e)=>{linacOverlay.Width=Math.Max(90,Math.Min(compact?225:240,Math.Min(Math.Max(90,host.ActualWidth*.35),Math.Max(90,(host.ActualHeight-50)*300/260*.85))));};
   }
   void UpdateLinac(){
    if(linacOverlay==null)return;

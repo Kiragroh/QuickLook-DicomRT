@@ -6,7 +6,7 @@
 
 ## 0.2.27 — DRR default and 3D LINAC
 
-- Release build without warnings/errors; 364 WPF checks passed. Additional checks cover the High contrast opening default, both 3D layouts, gantry/couch/collimator updates, neutral selection, non-intercepting overlay input, and reuse of patient geometry without camera or anatomy rebuilds.
+- Release build without warnings/errors; 368 WPF checks passed. Additional checks cover the High contrast opening default, both 3D layouts, collapsed settings and settings retention across layout switches, gantry/couch/collimator updates, neutral selection, non-intercepting overlay input, and reuse of patient geometry without camera or anatomy rebuilds.
 - Actual standalone and 2 × 2 captures inspected using the approved public nonpatient benchmark. The schematic remains separate from the patient-coordinate anatomy camera; no dose, beam projection or DICOM source data is altered.
 
 ## 0.2.26 — DRR window, loading context and playback layout

@@ -10,6 +10,10 @@ internal static class ThreeDLinacScenarios {
  public static void Run(Action<bool,string> check){
   using(var mlc=new MlcPlaybackControl())check(Get<string>(Get<object>(mlc,"aperture"),"drrPreset")=="High contrast","new MLC viewers start DRRs with high contrast");
   foreach(bool compact in new[]{false,true})using(var three=new ThreeDControl(compact)){
+   var settings=Get<System.Windows.Controls.Primitives.Popup>(three,"compactSettings");var controls=Get<WrapPanel>(three,"settingsControls");
+   check(!settings.IsOpen&&((settings.Child!=null)==compact),"quad 3D settings start collapsed while full 3D retains its toolbar");
+   var checkbox=Get<CheckBox>(three,"organs");checkbox.IsChecked=true;three.SetCompact(!compact);three.SetCompact(compact);
+   check(checkbox.IsChecked==true&&ReferenceEquals(controls,Get<WrapPanel>(three,"settingsControls")),"switching compact layout reuses controls and retains structure settings");
    var overlay=Get<Viewbox>(three,"linacOverlay");var model=Get<object>(three,"linacOrientation");check(overlay.Visibility==Visibility.Collapsed&&!overlay.IsHitTestVisible,"3D LINAC stays hidden without a selected field and does not block orbit input");
    var beam=new PlanBeam{PatientPosition="HFS",ControlPoints={new ControlPoint{Gantry=10,Couch=25,Collimator=33},new ControlPoint{Gantry=90,Couch=25,Collimator=75}}};var plan=new PlanData{Beams={beam}};
    var scene=new RenderScene{Plan=plan,ActiveBeam=beam,ActiveControlPoint=beam.ControlPoints[0],PlanToImage=Matrix4.Identity};three.SetScene(scene);

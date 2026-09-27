@@ -69,7 +69,7 @@ namespace QuickLook.DicomRT
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose surface"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{if(!updatingDoseChoices)StartBuild();};
    var quad=ViewButtons.Create("MPR + 3D");quad.Click+=(s,e)=>MprRequested?.Invoke();controls.Children.Add(quad);
    var reset=Theme.Button("Reset view");reset.Click+=(s,e)=>{cameraAdjusted=false;ResetCamera();if(showBeamFields.IsChecked==true)FitFieldGuides();};controls.Children.Add(reset);
-   root.Children.Add(controls);
+   BuildControlLayout(root,controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);
    viewport.Visibility=Visibility.Hidden;
    viewportHost.Children.Add(beamFields);viewportHost.Children.Add(isocenterOverlay);BuildLinacOverlay(viewportHost);
@@ -101,7 +101,7 @@ namespace QuickLook.DicomRT
    }catch(Exception){effects?.Dispose();gpu?.Dispose();gpu=null;if(!disposed){viewport.Visibility=Visibility.Visible;interactionHint.Text="Direct3D unavailable · WPF fallback";interactionHint.Visibility=Visibility.Visible;}}
   }
   // One control moves between full and MPR layouts; cache, camera and settings stay intact.
-  public void SetCompact(bool value){compact=value;footer.Visibility=value?Visibility.Collapsed:Visibility.Visible;if(!value)SetSlicePlanes(new Vec3(),null);}
+  public void SetCompact(bool value){compact=value;ApplyControlLayout();footer.Visibility=value?Visibility.Collapsed:Visibility.Visible;if(!value)SetSlicePlanes(new Vec3(),null);}
   public void PreloadScene(RenderScene value){backgroundPreparation=true;SetScene(value);}
   CheckBox Toggle(string label,bool initial)
   {
@@ -110,7 +110,7 @@ namespace QuickLook.DicomRT
   void FitFieldGuides()
   {
    if(viewport.ActualWidth<=0||viewport.ActualHeight<=0)return;
-   double aspect=viewport.ActualWidth/viewport.ActualHeight,tangent=Math.Tan(camera.FieldOfView*Math.PI/360)*.88;
+   double aspect=viewport.ActualWidth/viewport.ActualHeight,tangent=Math.Tan(camera.FieldOfView*Math.PI/360)*(compact?.97:.88);
    var forward=camera.LookDirection;forward.Normalize();var right=Vector3D.CrossProduct(forward,camera.UpDirection);right.Normalize();var up=Vector3D.CrossProduct(right,forward);
    foreach(var point in beamFields.Bounds()){var delta=new Vector3D(point.X-target.X,point.Y-target.Y,point.Z-target.Z);distance=Math.Max(distance,Math.Max(Math.Abs(Vector3D.DotProduct(delta,right))/tangent,Math.Abs(Vector3D.DotProduct(delta,up))*aspect/tangent)-Vector3D.DotProduct(delta,forward));}
    UpdateCamera();
@@ -417,7 +417,7 @@ namespace QuickLook.DicomRT
    if(points.Count==0)points.AddRange(scene.Isocenters??new Vec3[0]);if(points.Count==0)return;
    var low=new Vec3(points.Min(p=>p.X),points.Min(p=>p.Y),points.Min(p=>p.Z));var high=new Vec3(points.Max(p=>p.X),points.Max(p=>p.Y),points.Max(p=>p.Z));target=(low+high)/2;radius=Math.Max(10,(high-low).Length*.55);UpdateVolumeRadius();double aspect=viewport.ActualHeight>0?Math.Max(.1,viewport.ActualWidth/viewport.ActualHeight):1;
    yaw=-1.7;pitch=.25;
-   var view=new Vec3(-Math.Cos(pitch)*Math.Cos(yaw),-Math.Cos(pitch)*Math.Sin(yaw),-Math.Sin(pitch));var right=view.Cross(new Vec3(0,0,1)).Normalized();var up=right.Cross(view);double horizontal=Math.Tan(camera.FieldOfView*Math.PI/360)*.9,vertical=horizontal/aspect;
+   var view=new Vec3(-Math.Cos(pitch)*Math.Cos(yaw),-Math.Cos(pitch)*Math.Sin(yaw),-Math.Sin(pitch));var right=view.Cross(new Vec3(0,0,1)).Normalized();var up=right.Cross(view);double horizontal=Math.Tan(camera.FieldOfView*Math.PI/360)*(compact?.99:.9),vertical=horizontal/aspect;
    distance=radius*.15;foreach(var point in points){var delta=point-target;double depth=delta.Dot(view);distance=Math.Max(distance,Math.Max(Math.Abs(delta.Dot(right))/horizontal-depth,Math.Abs(delta.Dot(up))/vertical-depth));}
    UpdateCamera();
   }
@@ -427,6 +427,6 @@ namespace QuickLook.DicomRT
    camera.Position=new Point3D(p.X,p.Y,p.Z);camera.LookDirection=new Vector3D(-offset.X,-offset.Y,-offset.Z);camera.UpDirection=new Vector3D(0,0,1);camera.NearPlaneDistance=Math.Max(.1,radius*.002);camera.FarPlaneDistance=radius*100;
    orientationBadge.SetDirection(camera.LookDirection,camera.UpDirection);gpu?.SetCamera(camera);isocenterOverlay.Set(scene?.Isocenters,camera);UpdateBeamFields();
   }
-  public void Dispose(){if(disposed)return;gpu?.Dispose();gpu=null;EndInteraction();disposed=true;++generation;pending?.Cancel();pending=null;prepared=null;scene=null;focusedRoi=null;qualityModels=interactionModels=null;lock(cache)cache.Clear();visual.Content=null;sliceVisual.Content=null;sliceVolume=null;}
+  public void Dispose(){if(disposed)return;if(compactSettings!=null)compactSettings.IsOpen=false;gpu?.Dispose();gpu=null;EndInteraction();disposed=true;++generation;pending?.Cancel();pending=null;prepared=null;scene=null;focusedRoi=null;qualityModels=interactionModels=null;lock(cache)cache.Clear();visual.Content=null;sliceVisual.Content=null;sliceVolume=null;}
  }
 }

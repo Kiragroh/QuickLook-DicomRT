@@ -14,7 +14,7 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 Images now start with the **DICOM** window preset, using the stored window center and width. Auto remains selectable and is used as fallback when stored values are absent. To update another Windows PC, run the installer for the new version; an older installer does not download updates.
 
-DRRs start with **High contrast** and offer an automatic contrast window and a compact **DRR ▾** menu with Soft, High contrast, Original and Custom presets. Manual brightness and contrast reuse cached projections. The active field’s LINAC orientation model is also visible in full 3D and in the 3D pane of the 2 × 2 view, synchronized with gantry, couch and collimator. A top-right indicator identifies background image, 3D, DRR and outline work. Initial isocenter positioning is checked again after volume loading; zooming does not cancel it.
+DRRs start with **High contrast** and offer an automatic contrast window and a compact **DRR ▾** menu with Soft, High contrast, Original and Custom presets. Manual brightness and contrast reuse cached projections. The active field’s LINAC orientation model is also visible in full 3D and in the 3D pane of the 2 × 2 view, synchronized with gantry, couch and collimator. In 2 × 2, **3D settings ▾** keeps controls out of the scene while field selection and playback stay directly accessible. A top-right indicator identifies background image, 3D, DRR and outline work. Initial isocenter positioning is checked again after volume loading; zooming does not cancel it.
 
 ## What you can inspect
 

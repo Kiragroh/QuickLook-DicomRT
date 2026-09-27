@@ -4,6 +4,7 @@ Feature highlights for DICOM RT for QuickLook. [Download the latest Windows inst
 
 ## 0.2.27 — LINAC orientation throughout 3D
 
+- The 2 × 2 3D pane now uses one compact playback row and a **3D settings ▾** menu. This frees vertical space for closer default framing and a larger LINAC model; settings remain shared with full 3D.
 - DRRs start with **High contrast**. Auto, Soft, Original and Custom remain available in the DRR menu.
 - The familiar LINAC model now appears at the upper right of the standalone 3D view and the 3D pane in the linked 2 × 2 workspace. It follows the active field and control point, including gantry, couch and collimator, and retains the colored left/right patient cues.
 - The schematic overlay adapts to pane size, does not intercept orbit/zoom input, and updates rotations without rebuilding anatomy. Neutral field selection hides the model rather than showing a stale beam.
