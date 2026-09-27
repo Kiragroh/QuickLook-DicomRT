@@ -39,7 +39,7 @@ namespace QuickLook.DicomRT
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
         string projectionKey,displayedProjectionKey;
-        internal string PreparationStatus=>projectionCache.Progress.Text;
+        internal string PreparationStatus=>!projectionCache.PlaybackPrepared?projectionCache.PlaybackStatus:projectionBusy?"Refining current DRR / contour view":projectionCache.Progress.Text;
         internal bool IsPreparing=>!projectionCache.WarmCompletion.IsCompleted||projectionBusy;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
@@ -98,6 +98,8 @@ namespace QuickLook.DicomRT
             var nextBeam=playbackBeams[index];int i=(int)local,j=Math.Min(i+1,nextBeam.ControlPoints.Count-1);string reason;BeamProjection p;
             try{p=BeamProjection.Create(nextBeam,MlcTimeline.Interpolate(nextBeam.ControlPoints[i],nextBeam.ControlPoints[j],local-i),planMap,out reason);}catch(ArgumentException){return true;}
             if(p==null)return true;var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;var rois=SelectedOutlines();
+            projectionCache.PrepareNearby(nextBeam,local,planMap,showDrr.IsChecked==true?ct:null,rois,PlaybackStep,true);
+            if(!projectionCache.PlaybackPrepared){projectionStatus.Text=projectionCache.PlaybackStatus;return false;}
             MlcProjectionFrame frame;if(projectionCache.TryGet(p,ct,rois,extents[nextBeam],showDrr.IsChecked==true,out frame))return true;
             // Leave the complete current CP visible while missing exact-angle data are prepared.
             // Never draw a stale contour/DRR against a newer leaf aperture.

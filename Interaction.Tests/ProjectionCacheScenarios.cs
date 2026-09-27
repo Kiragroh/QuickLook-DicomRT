@@ -35,6 +35,10 @@ string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why
             check(!(bool)type.GetMethod("TryGet").Invoke(cache,new object[]{unrequested,ct,new RoiOverlay[0],100d,true,null}),"DRR-disabled lookahead does not ray trace hidden fractional images");
             type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,0d,Matrix4.Identity,ct,scene.Structures.ToArray(),.2,true});
             ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();
+            check((bool)type.GetProperty("PlaybackPrepared").GetValue(cache),"selected field buffer includes every intermediate playback view before ready");
+            var completeTask=type.GetProperty("WarmCompletion").GetValue(cache);
+            type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,.4,Matrix4.Identity,ct,scene.Structures.ToArray(),.2,true});
+            check(ReferenceEquals(completeTask,type.GetProperty("WarmCompletion").GetValue(cache)),"prepared playback does not start cache-hit workers or flicker the busy indicator");
             for(int n=1;n<5;n++){
                 var fractional=BeamProjection.Create(beam,MlcTimeline.Interpolate(cp,beam.ControlPoints[1],n*.2),Matrix4.Identity,out why);
                 var fractionalArgs=new object[]{fractional,ct,scene.Structures.ToArray(),100d,true,null};

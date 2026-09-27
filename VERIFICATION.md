@@ -1,4 +1,11 @@
-﻿## 0.2.31 — Playback cache reuse
+﻿## 0.2.32 — Full selected-field playback buffer
+
+- 606 WPF checks pass; release build has no warnings/errors. New checks cover a 91-CP arc with all 226 intermediate playback views, independent DRR/outline completion, duplicate progress notifications, accurate recorded-preload wording, and zero new worker tasks for prepared playback.
+- Read-only measurement on the requested private dataset: 22 selected ROI outlines required about 190–193 ms per new view after mesh preparation; a 192-pixel DRR required 226–234 ms. These costs exceed the 80 ms playback interval. The previous recorded-CP counter excluded these fractional views.
+- Preparing the complete selected 91-CP field at 0.4 CP steps took 67.206 s in an isolated background-cache benchmark. Both subsequent 226-frame traversals had zero missing DRRs/outlines; complete cache lookup passes took 108 ms and 118 ms. These are cache measurements, not native UI frame-rate or clinical validation. No private images or identifiers are published.
+- The existing memory limits remain. Initial field preparation, a changed speed or enabled overlays can take time; an active working set exceeding cache capacity can still require replacement. The benchmark is reproducible with `Interaction.Tests.exe --playback-buffer <local DICOM folder>` and prints aggregate counters only.
+
+## 0.2.31 — Playback cache reuse
 
 - Reproduced two failures before the changes: a speculative background scan evicted a previously used outline; entering a beam from a preceding field requested different fractional positions from restarting that beam directly.
 - Release build has zero warnings/errors. 599 WPF checks, the dedicated playback interpolation suite and 32 installer archive checks pass. The standalone installer also verifies its embedded 32-file payload. Tests cover all five offered speeds, arbitrary scrub/resume, empty field ranges, beam starts/endpoints, repeated-plan sample identity, and DRR/outline eviction under bounded memory pressure.

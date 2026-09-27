@@ -20,6 +20,8 @@ internal static class NavigationProgressScenarios {
   Action<string,int> total=(n,v)=>type.GetMethod(n).Invoke(progress,new object[]{v});
   total("SetDrrTotal",10);total("SetOutlineTotal",30);type.GetMethod("DrrDone").Invoke(progress,null);type.GetMethod("OutlineDone").Invoke(progress,null);
   string text=(string)type.GetProperty("Text").GetValue(progress);check(text.Contains("DRRs 1/10")&&text.Contains("ROI projections 1/30"),"DRR and ROI progress counted independently");
+  for(int n=1;n<10;n++)type.GetMethod("DrrDone").Invoke(progress,null);for(int n=1;n<30;n++)type.GetMethod("OutlineDone").Invoke(progress,null);
+  string finished=(string)type.GetProperty("Text").GetValue(progress);check(finished.Contains("Recorded views")&&finished.Contains("preload processed")&&!finished.Contains("refining"),"recorded preload completion does not pretend to describe fractional playback or refinement");
   var remaining=type.GetMethod("Remaining",BindingFlags.Static|BindingFlags.NonPublic);
   check(double.IsNaN((double)remaining.Invoke(null,new object[]{1,10,5d})),"ETA stays unknown until enough work is observed");
   check(Math.Abs((double)remaining.Invoke(null,new object[]{5,10,20d})-20)<1e-7,"ETA estimates remaining work from measured throughput");

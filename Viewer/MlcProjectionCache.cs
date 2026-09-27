@@ -23,7 +23,10 @@ namespace QuickLook.DicomRT
         ProjectionMemoryCache<MlcProjectionFrame> Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
         readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer(),drrBackground=new MlcProjectionRenderer();
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
-        string context,nearbyKey;bool disposed;
+        string context,nearbyKey,playbackContext;bool disposed;
+        MlcPlaybackBuffer playbackBuffer;
+        public bool PlaybackPrepared=>playbackBuffer==null||playbackBuffer.Ready;
+        public string PlaybackStatus=>playbackBuffer?.Text;
         Action<CancellationToken> nearby,nearbyDrr;int nearbyVersion;
         Task outlineWarm=Task.CompletedTask,drrWarm=Task.CompletedTask;
         internal PreparationProgress Progress {get;private set;}=new PreparationProgress();
@@ -78,7 +81,7 @@ namespace QuickLook.DicomRT
         {
             var ct=scene?.Entry?.Modality=="CT"?scene.Volume:null;
             var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:string.Equals(r.Roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase)?1:2).ToArray();
-            string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;
+            string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;playbackContext=null;playbackBuffer=null;
             warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;var progress=new PreparationProgress();Progress=progress;
             lock(gate){nearby=null;nearbyDrr=null;}
             if(plan==null||map==null||ct==null&&warmRois.Length==0)return;
@@ -110,7 +113,7 @@ namespace QuickLook.DicomRT
             });
             ObserveWarm();
         }
-        internal sealed class WarmView {public BeamProjection Projection;public double Extent;}
+        internal sealed class WarmView {public BeamProjection Projection;public double Extent;public string Key;}
         internal static WarmView[] BuildWarmViews(PlanData plan,Matrix4 map,PlanBeam active,CancellationToken token){
             var views=new List<WarmView>();var seen=new HashSet<string>();
             foreach(var beam in MlcTimeline.PlaybackOrder(plan).Where(b=>!BeamMotion.IsImaging(b)||b==active).OrderBy(b=>b==active?0:1)){
@@ -130,9 +133,31 @@ namespace QuickLook.DicomRT
             },token,TaskCreationOptions.LongRunning,TaskScheduler.Default).ConfigureAwait(false);
         });
         void ObserveWarm(){WarmCompletion=Task.WhenAll(outlineWarm,drrWarm);WarmCompletion.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted);}
+        internal static WarmView[] BuildPlaybackViews(PlanBeam beam,Matrix4 map,double step)
+        {
+            double extent=MlcPlaybackControl.BeamExtent(beam);var views=new List<WarmView>();var seen=new HashSet<string>();
+            for(double at=0;;at=MlcTimeline.NextLocal(at,beam.ControlPoints.Count-1,step)){
+                int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
+                try{var p=BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i),map,out reason);
+                    if(p!=null){string key=GeometryKey(p,extent);if(seen.Add(key))views.Add(new WarmView{Projection=p,Extent=extent,Key=key});}}
+                catch(ArgumentException){}
+                if(at>=beam.ControlPoints.Count-1)break;
+            }return views.ToArray();
+        }
         public void PrepareNearby(PlanBeam beam,double local,Matrix4 map,VolumeData ct,RoiOverlay[] rois,double step=.4,bool playing=false)
         {
             if(disposed||beam==null||map==null||beam.ControlPoints.Count==0)return;
+            string bufferKey=Id(beam)+":"+Id(ct)+":"+Values(step)+":"+Values(map.Values)+":"+OutlineKey("",rois);
+            if(bufferKey!=playbackContext){playbackContext=bufferKey;playbackBuffer=new MlcPlaybackBuffer(ct==null&&rois.Length==0?new WarmView[0]:BuildPlaybackViews(beam,map,step),ct!=null,rois.Length>0);}
+            var buffer=playbackBuffer;
+            // Once this field is prepared, cached playback must not create worker tasks
+            // or flicker the busy indicator merely to look up already available frames.
+            if(buffer.Ready){
+                int i=(int)local,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
+                try{var p=BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],local-i),map,out reason);MlcProjectionFrame frame;
+                    if(p!=null&&TryGet(p,ct,rois,MlcPlaybackControl.BeamExtent(beam),ct!=null,out frame))return;}
+                catch(ArgumentException){}
+            }
             string key=Id(beam)+":"+Id(ct)+":"+Values(local,step)+":"+playing+":"+Values(map.Values)+":"+OutlineKey("",rois);
             if(key==nearbyKey){ResumeNearby(warmLifetime.Token);return;}nearbyKey=key;
             int mine=Interlocked.Increment(ref nearbyVersion);var token=warmLifetime.Token;double extent=MlcPlaybackControl.BeamExtent(beam);
@@ -142,14 +167,14 @@ namespace QuickLook.DicomRT
             var views=positions.Where(at=>at>=0&&at<=beam.ControlPoints.Count-1).Distinct().Select(at=>{
                 int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
                 try{return BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i),map,out reason);}catch(ArgumentException){return null;}
-            }).Where(p=>p!=null).GroupBy(p=>GeometryKey(p,extent)).Select(g=>g.First()).ToArray();
+            }).Where(p=>p!=null).Concat(buffer.Ready?Enumerable.Empty<BeamProjection>():buffer.Views.Select(v=>v.Projection)).GroupBy(p=>GeometryKey(p,extent)).Select(g=>g.First()).ToArray();
             Action<CancellationToken> outlines=t=>{
                 foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
-                    Render(p,null,rois,extent,false,t,true,true);}
+                    Render(p,null,rois,extent,false,t,true,true);buffer.Mark(GeometryKey(p,extent),false);}
             };
             Action<CancellationToken> images=t=>{
                 if(ct==null)return;foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
-                    Render(p,ct,new RoiOverlay[0],extent,true,t,true,true);}
+                    Render(p,ct,new RoiOverlay[0],extent,true,t,true,true);buffer.Mark(GeometryKey(p,extent),true);}
             };
             lock(gate){nearby=outlines;nearbyDrr=images;}
             ResumeNearby(token);

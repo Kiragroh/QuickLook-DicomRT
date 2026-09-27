@@ -30,7 +30,7 @@ namespace QuickLook.DicomRT
         public event Action<bool> PlaybackStateChanged;
         public void TogglePlayback(){if(IsPlaying){Pause();return;}if(cursor.Maximum<=0)return;if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";PlaybackStateChanged?.Invoke(true);}
         double PlaybackStep=>(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds;
-        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}double next=MlcTimeline.NextPlayback(counts,cursor.Value,PlaybackStep);if(PlaybackFrameReady(next)){play.Content="Ⅱ Pause";cursor.Value=next;}else play.Content="Ⅱ Preparing…";}
+        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}double next=MlcTimeline.NextPlayback(counts,cursor.Value,PlaybackStep);if(PlaybackFrameReady(next)){play.Content="Ⅱ Pause";play.ToolTip="Pause the shared plan preview";cursor.Value=next;}else {play.Content="Ⅱ Buffering…";play.ToolTip=projectionStatus.Text;}}
 
         public void Navigate(PlanBeam selected,double local){Pause();int index=Array.IndexOf(playbackBeams,selected);if(index>=0)cursor.Value=counts.Take(index).Sum()+Math.Max(0,Math.Min(counts[index]-1,local));}
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}
@@ -48,7 +48,7 @@ namespace QuickLook.DicomRT
             beams.SelectionChanged+=(s,e)=>{if(selecting)return;Pause();int index=beams.SelectedIndex;if(index>=0)cursor.Value=counts.Take(index).Sum();UpdateFrame();};
             cursor.PreviewMouseLeftButtonDown+=(s,e)=>Pause();cursor.ValueChanged+=(s,e)=>UpdateFrame();markers.SizeChanged+=(s,e)=>DrawMarkers();
             play.ToolTip="Play / pause the shared plan preview in a continuous loop; speed is CP/s, not delivery time";play.Click+=(s,e)=>TogglePlayback();
-            timer.Tick+=(s,e)=>AdvancePlayback();
+            timer.Tick+=(s,e)=>AdvancePlayback();speed.SelectionChanged+=(s,e)=>RequestProjection(true);
             Unloaded+=(s,e)=>Pause();
         }
         public void SetPlan(PlanData value){Pause();SuspendProjection();projectionSuspended=!IsVisible;interpolated=null;aperture.Projection=null;fieldArrangement.Set(null,null,null,null,null);plan=value;extents.Clear();foreach(var item in value?.Beams??new System.Collections.Generic.List<PlanBeam>())extents[item]=BeamExtent(item);playbackBeams=MlcTimeline.PlaybackOrder(plan);planNoncoplanar=playbackBeams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=playbackBeams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=playbackBeams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}

@@ -19,6 +19,7 @@ class Program
     {
         if(args.Length==2&&args[0]=="--private-load")return PrivateLoadAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-sum")return PrivateSumAcceptance.Run(args[1]);
+        if(args.Length==2&&args[0]=="--playback-buffer")return PlaybackBufferBenchmark.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-bev")return PrivateBeamAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
         if(args.Length==2&&args[0]=="--quad-navigation")return NavigationBenchmark.Run(args[1],true);

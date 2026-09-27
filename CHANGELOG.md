@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.32 — Visible playback preparation
+
+- The selected beam prepares the complete sequence of intermediate DRR/outline views, rather than relying only on a short lookahead. Initial playback waits for this field buffer instead of repeatedly stopping to compute each new angle.
+- Separate playback-buffer counters for DRRs and complete outline views. Recorded-CP preload is labeled explicitly; finishing it no longer claims that playback or refinement has finished.
+- Already prepared playback views do not spawn redundant background workers or flicker the loading indicator. Anatomy, projection resolution and exact-angle alignment are unchanged.
+
 ## 0.2.31 — Repeatable MLC previews
 
 - DRRs and projected contours used by playback are protected from unrelated background preloading. The cache keeps its existing memory limits and reuses recently requested views across beam repeats.

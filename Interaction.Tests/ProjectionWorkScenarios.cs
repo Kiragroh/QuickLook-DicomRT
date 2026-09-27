@@ -9,6 +9,16 @@ internal static class ProjectionWorkScenarios {
  static Array Views(PlanData plan,PlanBeam active=null)=>(Array)build.Invoke(null,new object[]{plan,Matrix4.Identity,active,CancellationToken.None});
  static PlanBeam Beam()=>new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};
  public static void Run(Action<bool,string> check){
+  var playback=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.MlcProjectionCache").GetMethod("BuildPlaybackViews",BindingFlags.Static|BindingFlags.NonPublic);
+  var longArc=Beam();for(int n=0;n<91;n++)longArc.ControlPoints.Add(new ControlPoint{Gantry=n,GantryRotationDirection="CW",CollimatorRotationDirection="NONE",CouchRotationDirection="NONE"});
+  var buffer=(Array)playback.Invoke(null,new object[]{longArc,Matrix4.Identity,.4});
+  check(buffer.Length==226,"91-point arc prebuffers all 226 exact playback views, not only 91 recorded angles or 24 lookahead frames");
+  var progressType=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.MlcPlaybackBuffer");var progress=Activator.CreateInstance(progressType,new object[]{buffer,true,true});
+  check(!(bool)progressType.GetProperty("Ready").GetValue(progress),"new playback buffer starts pending even when recorded preload finished");
+  var mark=progressType.GetMethod("Mark");foreach(var job in buffer)mark.Invoke(progress,new object[]{job.GetType().GetField("Key").GetValue(job),false});
+  check(!(bool)progressType.GetProperty("Ready").GetValue(progress)&&((string)progressType.GetProperty("Text").GetValue(progress)).Contains("DRRs 0/226"),"completed contours do not hide missing DRR playback work");
+  foreach(var job in buffer){var key=job.GetType().GetField("Key").GetValue(job);mark.Invoke(progress,new object[]{key,true});mark.Invoke(progress,new object[]{key,true});}
+  check((bool)progressType.GetProperty("Ready").GetValue(progress),"all requested playback overlays complete exactly once");
   var fixedBeam=Beam();for(int i=0;i<100;i++)fixedBeam.ControlPoints.Add(new ControlPoint{Gantry=20,Collimator=5,MetersetWeight=i/99d,XJaws=new[]{-10d+i*.01,10d}});
   var plan=new PlanData();plan.Beams.Add(fixedBeam);
   check(Views(plan).Length==1,"100 fixed-field aperture CPs need only one anatomical projection");

@@ -17,9 +17,9 @@ namespace QuickLook.DicomRT {
   public string Text {get{
    int dt=Volatile.Read(ref drrTotal),ot=Volatile.Read(ref outlineTotal),dd=Volatile.Read(ref drrDone),od=Volatile.Read(ref outlineDone);
    if(dt<0||ot<0)return "DRR / outlines · planning views…";
-   string text="DRRs "+dd+"/"+dt+" · ROI projections "+od+"/"+ot;
+   string text="Recorded views · DRRs "+dd+"/"+dt+" · ROI projections "+od+"/"+ot;
    double remaining=Math.Max(Remaining(dd,dt,drrTime.Elapsed.TotalSeconds),Remaining(od,ot,outlineTime.Elapsed.TotalSeconds));
-   return text+(dt==dd&&ot==od?" · refining requested view":double.IsNaN(remaining)?" · estimating time…":" · ~"+Duration(remaining)+" left");
+   return text+(dt==dd&&ot==od?" · preload processed":double.IsNaN(remaining)?" · estimating time…":" · ~"+Duration(remaining)+" left");
   }}
  }
 }
