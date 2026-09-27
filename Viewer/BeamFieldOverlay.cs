@@ -139,7 +139,7 @@ namespace QuickLook.DicomRT
     if(samples.Length>0&&active)ArcModulationDrawing.Legend(dc,new Point(9,27),"B"+track.Beam.Number,max,BeamMotion.Unit(track.Beam,BeamModulationMode.AngularMeterset),true);
    }
    DrawActiveMiniature(dc);
-   Label(dc,scene.ActiveBeam==null?"Select a field to inspect angular meterset":"Color = angular meterset · active field",new Point(9,8),Brushes.LightSteelBlue);
+   Label(dc,scene.ActiveBeam==null?"Select a field to inspect angular meterset":"Radial length = angular meterset · active field",new Point(9,8),Brushes.LightSteelBlue);
   }
  }
 }

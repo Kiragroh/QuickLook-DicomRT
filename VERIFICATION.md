@@ -1,4 +1,10 @@
-﻿## 0.2.23 — Compact arc modulation bands
+﻿## 0.2.24 — Dense radial modulation
+
+- 332 WPF interaction checks passed. Added interval coverage, boundary deduplication, CW angle wrap and original-MU preservation checks for four- and six-degree intervals.
+- Linear tick-length mapping and unknown/zero distinction retained. No invented control points, dose changes or smoothing of the interval values.
+- Drawing remains asynchronous/cached at the path level. Static field geometry cache is unchanged.
+
+## 0.2.23 — Compact arc modulation bands
 
 - 329 WPF interaction checks pass, including linear color mapping, zero versus unavailable values, frozen palette reuse and field drawing beyond the image boundary.
 - Actual MPR + 3D and full 3D captures from the approved public nonpatient benchmark inspected in two bounded passes. Private case images were not captured or published.

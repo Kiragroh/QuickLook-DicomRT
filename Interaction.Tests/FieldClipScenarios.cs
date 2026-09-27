@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
@@ -14,11 +15,15 @@ internal static class FieldClipScenarios
  {
   var band=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.ArcModulationDrawing");
   var fraction=band.GetMethod("Fraction",BindingFlags.Static|BindingFlags.NonPublic);
-  check((double)fraction.Invoke(null,new object[]{.1,4d})==.025&&(double)fraction.Invoke(null,new object[]{4d,4d})==1,"Arc band uses linear magnitude mapping without boosting low MU values");
+  check((double)fraction.Invoke(null,new object[]{.1,4d})==.025&&(double)fraction.Invoke(null,new object[]{4d,4d})==1,"Radial ticks use linear magnitude mapping without boosting low MU values");
   check(double.IsNaN((double)fraction.Invoke(null,new object[]{double.NaN,4d}))&&(double)fraction.Invoke(null,new object[]{0d,0d})==0,"Unknown angular values remain distinct from zero");
-  var color=band.GetMethod("ColorFor",BindingFlags.Static|BindingFlags.NonPublic);
-  var low=(SolidColorBrush)color.Invoke(null,new object[]{0d,4d,true});var high=(SolidColorBrush)color.Invoke(null,new object[]{4d,4d,true});
-  check(low.IsFrozen&&high.IsFrozen&&low.Color.B>100&&high.Color.B>low.Color.B,"Reusable blue band palette keeps low values visible and peaks brighter");
+  var denseBeam=new PlanBeam{Number=1,PatientPosition="HFS",SourceAxisDistance=1000,Meterset=100,FinalCumulativeMetersetWeight=1,
+   ControlPoints={new ControlPoint{Gantry=350,GantryRotationDirection="CW",MetersetWeight=0},new ControlPoint{Gantry=354,GantryRotationDirection="CW",MetersetWeight=.1},new ControlPoint{Gantry=0,GantryRotationDirection="NONE",MetersetWeight=1}}};
+  var samples=BeamMotion.Path(denseBeam,Matrix4.Identity);var ticks=samples.Where(x=>x.Tick).ToArray();
+  check(ticks.Length==10&&samples.Count(x=>x.Break)==2,"Four- and six-degree CP intervals produce ten one-degree visual ticks, without boundary duplicates");
+  check(ticks.Take(4).All(x=>Math.Abs(x.Angular-2.5)<1e-8)&&ticks.Skip(4).All(x=>Math.Abs(x.Angular-15)<1e-8),"Dense ticks preserve each interval MU per degree through the 360-degree wrap");
+  check(Math.Abs(ticks.Sum(x=>x.Angular)-100)<1e-8&&denseBeam.ControlPoints.Count==3,"Uniform one-degree visual samples preserve interval MU totals and original control points");
+  check(samples.Last().Tick==false,"Arc endpoint closes the path without a duplicate final MU tick");
   using(var pane=new SlicePane()){
    pane.Measure(new Size(1000,600));pane.Arrange(new Rect(0,0,1000,600));pane.UpdateLayout();
    var volume=new VolumeData{Width=21,Height=21,Depth=21,SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)};
@@ -52,7 +57,7 @@ internal static class FieldClipScenarios
  static int CountFieldSegments(Drawing drawing,Rect clip,double right)
  {
   if(drawing is DrawingGroup group){if(group.ClipGeometry!=null)clip.Intersect(group.ClipGeometry.Bounds);int count=0;foreach(var child in group.Children)count+=CountFieldSegments(child,clip,right);return count;}
-  if(drawing is GeometryDrawing geometry&&geometry.Brush is SolidColorBrush brush&&brush.Color.B>brush.Color.R&&brush.Color.B>100){var bounds=geometry.Bounds;bounds.Intersect(clip);return !bounds.IsEmpty&&bounds.Right>right?1:0;}return 0;
+  if(drawing is GeometryDrawing geometry&&geometry.Pen?.Brush is SolidColorBrush brush&&brush.Color.R>160&&brush.Color.G>130&&brush.Color.B<125){var bounds=geometry.Bounds;bounds.Intersect(clip);return !bounds.IsEmpty&&bounds.Right>right?1:0;}return 0;
  }
 
 }

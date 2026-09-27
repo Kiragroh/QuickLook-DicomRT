@@ -40,14 +40,16 @@ namespace QuickLook.DicomRT
             var points=new List<Sample>();
             for(int i=0;i+1<beam.ControlPoints.Count;i++){
                 var a=beam.ControlPoints[i];var b=beam.ControlPoints[i+1];double travel=Travel(a,b);if(!BeamProjection.Finite(travel))continue;
-                int count=Math.Max(1,(int)Math.Ceiling(Math.Abs(travel)/2));
+                // Cover the interval at <=1 degree spacing; the end belongs to
+                // the next CP so shared boundaries never get duplicate MU ticks.
+                int count=Math.Max(1,(int)Math.Ceiling(Math.Abs(travel)));
                 for(int k=0;k<=count;k++){
                     double t=k/(double)count;
                     // Changing support angles cannot be inferred without their rotation direction.
                     if(Math.Abs(a.Couch-b.Couch)>1e-6)continue;
                     var cp=new ControlPoint{Gantry=a.Gantry+travel*t,Couch=a.Couch,Collimator=a.Collimator,Isocenter=a.Isocenter+(b.Isocenter-a.Isocenter)*t,GantryPitch=a.GantryPitch,TablePitch=a.TablePitch,TableRoll=a.TableRoll,TableEccentric=a.TableEccentric};
                     string reason;var p=BeamProjection.Create(beam,cp,map,out reason);if(p==null)continue;
-                    points.Add(new Sample{Iso=p.Iso,SourceDirection=(p.Source-p.Iso).Normalized(),Rate=a.DoseRateSet,Angular=AngularMeterset(beam,a,b),Tick=k==0,Break=k==0});
+                    points.Add(new Sample{Iso=p.Iso,SourceDirection=(p.Source-p.Iso).Normalized(),Rate=a.DoseRateSet,Angular=AngularMeterset(beam,a,b),Tick=k<count,Break=k==0});
                 }
             }
             return points.ToArray();

@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.24 — 27 September 2026
+
+- Restores radial MU/degree ticks in image, MPR and 3D views; removes the color-band encoding.
+- Visual ticks now cover the entire control-point interval at no more than one-degree spacing, instead of appearing only at its start. A four-degree interval has four ticks, with no duplicate ticks on shared boundaries.
+- Each interval keeps its original MU/degree value. Only the geometric path receives denser visual sampling; delivery control points and calculated MU are unchanged. True jumps between interval values remain visible.
+
 ## 0.2.23 — 27 September 2026
 
 - Arc modulation is now a compact, constant-width band instead of radial spikes, shared by image, MPR and 3D views.
