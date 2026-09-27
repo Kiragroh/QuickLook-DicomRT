@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,7 +13,7 @@ internal static partial class Program
   var three=Get<ThreeDControl>(viewer,"threeDView");Get<CheckBox>(three,"showBeamFields").IsChecked=true;
   var plan=Get<PlanData>(viewer,"selectedPlan");var beam=plan.Beams.First(b=>BeamMotion.IsArc(b)&&b.ControlPoints.Any(c=>c.MlcLayers.Count>0));
   Get<ComboBox>(three,"activeBeamPicker").SelectedItem=beam;var cursor=Get<Slider>(three,"beamCursor");cursor.Value=0;await Task.Delay(300);
-  await Save("3d-cp-start.png","Actual 3D field guide and moving MLC BEV at the active control point.");
+  await Save("3d-cp-start.png","Actual 3D field guide with collimator-oriented MLC plane on the gantry arc, facing the isocenter.");
   var overlay=Get<object>(three,"beamFields");if(!Get<bool>(overlay,"MiniatureVisible"))throw new Exception("Mini MLC absent");var start=Get<Point?>(overlay,"MiniatureAnchor");
   var prepared=Get<object>(three,"prepared");int generation=Get<int>(three,"generation");var pathCache=Get<object>(overlay,"Ready");
   cursor.Value=Math.Floor(cursor.Maximum*.55);await Save("3d-cp-middle.png","Changed control point: source marker and actual leaf aperture follow the selected beam.");

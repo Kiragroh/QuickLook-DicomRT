@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -21,9 +21,9 @@ namespace QuickLook.DicomRT
   readonly H.GroupModel3D surfaces=new H.GroupModel3D(), guides=new H.GroupModel3D();
   readonly Dictionary<MeshGeometry3D,H.MeshGeometry3D> meshes=new Dictionary<MeshGeometry3D,H.MeshGeometry3D>();
   readonly Dictionary<MeshGeometry3D,H.MeshGeometryModel3D> nodes=new Dictionary<MeshGeometry3D,H.MeshGeometryModel3D>();
-  internal Direct3DSurface()
+  internal Direct3DSurface(H.DefaultEffectsManager preparedEffects=null)
   {
-   effects=new H.DefaultEffectsManager();
+   effects=preparedEffects??new H.DefaultEffectsManager();
    try{View=new H.Viewport3DX{EffectsManager=effects,Camera=camera,BackgroundColor=Color.FromRgb(16,19,20),IsHitTestVisible=false,
     ShowViewCube=false,ShowCoordinateSystem=false,IsInertiaEnabled=false,EnableMouseButtonHitTest=false,EnableD2DRendering=false,
     OITRenderMode=H.OITRenderType.DepthPeeling,FXAALevel=H.FXAALevel.Medium};}catch{effects.Dispose();throw;}

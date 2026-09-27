@@ -93,6 +93,7 @@ namespace QuickLook.DicomRT
             Dispatcher.Invoke(new Action(()=>
             {
                 if(disposed||!loadedRt.Add(entry.SopUid))return;
+                if(structure!=null||dose!=null||plan!=null)AutoOpenRtPanel();
                 if(structure!=null)structures.Add(structure);if(dose!=null)doses.Add(dose);if(plan!=null)planData.Add(plan);if(failed)rtFailures++;
                 if(FirstRtMilliseconds==0&&(structure!=null||dose!=null||plan!=null))FirstRtMilliseconds=elapsed.Elapsed.TotalMilliseconds;
                 if(FirstPlanMilliseconds==0&&plan!=null)FirstPlanMilliseconds=elapsed.Elapsed.TotalMilliseconds;

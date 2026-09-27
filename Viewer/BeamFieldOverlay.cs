@@ -18,12 +18,12 @@ namespace QuickLook.DicomRT
   PlanData plan;string mapKey;Matrix4 map;RenderScene scene;PerspectiveCamera camera;double radius;int generation;
   internal event Action PathsReady;
   internal bool ShowFields;
-  readonly MlcAperture miniature=new MlcAperture{Compact=true,Width=112,Height=112,MinWidth=0,MinHeight=0};
-  readonly VisualBrush miniatureBrush;PlanBeam miniatureBeam;ControlPoint miniaturePoint;double miniatureExtent;
+  PlanBeam miniatureBeam;ControlPoint miniaturePoint;double miniatureExtent;
+  internal Vec3[] MiniatureCorners=new Vec3[0];
   internal Point? MiniatureAnchor;internal Rect MiniatureBounds;
   internal bool MiniatureVisible;
   internal Task Preparation {get;private set;}=Task.CompletedTask;
-  internal BeamFieldOverlay(){IsHitTestVisible=false;ClipToBounds=true;miniatureBrush=new VisualBrush(miniature){ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,112,112),Stretch=Stretch.Fill};}
+  internal BeamFieldOverlay(){IsHitTestVisible=false;ClipToBounds=true;}
   internal void Set(RenderScene value,PerspectiveCamera view,double sceneRadius)
   {
    scene=value;camera=view;radius=Math.Max(35,sceneRadius*.55);
@@ -38,7 +38,7 @@ namespace QuickLook.DicomRT
    if(value?.ActiveBeam!=miniatureBeam||value?.ActiveControlPoint!=miniaturePoint){
     if(value?.ActiveBeam!=miniatureBeam)miniatureExtent=MiniatureExtent(value?.ActiveBeam);
     miniatureBeam=value?.ActiveBeam;miniaturePoint=value?.ActiveControlPoint;
-    miniature.Set(miniaturePoint,miniaturePoint,0);miniature.Extent=miniatureExtent;miniature.Measure(new Size(112,112));miniature.Arrange(new Rect(0,0,112,112));miniature.UpdateLayout();
+
    }
    InvalidateVisual();
   }
@@ -68,18 +68,40 @@ namespace QuickLook.DicomRT
   {
    if(scene.ActiveBeam==null||scene.ActiveControlPoint==null)return;
    string reason;var p=BeamProjection.Create(scene.ActiveBeam,scene.ActiveControlPoint,map,out reason);Point anchor;
-   if(p==null||!Project(p.Iso-p.Forward*radius,out anchor))return;
-   double width=124,height=143;if(ActualWidth<width+16||ActualHeight<height+16)return;
-   var box=new Rect(Math.Max(8,Math.Min(ActualWidth-width-8,anchor.X+15)),Math.Max(8,Math.Min(ActualHeight-height-8,anchor.Y-height-12)),width,height);
-   MiniatureAnchor=anchor;MiniatureBounds=box;MiniatureVisible=true;
-   dc.DrawLine(new Pen(Brushes.Gold,1),anchor,new Point(Math.Max(box.Left,Math.Min(box.Right,anchor.X)),Math.Max(box.Top,Math.Min(box.Bottom,anchor.Y))));dc.DrawEllipse(Brushes.Gold,null,anchor,4,4);
-   dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(240,13,20,27)),new Pen(Brushes.Gold,1),box,5,5);
-   Label(dc,"B"+scene.ActiveBeam.Number+" · CP "+(scene.ActiveControlPointIndex+1).ToString("0.0",CultureInfo.InvariantCulture)+" · BEV",new Point(box.Left+6,box.Top+5),Brushes.Gold);
-   dc.DrawRectangle(miniatureBrush,null,new Rect(box.Left+6,box.Top+23,112,112));
+   var cp=scene.ActiveControlPoint;if(p==null)return;
+   var center=p.Iso-p.Forward*radius;double half=radius*.25,extent=miniatureExtent;
+   Func<double,double,Vec3> world=(x,y)=>center+p.Right*(x/extent*half)+p.Up*(y/extent*half);
+   if(!Project(center,out anchor))return;
+   MiniatureCorners=new[]{world(-extent,-extent),world(extent,-extent),world(extent,extent),world(-extent,extent)};
+   var corners=new Point[4];for(int i=0;i<4;i++)if(!Project(MiniatureCorners[i],out corners[i]))return;
+   MiniatureAnchor=anchor;MiniatureBounds=new Rect(new Point(corners.Min(v=>v.X),corners.Min(v=>v.Y)),new Point(corners.Max(v=>v.X),corners.Max(v=>v.Y)));MiniatureVisible=true;
+   Action<double,double,double,double,Brush,Pen> rectangle=(x1,y1,x2,y2,fill,pen)=>{
+    x1=Math.Max(-extent,x1);x2=Math.Min(extent,x2);y1=Math.Max(-extent,y1);y2=Math.Min(extent,y2);if(x2<=x1||y2<=y1)return;
+    var vertices=new[]{world(x1,y1),world(x2,y1),world(x2,y2),world(x1,y2)};var screen=new Point[4];for(int i=0;i<4;i++)if(!Project(vertices[i],out screen[i]))return;
+    var geometry=new StreamGeometry();using(var g=geometry.Open()){g.BeginFigure(screen[0],true,true);g.PolyLineTo(screen.Skip(1).ToArray(),true,false);}dc.DrawGeometry(fill,pen,geometry);
+   };
+   rectangle(-extent,-extent,extent,extent,new SolidColorBrush(Color.FromArgb(225,10,25,34)),null);
+   for(int layer=0;layer<cp.MlcLayers.Count;layer++){
+    var l=cp.MlcLayers[layer];int n=l.Boundaries.Length-1;if(n<1||l.Positions.Length!=2*n)continue;
+    var fill=new SolidColorBrush(layer%2==0?Color.FromArgb(215,85,133,157):Color.FromArgb(170,178,143,84));
+    var edge=new Pen(layer%2==0?Brushes.LightSteelBlue:Brushes.Wheat,.45);
+    for(int k=0;k<n;k++){
+     if(l.IsY){rectangle(l.Boundaries[k],-extent,l.Boundaries[k+1],l.Positions[k],fill,edge);rectangle(l.Boundaries[k],l.Positions[k+n],l.Boundaries[k+1],extent,fill,edge);}
+     else{rectangle(-extent,l.Boundaries[k],l.Positions[k],l.Boundaries[k+1],fill,edge);rectangle(l.Positions[k+n],l.Boundaries[k],extent,l.Boundaries[k+1],fill,edge);}
+    }
+    if(l.IsY){rectangle(-extent,-extent,l.Boundaries[0],extent,fill,null);rectangle(l.Boundaries[n],-extent,extent,extent,fill,null);}
+    else{rectangle(-extent,-extent,extent,l.Boundaries[0],fill,null);rectangle(-extent,l.Boundaries[n],extent,extent,fill,null);}
+   }
+   var jaws=new SolidColorBrush(Color.FromArgb(230,29,43,55));
+   if(cp.XJaws?.Length==2){rectangle(-extent,-extent,cp.XJaws[0],extent,jaws,null);rectangle(cp.XJaws[1],-extent,extent,extent,jaws,null);}
+   if(cp.YJaws?.Length==2){rectangle(-extent,-extent,extent,cp.YJaws[0],jaws,null);rectangle(-extent,cp.YJaws[1],extent,extent,jaws,null);}
+   rectangle(-extent,-extent,extent,extent,null,new Pen(Brushes.Gold,1.2));
+   Line(dc,world(-extent*.08,0),world(extent*.08,0),Brushes.OrangeRed,1);Line(dc,world(0,-extent*.08),world(0,extent*.08),Brushes.OrangeRed,1);
+   Label(dc,"B"+scene.ActiveBeam.Number+" · CP "+(scene.ActiveControlPointIndex+1).ToString("0.0",CultureInfo.InvariantCulture),corners.OrderBy(v=>v.Y).First()+new Vector(3,-15),Brushes.Gold);
   }
   protected override void OnRender(DrawingContext dc)
   {
-   base.OnRender(dc);MiniatureVisible=false;MiniatureAnchor=null;if(!ShowFields||scene?.Plan==null||map==null)return;
+   base.OnRender(dc);MiniatureVisible=false;MiniatureAnchor=null;MiniatureCorners=new Vec3[0];if(!ShowFields||scene?.Plan==null||map==null)return;
    var tracks=Ready.Where(t=>!BeamMotion.IsImaging(t.Beam)||t.Beam==scene.ActiveBeam).ToArray();
    int row=0;foreach(var track in tracks.OrderBy(t=>t.Beam==scene.ActiveBeam?1:0)){
     bool active=track.Beam==scene.ActiveBeam;Brush brush=active?Brushes.Gold:new SolidColorBrush(Color.FromRgb(98,176,231));

@@ -2,6 +2,22 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.12 — 27 September 2026
+
+### MLC geometry on the gantry arc
+
+- The active field now has a **spatial MLC plane on its schematic gantry track, facing the isocenter**. It follows gantry motion and rotates with the recorded **collimator angle**, including couch, patient orientation and rigid registration transforms.
+- The jaw-clipped leaf pattern updates at each control point, including multiple MLC layers and static fields. The track is drawn behind the miniature. Only the selected field gets this plane.
+- This is a perspective-projected schematic guide, not a physical-sized collimator or a depth-occluded anatomical surface. It can appear edge-on when viewed from the side; rotate the 3D scene to inspect its opening.
+- **Fields visibility, selected field and CP position are shared** between images, MLC, standalone 3D and the linked 2 × 2 view. The MLC toolbar includes the same Fields toggle for its arrangement inset.
+
+### Available sooner, with clear panel controls
+
+- The **RT sidebar opens automatically** when matching structures, dose or plan data become available. Closing it manually is respected while subsequent objects load.
+- **RT and Tags buttons turn blue when their panel is open**, with Open / Close hover explanations.
+- Completing the current image series keeps its displayed pane. Adding the compatible CT volume retains existing 3D surfaces and an adjusted camera while new context is prepared.
+- 3D shader/device initialization runs in the background; the hidden Tags panel no longer eagerly reads every attribute during opening. Searchable full tags remain available when the panel is opened.
+
 ## 0.2.11 — 27 September 2026
 
 ### Interactive control points in 3D

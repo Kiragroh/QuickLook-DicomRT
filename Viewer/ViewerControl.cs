@@ -29,7 +29,8 @@ namespace QuickLook.DicomRT
         private PlanBeam activeField;private ControlPoint activeFieldPoint;
         private ColumnDefinition leftColumn,rightColumn;
         private UIElement leftPanel,rightPanel;
-        private bool layersVisible=false,tagsVisible=false;
+        private bool layersVisible=false,tagsVisible=false,rtPanelDiscovered,rtPanelUserChoice;
+        private readonly Button layersButton=Theme.Button("RT"),tagsButton=Theme.Button("Tags");
         private readonly List<SlicePane> panes = new List<SlicePane>();
         private readonly Slider sliceSlider = new Slider { Minimum = 0, Maximum = 0, IsSnapToTickEnabled = true, TickFrequency = 1, Margin = new Thickness(8), MinWidth = 100 };
         private readonly Slider opacity = new Slider { Minimum = 0, Maximum = 0.8, Value = 0.35, Margin = new Thickness(4), Width = 90, ToolTip = "Dose opacity" };
@@ -77,8 +78,8 @@ namespace QuickLook.DicomRT
             var logo = new Image { Source = AppIcon.Image, Width = 26, Height = 26, Margin = new Thickness(0, 0, 7, 0) }; DockPanel.SetDock(logo, Dock.Left); heading.Children.Add(logo);
             var title = Theme.Text("DICOM RT", 12); title.FontWeight = FontWeights.SemiBold; title.VerticalAlignment=VerticalAlignment.Center;title.Margin=new Thickness(0,0,16,0); DockPanel.SetDock(title, Dock.Left); heading.Children.Add(title);
             var screenshot=BuildScreenshotButton();DockPanel.SetDock(screenshot,Dock.Right);heading.Children.Add(screenshot);
-            var tagsButton=Theme.Button("Tags");tagsButton.ToolTip="Right sidebar with searchable DICOM tags";tagsButton.Click+=(s,e)=>{tagsVisible=!tagsVisible;UpdatePanels();if(tagsVisible)UpdateTags();};DockPanel.SetDock(tagsButton,Dock.Right);heading.Children.Add(tagsButton);
-            var layersButton=Theme.Button("RT");layersButton.ToolTip="Plans, structures, dose, MLC, DVH and 3D";layersButton.Click+=(s,e)=>{layersVisible=!layersVisible;UpdatePanels();};DockPanel.SetDock(layersButton,Dock.Right);heading.Children.Add(layersButton);root.Children.Add(heading);
+            tagsButton.ToolTip="Right sidebar with searchable DICOM tags";tagsButton.Click+=(s,e)=>{tagsVisible=!tagsVisible;UpdatePanels();if(tagsVisible)UpdateTags();};DockPanel.SetDock(tagsButton,Dock.Right);heading.Children.Add(tagsButton);
+            layersButton.ToolTip="Plans, structures, dose, MLC, DVH and 3D";layersButton.Click+=(s,e)=>{rtPanelUserChoice=true;layersVisible=!layersVisible;UpdatePanels();};DockPanel.SetDock(layersButton,Dock.Right);heading.Children.Add(layersButton);root.Children.Add(heading);
             var body = new Grid();leftColumn=new ColumnDefinition {Width=new GridLength(0)};body.ColumnDefinitions.Add(leftColumn);body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(4)});body.ColumnDefinitions.Add(new ColumnDefinition {MinWidth=280});body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(4)});rightColumn=new ColumnDefinition {Width=new GridLength(0)};body.ColumnDefinitions.Add(rightColumn);Grid.SetRow(body,1);root.Children.Add(body);
             leftPanel=BuildRtPanel();body.Children.Add(leftPanel);var splitLeft=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitLeft,1);body.Children.Add(splitLeft);
             var middle=BuildMiddle();Grid.SetColumn(middle,2);body.Children.Add(middle);var splitter=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitter,3);body.Children.Add(splitter);
@@ -123,7 +124,7 @@ namespace QuickLook.DicomRT
             var images=new StackPanel{Orientation=Orientation.Horizontal};imageHeader=images;toolbar.Children.Add(images);
             series.Width=150;series.ToolTip="Base image series; RT follows a matching registration";images.Children.Add(series);
             images.Children.Add(BuildFusionButton());images.Children.Add(BuildIsocenterButton());images.Children.Add(BuildInfoButton());
-            images.Children.Add(showFields);showFields.Checked+=(s,e)=>Redraw();showFields.Unchecked+=(s,e)=>Redraw();
+            images.Children.Add(showFields);showFields.Checked+=(s,e)=>SetSharedFieldsVisibility(true);showFields.Unchecked+=(s,e)=>SetSharedFieldsVisibility(false);
             var fit=Theme.Button("Fit");fit.ToolTip="Reset zoom and fit image (Home)";fit.Click+=(s,e)=>{zoom=1;viewportCenter=null;Redraw();};images.Children.Add(fit);images.Children.Add(BuildFieldControls());
             DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
             patientIdentity.HorizontalAlignment=HorizontalAlignment.Right;patientIdentity.TextAlignment=TextAlignment.Right;patientIdentity.TextTrimming=TextTrimming.CharacterEllipsis;patientIdentity.Margin=new Thickness(8,4,8,2);DockPanel.SetDock(patientIdentity,Dock.Bottom);dock.Children.Add(patientIdentity);
@@ -137,7 +138,9 @@ namespace QuickLook.DicomRT
         }
 
         private void SetWindow(double center, double width) { MarkWindowCustom();windowCenter = center; windowWidth = Math.Max(1, width);windowRange?.SetWindow(windowCenter,windowWidth);if(miniWidth!=null){updatingWindowControls=true;miniWidth.Maximum=Math.Max(5000,windowWidth);miniLevel.Minimum=Math.Min(-1500,windowCenter);miniLevel.Maximum=Math.Max(3500,windowCenter);miniWidth.Value=windowWidth;miniLevel.Value=windowCenter;miniWidth.ToolTip=$"Window width {windowWidth:0}";miniLevel.ToolTip=$"Window level {windowCenter:0}";updatingWindowControls=false;} Redraw(); }
-        private void UpdatePanels(){if(rightColumn==null||leftColumn==null)return;leftColumn.Width=new GridLength(layersVisible?290:0);rightColumn.Width=new GridLength(tagsVisible?345:0);if(leftPanel!=null)leftPanel.Visibility=layersVisible?Visibility.Visible:Visibility.Collapsed;if(rightPanel!=null)rightPanel.Visibility=tagsVisible?Visibility.Visible:Visibility.Collapsed;}
+        private static void PanelButtonState(Button button,bool open,string label){button.Foreground=open?Theme.Accent:Theme.Foreground;button.Background=open?Theme.Brush("#24384C"):Theme.Panel;button.BorderBrush=open?Theme.Accent:Theme.Brush("#394148");button.ToolTip=(open?"Close ":"Open ")+label+" panel";System.Windows.Automation.AutomationProperties.SetItemStatus(button,open?"Open":"Closed");}
+        private void AutoOpenRtPanel(){if(rtPanelDiscovered)return;rtPanelDiscovered=true;if(!rtPanelUserChoice){layersVisible=true;UpdatePanels();}}
+        private void UpdatePanels(){PanelButtonState(layersButton,layersVisible,"RT");PanelButtonState(tagsButton,tagsVisible,"DICOM tags");if(rightColumn==null||leftColumn==null)return;leftColumn.Width=new GridLength(layersVisible?290:0);rightColumn.Width=new GridLength(tagsVisible?345:0);if(leftPanel!=null)leftPanel.Visibility=layersVisible?Visibility.Visible:Visibility.Collapsed;if(rightPanel!=null)rightPanel.Visibility=tagsVisible?Visibility.Visible:Visibility.Collapsed;}
         private void AutoWindow() { float min = native?.Min ?? volume?.Min ?? 0, max = native?.Max ?? volume?.Max ?? 1000; SetWindow((min + max) / 2.0, Math.Max(1, max - min)); }
         private void RebuildPanes()
         {

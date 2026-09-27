@@ -1,4 +1,15 @@
-﻿# 0.2.9 verification
+﻿# 0.2.12 verification
+
+Engineering checks on 27 September 2026. These are inspection previews, not clinical acceptance.
+
+- 237 WPF interaction checks passed, including explicit RTSTRUCT frame retention and a world-space miniature normal facing the isocenter, nonzero collimator/couch axes, static and arc CP updates, dual-layer data, unavailable-geometry clearing, shared Fields visibility, automatic panel discovery and respecting manual close, and retaining the scene/camera when compatible CT data arrives.
+- The approved public nonpatient benchmark was inspected in standalone 3D and linked 2 × 2 captures. The active MLC plane follows the source track and changes perspective with the scene. Only this public benchmark was captured.
+- Across 60 CP changes, measured event-dispatch latency was **0.19 ms median / 0.75 ms p95** on this workstation, with the prepared anatomy and track arrays retained. This measures dispatch, not end-to-end display or background rendering latency.
+- A 16 ms input-priority dispatcher heartbeat during CT opening recorded a **423 ms secondary stall before** the loading changes; the repeat run had **no post-construction interval above 150 ms**. Initial viewer construction still took approximately 396 ms. Whole-run p95 intervals were 36.5 ms before and 41.2 ms after; this is a specific removed interruption, not a general throughput claim or a guarantee for every dataset. OS file caches were warm.
+
+---
+
+# 0.2.9 verification
 
 Release suites passed: 200 WPF interaction checks; 132 RT checks plus analytic DRR projection scenarios; 362 render checks and 48 contour checks; 82 DVH checks; directed playback checks; 44 3D checks plus surface, cache, framing and interaction suites.
 

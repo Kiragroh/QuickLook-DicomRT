@@ -28,7 +28,7 @@ namespace QuickLook.DicomRT
                 UpdateTags();
                 if(initialEntry.Modality.StartsWith("RT"))
                 {
-                    layersVisible=true;UpdatePanels();
+                    AutoOpenRtPanel();
                     await Task.Run(()=>OnEntryFound(initialEntry),token);
                     SetWorkspace(initialEntry.Modality=="RTPLAN"?"MLC":"3D");
                 }
@@ -101,13 +101,15 @@ namespace QuickLook.DicomRT
             bool sameImageSeries=currentEntry!=null&&currentEntry.SeriesUid==stack.Entries[0].SeriesUid;
             Vec3? preservedFocus=HasImage&&focusMap!=null?(Vec3?)focusMap.Transform(focus):null;
             overlayLoad?.Cancel();overlayVolume=null;overlayStack=null;
-            currentStack = stack; currentEntry = null; volume = null; native = null; pixelCache.Clear(); pixelOrder.Clear();
+            currentStack = stack; volume = null;
+            // Completing the scan of the already displayed series must not blank its pane.
+            if(!sameImageSeries){currentEntry=null;native=null;pixelCache.Clear();pixelOrder.Clear();}
             changing = true; planes.SelectedItem = "Native";
             sliceSlider.Maximum = Math.Max(0, stack.Entries.Count - 1);
             int selected = stack.Entries.FindIndex(e => initialEntry != null && SamePath(e.Path, initialEntry.Path));
             sliceIndex = preservedFocus.HasValue ? Enumerable.Range(0,stack.Entries.Count).OrderBy(i=>Math.Abs((stack.Entries[i].Origin-preservedFocus.Value).Dot(stack.Entries[i].AxisX.Cross(stack.Entries[i].AxisY)))).First() : selected >= 0 ? selected : stack.Entries.Count / 2; requestedSliceIndex = sliceIndex; sliceSlider.Value = sliceIndex; changing = false;
             currentEntry = stack.Entries[sliceIndex]; SetEntryFocus(currentEntry); if(preservedFocus.HasValue)focus=preservedFocus.Value; UpdateTags();
-            RebuildPanes();
+            if(!sameImageSeries)RebuildPanes();
             try
             {
                 await ShowSliceAsync(sliceIndex, preservedFocus.HasValue);
@@ -204,7 +206,7 @@ namespace QuickLook.DicomRT
         private DicomEntry lastTagEntry;
         private void UpdateTags()
         {
-            if (disposed) return; var entry = (tagSource.SelectedItem as TagChoice)?.Entry ?? currentEntry;
+            if (disposed || !tagsVisible) return; var entry = (tagSource.SelectedItem as TagChoice)?.Entry ?? currentEntry;
             if (entry == null) return;
             try { if (lastTagEntry != entry) { tags = TagReader.Read(entry.Dataset); tagTree.SetRows(tags, lastTagEntry != null && lastTagEntry.SeriesUid != entry.SeriesUid); lastTagEntry = entry; } FilterTags(); }
             catch (Exception) { tagStatus.Text = "Unable to read attributes."; }

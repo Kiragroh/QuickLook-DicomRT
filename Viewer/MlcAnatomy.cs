@@ -12,6 +12,9 @@ namespace QuickLook.DicomRT
     public sealed partial class MlcPlaybackControl
     {
         Slider mlcOpacity;
+        readonly CheckBox showFieldArrangement=new CheckBox{Content="Fields",IsChecked=false,Margin=new Thickness(5),ToolTip="Field arrangement overlay; synchronized with image and 3D views"};
+        public event Action<bool> FieldsVisibilityChanged;
+        public void SetFieldsVisible(bool enabled){showFieldArrangement.IsChecked=enabled;UpdateArrangement();}
         readonly CheckBox showDrr=new CheckBox{Content="DRR",IsChecked=false,Margin=new Thickness(5)};
         readonly CheckBox showPtv=new CheckBox{Content="PTV outlines",IsChecked=true,Margin=new Thickness(5)};
         readonly CheckBox showOrgans=new CheckBox{Content="Organ outlines",IsChecked=false,Margin=new Thickness(5)};
@@ -34,7 +37,7 @@ namespace QuickLook.DicomRT
         void InitializeAnatomy(StackPanel top,Grid area)
         {
             projectionCache.FrameReady+=()=>{long now=System.Diagnostics.Stopwatch.GetTimestamp();if(now-Interlocked.Read(ref lastCacheNotification)<System.Diagnostics.Stopwatch.Frequency/20)return;Interlocked.Exchange(ref lastCacheNotification,now);if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(IsVisible&&!projectionSuspended)TryCached();}),DispatcherPriority.Background);};
-            var row=top;foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>RequestProjection(true);check.Unchecked+=(s,e)=>RequestProjection(true);}
+            var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>RequestProjection(true);check.Unchecked+=(s,e)=>RequestProjection(true);}
             mlcOpacity=new Slider{Minimum=.1,Maximum=1,Value=.75,Width=70,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4),ToolTip="MLC opacity over DRR: transparent to dark"};
             mlcOpacity.ValueChanged+=(s,e)=>aperture.DrrLeafOpacity=e.NewValue;row.Children.Add(Theme.Text("MLC",10,Theme.Muted));row.Children.Add(mlcOpacity);
             var info=Theme.Button("i");info.ToolTip=projectionStatus;row.Children.Add(info);
@@ -60,7 +63,7 @@ namespace QuickLook.DicomRT
         }
         static string MapKey(Matrix4 map)=>map==null?"none":string.Join(",",map.Values.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)));
         static bool SameMap(Matrix4 a,Matrix4 b)=>MapKey(a)==MapKey(b);
-        void UpdateArrangement()=>fieldArrangement.Set(anatomy,plan,beam,interpolated,planMap);
+        void UpdateArrangement(){fieldArrangement.Visibility=showFieldArrangement.IsChecked==true?Visibility.Visible:Visibility.Collapsed;if(showFieldArrangement.IsChecked==true)fieldArrangement.Set(anatomy,plan,beam,interpolated,planMap);}
         void FrameAnatomy(ControlPoint cp)
         {interpolated=cp;if(IsVisible)UpdateArrangement();FrameChanged?.Invoke(beam,cp);RequestProjection(false);}
         void SuspendProjection(){projectionSuspended=true;projectionDelay.Stop();projectionVersion++;projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();projectionKey=null;}

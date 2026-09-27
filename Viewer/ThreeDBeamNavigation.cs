@@ -14,6 +14,8 @@ namespace QuickLook.DicomRT
   bool syncingBeamNavigation;int beamWheel;
   const string NeutralFields="All fields · no highlight";
   public event Action<PlanBeam,double> ControlPointRequested;
+  public event Action<bool> FieldsVisibilityChanged;
+  public void SetFieldsVisible(bool enabled){showBeamFields.IsChecked=enabled;}
   void BuildBeamNavigation(Panel controls)
   {
    beamPosition.Margin=new Thickness(4,0,12,0);beamPosition.VerticalAlignment=VerticalAlignment.Center;beamNavigation.Children.Add(activeBeamPicker);beamNavigation.Children.Add(beamCursor);beamNavigation.Children.Add(beamPosition);controls.Children.Add(beamNavigation);

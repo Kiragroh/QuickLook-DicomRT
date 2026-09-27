@@ -12,7 +12,7 @@ namespace QuickLook.DicomRT
         readonly Slider fieldCursor=new Slider{Minimum=0,SmallChange=.1,LargeChange=1,Width=180,Margin=new Thickness(8,4,8,4),VerticalAlignment=VerticalAlignment.Center};
         readonly TextBlock fieldPosition=Theme.Text("",10,Theme.Muted);
         const string AllFields="All fields - no highlight";
-        bool neutralFields;WrapPanel fieldControls;bool syncingFields;int fieldWheel;
+        bool syncingFieldsVisibility;bool neutralFields;WrapPanel fieldControls;bool syncingFields;int fieldWheel;
         UIElement BuildFieldControls()
         {
             fieldControls=new WrapPanel{Visibility=Visibility.Collapsed};fieldControls.Children.Add(fieldPicker);fieldControls.Children.Add(fieldCursor);fieldControls.Children.Add(fieldPosition);
@@ -22,6 +22,12 @@ namespace QuickLook.DicomRT
             fieldCursor.ValueChanged+=(s,e)=>{if(!syncingFields&&activeField!=null)centralPlayback?.Navigate(activeField,e.NewValue);};
             fieldControls.PreviewMouseWheel+=(s,e)=>{fieldCursor.Value=((Keyboard.Modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(fieldCursor.Value,fieldCursor.Maximum,e.Delta,ref fieldWheel):MlcTimeline.RecordedWheelStep(fieldCursor.Value,fieldCursor.Maximum,e.Delta,ref fieldWheel));e.Handled=true;};
             showFields.Checked+=(s,e)=>SyncFieldControls();showFields.Unchecked+=(s,e)=>SyncFieldControls();return fieldControls;
+        }
+        void SetSharedFieldsVisibility(bool enabled)
+        {
+            if(syncingFieldsVisibility)return;syncingFieldsVisibility=true;
+            try{showFields.IsChecked=enabled;threeDView?.SetFieldsVisible(enabled);centralPlayback?.SetFieldsVisible(enabled);if(latestScene!=null)latestScene.ShowFields=enabled;SyncFieldControls();UpdateFieldOverlays();}
+            finally{syncingFieldsVisibility=false;}
         }
         void SyncFieldControls()
         {
@@ -38,7 +44,7 @@ namespace QuickLook.DicomRT
         {
             if(latestScene==null)return;latestScene.ActiveBeam=neutralFields?null:activeField;latestScene.ActiveControlPoint=neutralFields?null:activeFieldPoint;latestScene.ActiveControlPointIndex=centralPlayback?.LocalPosition??0;
             // Field motion does not re-rasterize the CT, structures, dose, or 3D scene.
-            if(workspaceMode=="Bild"&&showFields.IsChecked==true)foreach(var pane in panes)pane.UpdateFields(latestScene);
+            if(workspaceMode=="Bild")foreach(var pane in panes)pane.UpdateFields(latestScene);
             threeDView?.UpdateFields(latestScene);
         }
     }

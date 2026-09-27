@@ -19,6 +19,7 @@ namespace QuickLook.DicomRT
   sealed class Part {public MeshGeometry3D Mesh,InteractionMesh;public StructureRoi Roi;public string Kind,RoiType;public Color Color;public Vec3 Center;public bool Fallback,Reduced;}
   sealed class Prepared {public List<Part> Parts=new List<Part>();public int Fallbacks,Skipped,Reduced,CacheHits;}
   readonly Viewport3D viewport=new Viewport3D();readonly ModelVisual3D visual=new ModelVisual3D();readonly PerspectiveCamera camera=new PerspectiveCamera();
+  readonly Task gpuInitialization;
   Direct3DSurface gpu;internal Direct3DSurface CaptureSurface=>gpu;
   readonly PatientOrientationBadge orientationBadge=new PatientOrientationBadge();
   readonly BeamFieldOverlay beamFields=new BeamFieldOverlay();
@@ -58,7 +59,7 @@ namespace QuickLook.DicomRT
    support.Visibility=external.Visibility=Visibility.Collapsed;support.IsEnabled=external.IsEnabled=false;
    controls.Children.Add(structures);controls.Children.Add(organs);controls.Children.Add(allRois);controls.Children.Add(bone);controls.Children.Add(skin);controls.Children.Add(dose);controls.Children.Add(showBeamFields);BuildBeamNavigation(controls);
    beamFields.PathsReady+=()=>{if(showBeamFields.IsChecked==true)FitFieldGuides();};
-   showBeamFields.Checked+=(s,e)=>{UpdateBeamFields();FitFieldGuides();};showBeamFields.Unchecked+=(s,e)=>UpdateBeamFields();
+   showBeamFields.Checked+=(s,e)=>{UpdateBeamFields();FitFieldGuides();FieldsVisibilityChanged?.Invoke(true);};showBeamFields.Unchecked+=(s,e)=>{UpdateBeamFields();FieldsVisibilityChanged?.Invoke(false);};
    controls.Children.Add(Theme.Text("ROI opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="ROI opacity; large enclosing organs are automatically more transparent. Skin has its own control."};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
    var skinOpacityLabel=Theme.Text("Skin opacity",11);controls.Children.Add(skinOpacityLabel);skinOpacity=new Slider{Minimum=.01,Maximum=.25,Value=.06,Width=80,Margin=new Thickness(6),ToolTip="CT skin opacity (1–25%), independent of ROI opacity; 6% by default"};controls.Children.Add(skinOpacity);skinOpacity.ValueChanged+=(s,e)=>ApplyModels();
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose surface"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{if(!updatingDoseChoices)StartBuild();};
@@ -66,7 +67,7 @@ namespace QuickLook.DicomRT
    var reset=Theme.Button("Reset view");reset.Click+=(s,e)=>{cameraAdjusted=false;ResetCamera();};controls.Children.Add(reset);
    root.Children.Add(controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);
-   try{gpu=new Direct3DSurface();viewportHost.Children.Add(gpu.View);viewport.Visibility=Visibility.Hidden;gpu.View.RenderExceptionOccurred+=(s,e)=>{e.Handled=true;var failed=gpu;gpu=null;failed.View.Visibility=Visibility.Collapsed;Dispatcher.BeginInvoke(new Action(()=>failed.Dispose()));viewport.Visibility=Visibility.Visible;interactionHint.Text="Direct3D unavailable · WPF fallback";interactionHint.Visibility=Visibility.Visible;};}catch(Exception){gpu?.Dispose();gpu=null;interactionHint.Text="Direct3D unavailable · WPF fallback";}
+   viewport.Visibility=Visibility.Hidden;
    viewportHost.Children.Add(beamFields);viewportHost.Children.Add(isocenterOverlay);
    orientationBadge.HorizontalAlignment=HorizontalAlignment.Left;orientationBadge.VerticalAlignment=VerticalAlignment.Bottom;orientationBadge.Margin=new Thickness(5);viewportHost.Children.Add(orientationBadge);
    interactionHint.HorizontalAlignment=HorizontalAlignment.Right;interactionHint.VerticalAlignment=VerticalAlignment.Top;interactionHint.Margin=new Thickness(8);interactionHint.Visibility=gpu==null?Visibility.Visible:Visibility.Collapsed;interactionHint.IsHitTestVisible=false;viewportHost.Children.Add(interactionHint);
@@ -79,7 +80,21 @@ namespace QuickLook.DicomRT
    host.MouseWheel+=(s,e)=>{BeginInteraction();cameraAdjusted=true;distance=Math.Max(radius*.15,Math.Min(radius*20,distance*Math.Pow(1.15,-e.Delta/120.0)));UpdateCamera();QueueQualityRestore();e.Handled=true;};
    footer=new StackPanel{Margin=new Thickness(10,4,10,7)};status=Theme.Text("3D: select spatial DICOM objects",11);footer.Children.Add(status);
    footer.Children.Add(Theme.Text("Drag to rotate · mouse wheel to zoom · LPS patient coordinates. Skin/bone surfaces use CT thresholds; ROI surfaces are smoothed, bounded approximations of voxelized contours (≤1 mm smoothing displacement). Transparency is approximate; 3D provides an overview.",10,Theme.Muted));Grid.SetRow(footer,2);root.Children.Add(footer);if(compact)footer.Visibility=Visibility.Collapsed;Content=root;
+   gpuInitialization=InitializeGpuAsync(viewportHost);
    IsVisibleChanged+=(s,e)=>{if(IsVisible){if(gpuDirty)ApplyModels();StartBuild();}else{EndInteraction();if(!backgroundPreparation&&pending!=null){++generation;pending.Cancel();pending=null;key=null;}}};
+  }
+  async Task InitializeGpuAsync(Grid host)
+  {
+   // Shader/device setup is expensive even while 3D is hidden. Keep it off the input thread.
+   HelixToolkit.Wpf.SharpDX.DefaultEffectsManager effects=null;
+   interactionHint.Text="Preparing 3D renderer …";interactionHint.Visibility=Visibility.Visible;
+   try{
+    effects=await Task.Run(()=>new HelixToolkit.Wpf.SharpDX.DefaultEffectsManager());
+    if(disposed){effects.Dispose();return;}
+    gpu=new Direct3DSurface(effects);effects=null;host.Children.Insert(1,gpu.View);
+    gpu.View.RenderExceptionOccurred+=(s,e)=>{e.Handled=true;var failed=gpu;gpu=null;failed.View.Visibility=Visibility.Collapsed;Dispatcher.BeginInvoke(new Action(()=>failed.Dispose()));viewport.Visibility=Visibility.Visible;interactionHint.Text="Direct3D unavailable · WPF fallback";interactionHint.Visibility=Visibility.Visible;};
+    gpu.SetCamera(camera);gpu.SetGuides(sliceVisual.Content as Model3DGroup);ApplyModels();interactionHint.Visibility=Visibility.Collapsed;
+   }catch(Exception){effects?.Dispose();gpu?.Dispose();gpu=null;if(!disposed){viewport.Visibility=Visibility.Visible;interactionHint.Text="Direct3D unavailable · WPF fallback";interactionHint.Visibility=Visibility.Visible;}}
   }
   // One control moves between full and MPR layouts; cache, camera and settings stay intact.
   public void SetCompact(bool value){compact=value;footer.Visibility=value?Visibility.Collapsed:Visibility.Visible;if(!value)SetSlicePlanes(new Vec3(),null);}
@@ -99,8 +114,15 @@ namespace QuickLook.DicomRT
   void UpdateBeamFields(){beamFields.ShowFields=showBeamFields.IsChecked==true;beamFields.Set(scene,camera,radius);SyncBeamNavigation();}
   public void SetScene(RenderScene value)
   {
-   if(disposed)return;bool changed=scene==null||scene.Volume!=value?.Volume||(scene.Volume==null&&scene.Entry!=value?.Entry&&scene.Entry?.SeriesUid!=value?.Entry?.SeriesUid);bool remapped=scene!=null&&value!=null&&(scene.Structures??new List<RoiOverlay>()).Any(old=>(value.Structures??new List<RoiOverlay>()).Any(next=>next.Roi==old.Roi&&TransformKey(next.RoiToImage)!=TransformKey(old.RoiToImage)));changed|=remapped;bool paletteChanged=scene!=null&&value!=null&&!scene.IsoColors.OrderBy(x=>x.Key).SequenceEqual(value.IsoColors.OrderBy(x=>x.Key));scene=value;isocenterOverlay.Set(scene?.Isocenters,camera);UpdateBeamFields();if(scene!=null)ConfigureDoseChoices();if(paletteChanged)ApplyModels();
+   if(disposed)return;
+   string previousFrame=scene?.FrameUid??scene?.Entry?.FrameUid,nextFrame=value?.FrameUid??value?.Entry?.FrameUid;
+   bool sameFrame=!string.IsNullOrEmpty(previousFrame)&&previousFrame==nextFrame;
+   bool frameChanged=!string.IsNullOrEmpty(previousFrame)&&!string.IsNullOrEmpty(nextFrame)&&previousFrame!=nextFrame;
+   bool volumeArrived=sameFrame&&scene.Volume==null&&value.Volume!=null;
+   bool changed=scene==null||frameChanged||(!volumeArrived&&scene.Volume!=value?.Volume)||(!sameFrame&&scene.Volume==null&&scene.Entry!=value?.Entry&&scene.Entry?.SeriesUid!=value?.Entry?.SeriesUid);
+   bool remapped=scene!=null&&value!=null&&(scene.Structures??new List<RoiOverlay>()).Any(old=>(value.Structures??new List<RoiOverlay>()).Any(next=>next.Roi==old.Roi&&TransformKey(next.RoiToImage)!=TransformKey(old.RoiToImage)));changed|=remapped;bool paletteChanged=scene!=null&&value!=null&&!scene.IsoColors.OrderBy(x=>x.Key).SequenceEqual(value.IsoColors.OrderBy(x=>x.Key));scene=value;isocenterOverlay.Set(scene?.Isocenters,camera);UpdateBeamFields();if(scene!=null)ConfigureDoseChoices();if(paletteChanged)ApplyModels();
    if(changed){EndInteraction();key=null;prepared=null;focusedRoi=null;cameraAdjusted=false;ResetCamera();ApplyModels();}
+   if(volumeArrived&&!remapped&&!cameraAdjusted)ResetCamera();
    if(focusedRoi!=null&&!(scene?.Structures?.Any(r=>r?.Roi==focusedRoi)??false))focusedRoi=null;
    if(!doseDefaultInitialized&&scene!=null)
    {
