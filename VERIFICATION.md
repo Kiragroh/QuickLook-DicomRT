@@ -1,4 +1,11 @@
-﻿## 0.2.20 — Outline selection indicators
+﻿## 0.2.21 — Direct DVH curve interaction and blue icon
+
+- 312 WPF interaction checks passed, including interpolated-segment selection, toggle focus, empty space, repeated dose / vertical segments, hidden curves, resized bounds, hover identity and six metrics, and overlap preference.
+- Hover, selection and resize leave CalculationCount unchanged. A local microbenchmark of 1,000 probes across 128 curves / 2,048 bins took 30 ms; this is hit-testing evidence, not an end-to-end viewer latency guarantee.
+- Blue GPT Image edit preserved as PNG; seven ICO resolutions from 16 to 256 pixels. Installer accent matches #64B5F6.
+- DICOM calculations and source data are unchanged. These are engineering checks, not clinical validation.
+
+## 0.2.20 — Outline selection indicators
 
 - Release build: zero warnings/errors; 299 WPF checks passed.
 - Added interaction coverage for PTV/Organ/Other group state, individual visibility, missing registration, row identity preservation and leaving the MLC workspace.

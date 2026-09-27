@@ -2,6 +2,18 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.21 — 27 September 2026
+
+### Select DVH curves directly
+
+- Click a plotted curve to emphasize it, dim the comparison curves and reveal its structure in the list. Click the same curve again to restore the comparison.
+- Hover a curve for its structure name, volume and Dmean, Dmedian, Dmax, Dmin, D98 and D2, including coverage and approximation information.
+- Curve and structure-name selection use the same focus state. Hidden curves are excluded; hit testing follows the chart when resized and reuses calculated samples.
+
+### A consistent blue identity
+
+- The application, taskbar and Windows installer icons now use the viewer's blue accent. The installer button follows the same color.
+
 ## 0.2.20 — 27 September 2026
 
 ### Updated feature tour

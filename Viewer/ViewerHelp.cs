@@ -48,7 +48,7 @@ namespace QuickLook.DicomRT
             panel.Children.Add(ShortcutSection("SAVE & EXPORT",new[]{
                 new[]{"Ctrl + Shift + S","Save entire viewer as PNG, including sidebars"},
                 new[]{"Right-click view","Save only that view as PNG"},
-                new[]{"Right-click DVH","Export active curves, with optional metrics"}}));
+                new[]{"Click DVH curve / name","Focus structure; click again to restore all curves"},new[]{"Hover DVH curve","Structure name, volume and dose metrics"},new[]{"Right-click DVH","Export active curves, with optional metrics"}}));
             var shot=Theme.Button("Save entire viewer");shot.ToolTip="Save all visible panels, toolbars and displayed identifiers (Ctrl+Shift+S)";shot.Click+=(s,e)=>{infoPopup.IsOpen=false;SaveScreenshot();};panel.Children.Add(shot);
             infoPopup=DarkPopup(infoButton.IsVisible?(UIElement)infoButton:this,new ScrollViewer{Content=panel,MaxHeight=Math.Min(720,Math.Max(240,SystemParameters.WorkArea.Height-100)),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto});if(!infoButton.IsVisible)infoPopup.Placement=PlacementMode.Center;infoPopup.IsOpen=true;
         }

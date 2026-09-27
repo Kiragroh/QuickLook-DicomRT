@@ -24,6 +24,7 @@ namespace QuickLook.DicomRT
         DoseGrid cachedDose;
         readonly Dictionary<StructureRoi,CachedResult> cache=new Dictionary<StructureRoi,CachedResult>();
         readonly Dictionary<StructureRoi,bool> visibility=new Dictionary<StructureRoi,bool>();
+        readonly Dictionary<StructureRoi,Border> legendRows=new Dictionary<StructureRoi,Border>();
         public StructureRoi FocusedStructure => plot.FocusedStructure;
         public int CalculationCount { get; private set; }
         sealed class CachedResult { public double[] Transform;public DvhResult Result; }
@@ -31,6 +32,8 @@ namespace QuickLook.DicomRT
         {
             if(disposed)return;
             plot.FocusedStructure=ReferenceEquals(plot.FocusedStructure,roi)?null:roi;
+            foreach(var item in legendRows)item.Value.Background=ReferenceEquals(item.Key,plot.FocusedStructure)?Theme.Panel:Brushes.Transparent;
+            Border selected;if(plot.FocusedStructure!=null&&legendRows.TryGetValue(plot.FocusedStructure,out selected))selected.BringIntoView();
             plot.InvalidateVisual();
         }
         public string StatusText => status.Text;
@@ -47,7 +50,7 @@ namespace QuickLook.DicomRT
             body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(260)});
             body.RowDefinitions.Add(new RowDefinition {Height=new GridLength(1,GridUnitType.Star)});
             body.RowDefinitions.Add(new RowDefinition {Height=new GridLength(0)});
-            plot.MinHeight=160;body.Children.Add(plot);
+            plot.MinHeight=160;plot.CurveSelected+=FocusStructure;body.Children.Add(plot);
             legendScroll.Content=legend;legendScroll.Margin=new Thickness(18,0,0,0);Grid.SetColumn(legendScroll,1);body.Children.Add(legendScroll);
             Grid.SetRow(body,1);root.Children.Add(body);
             var footer=new StackPanel();footer.Children.Add(status);
@@ -68,7 +71,7 @@ namespace QuickLook.DicomRT
         {
             if(disposed)return;Cancel();
             if(!ReferenceEquals(cachedDose,dose)){cache.Clear();visibility.Clear();cachedDose=dose;plot.FocusedStructure=null;}
-            legend.Children.Clear();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
+            legend.Children.Clear();legendRows.Clear();plot.HideHover();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
             exportRois=(rois??new StructureRoi[0]).ToArray();requestedCount=rois?.Count??0;Completion=Task.CompletedTask;
             if(dose==null || rois==null || rois.Count==0){status.Text="No visible structures with a matching RTDOSE are available.";return;}
             // Snapshot mapping on the UI thread. Loaded contour/dose data are immutable.
@@ -101,6 +104,7 @@ namespace QuickLook.DicomRT
                     bool shown; if(!visibility.TryGetValue(work.Roi,out shown))shown=true;
                     var curve=new DvhPlot.Curve {Roi=work.Roi,Result=result,Color=brush,Visible=shown};plot.Curves.Add(curve);
                     var row=new Border {Background=Brushes.Transparent,Padding=new Thickness(0,2,0,3)};
+                    legendRows[work.Roi]=row;if(ReferenceEquals(work.Roi,plot.FocusedStructure))row.Background=Theme.Panel;
                     var contents=new StackPanel();row.Child=contents;
                     var heading=new DockPanel();contents.Children.Add(heading);
                     var box=new CheckBox {IsChecked=shown,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,7,0),IsEnabled=result.DoseValues.Length>0,ToolTip="Show or hide curve"};
@@ -131,9 +135,9 @@ namespace QuickLook.DicomRT
             finally { if(owner==calculation)calculation=null;owner.Dispose(); }
         }
         public void Cancel(){var active=calculation;if(active!=null){calculation=null;active.Cancel();if(!disposed)status.Text=$"Calculation canceled · {Math.Max(0,requestedCount-plot.Curves.Count)} not processed. Completed curves remain visible.";}}
-        public void Dispose(){disposed=true;Cancel();cache.Clear();visibility.Clear();}
+        public void Dispose(){disposed=true;Cancel();plot.HideHover();cache.Clear();visibility.Clear();legendRows.Clear();}
 
-        sealed class DvhPlot : FrameworkElement
+        sealed partial class DvhPlot : FrameworkElement
         {
             public sealed class Curve { public StructureRoi Roi;public DvhResult Result;public Brush Color;public bool Visible; }
             public StructureRoi FocusedStructure;

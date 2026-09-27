@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -38,7 +38,7 @@ namespace QuickLook.DicomRT.Installer
     }
     internal sealed class SetupWindow : Window
     {
-        static readonly Brush Ink=new SolidColorBrush(Color.FromRgb(234,243,246)),Muted=new SolidColorBrush(Color.FromRgb(163,185,192)),Accent=new SolidColorBrush(Color.FromRgb(108,212,190));
+        static readonly Brush Ink=new SolidColorBrush(Color.FromRgb(234,243,246)),Muted=new SolidColorBrush(Color.FromRgb(163,185,192)),Accent=new SolidColorBrush(Color.FromRgb(100,181,246));
         readonly TextBlock status;readonly Button install,refresh;readonly VerifiedPayload payload;string executable;bool busy;
         public SetupWindow(VerifiedPayload package)
         {
