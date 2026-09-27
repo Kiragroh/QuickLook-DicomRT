@@ -130,19 +130,16 @@ namespace QuickLook.DicomRT
   {
    base.OnRender(dc);MiniatureVisible=false;MiniatureAnchor=null;MiniatureCorners=new Vec3[0];if(!ShowFields||scene?.Plan==null||map==null)return;
    var tracks=Ready.Where(t=>!BeamMotion.IsImaging(t.Beam)||t.Beam==scene.ActiveBeam).ToArray();
-   int row=0;foreach(var track in tracks.OrderBy(t=>t.Beam==scene.ActiveBeam?1:0)){
+   foreach(var track in tracks.OrderBy(t=>t.Beam==scene.ActiveBeam?1:0)){
     bool active=track.Beam==scene.ActiveBeam;Brush brush=active?Brushes.Gold:new SolidColorBrush(Color.FromRgb(98,176,231));
-    var samples=track.Samples;double max=samples.Select(s=>s.Angular).Where(v=>BeamProjection.Finite(v)&&v>=0).DefaultIfEmpty(0).Max();
-    BeamMotion.Sample previous=null;
-    foreach(var sample in samples){var at=sample.Iso+sample.SourceDirection*radius;if(previous!=null&&!sample.Break)Line(dc,previous.Iso+previous.SourceDirection*radius,at,brush,active?1.7:1);
-     if(sample.Tick){double value=sample.Angular;bool known=BeamProjection.Finite(value)&&value>=0;double length=known&&max>0?value/max*radius*.18:radius*.015;Line(dc,at,sample.Iso+sample.SourceDirection*(radius+length),known?brush:Brushes.SlateGray,active?2:1.2);}previous=sample;
-    }
+    var samples=track.Samples;double max=samples.Select(s=>s.Angular).Where(v=>BeamProjection.Finite(v)&&v>=0).DefaultIfEmpty(double.NaN).Max();
+    ArcModulationDrawing.Draw(dc,samples,v=>{Point at;return Project(v,out at)?(Point?)at:null;},radius,max,active,BeamModulationMode.AngularMeterset);
     string reason;var cp=active?scene.ActiveControlPoint:track.Beam.ControlPoints.FirstOrDefault();var p=BeamProjection.Create(track.Beam,cp,map,out reason);
     if(p!=null){var source=p.Iso-p.Forward*radius;if(samples.Length==0||active)Arrow(dc,source,p.Iso,brush);Point at;var labelAt=samples.Length>0?samples[0].Iso+samples[0].SourceDirection*radius:source;if(Project(labelAt,out at))Label(dc,"B"+track.Beam.Number,at+new Vector(5,-13),brush);}
-    if(samples.Length>0&&row<8){Label(dc,"B"+track.Beam.Number+": "+(max>0?"max "+max.ToString("0.####",CultureInfo.InvariantCulture)+" "+BeamMotion.Unit(track.Beam,BeamModulationMode.AngularMeterset):"modulation unavailable"),new Point(9,27+row*14),brush);row++;}
+    if(samples.Length>0&&active)ArcModulationDrawing.Legend(dc,new Point(9,27),"B"+track.Beam.Number,max,BeamMotion.Unit(track.Beam,BeamModulationMode.AngularMeterset),true);
    }
    DrawActiveMiniature(dc);
-   Label(dc,"Angular meterset modulation"+" · schematic tracks",new Point(9,8),Brushes.LightSteelBlue);
+   Label(dc,scene.ActiveBeam==null?"Select a field to inspect angular meterset":"Color = angular meterset · active field",new Point(9,8),Brushes.LightSteelBlue);
   }
  }
 }

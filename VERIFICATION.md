@@ -1,4 +1,10 @@
-﻿## 0.2.22 — DICOM opening window and stable field context
+﻿## 0.2.23 — Compact arc modulation bands
+
+- 329 WPF interaction checks pass, including linear color mapping, zero versus unavailable values, frozen palette reuse and field drawing beyond the image boundary.
+- Actual MPR + 3D and full 3D captures from the approved public nonpatient benchmark inspected in two bounded passes. Private case images were not captured or published.
+- Rendering changes only: angular meterset calculation and CP interval values remain unchanged. The constant-width band uses 256 linear color levels and reusable brushes; no smoothing or logarithmic mapping is applied.
+
+## 0.2.22 — DICOM opening window and stable field context
 
 - Release build without warnings/errors; 326 WPF interaction checks passed.
 - CT and MR initialization use their stored DICOM center and width. Missing window metadata uses the automatic fallback. Manual Auto and other presets remain available.

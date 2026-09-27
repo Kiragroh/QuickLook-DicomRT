@@ -96,15 +96,14 @@ namespace QuickLook.DicomRT
             if(track.Work==null||track.Key!=key){track.Key=key;var dispatcher=Dispatcher.CurrentDispatcher;track.Work=Task.Run(()=>BeamMotion.Path(beam,map));track.Work.ContinueWith(t=>{if(t.IsFaulted){var ignored=t.Exception;}if(invalidate!=null&&!dispatcher.HasShutdownStarted)dispatcher.BeginInvoke(invalidate,DispatcherPriority.Background);},TaskScheduler.Default);}
             if(track.Work.Status!=TaskStatus.RanToCompletion)return;
             var samples=track.Work.Result;if(samples.Length==0)return;
-            double radius=Math.Min(g.WidthMm,g.HeightMm)*.36,maxRate=samples.Select(x=>BeamMotion.Value(x,mode)).Where(x=>BeamProjection.Finite(x)&&x>=0).DefaultIfEmpty(0).Max();
+            double radius=Math.Min(g.WidthMm,g.HeightMm)*.36,maxRate=samples.Select(x=>BeamMotion.Value(x,mode)).Where(x=>BeamProjection.Finite(x)&&x>=0).DefaultIfEmpty(double.NaN).Max();
             Func<Vec3,Point> screen=p=>new Point(rect.Left+g.U(p)*rect.Width,rect.Top+g.V(p)*rect.Height);
-            var pen=new Pen(brush,active?1.8:.8);Point? previous=null;
-            foreach(var sample in samples){var at=screen(sample.Iso+sample.SourceDirection*radius);if(previous.HasValue&&!sample.Break)dc.DrawLine(pen,previous.Value,at);previous=at;
-                if(sample.Tick){double value=BeamMotion.Value(sample,mode);bool known=BeamProjection.Finite(value)&&value>=0;double length=known&&maxRate>0?value/maxRate*radius*.16:radius*.025;var tickPen=new Pen(known?brush:Brushes.SlateGray,active?2:1);dc.DrawLine(tickPen,at,screen(sample.Iso+sample.SourceDirection*(radius+length)));}}
+            var pen=new Pen(brush,active?1.8:.8);
+            ArcModulationDrawing.Draw(dc,samples,p=>screen(p),radius,maxRate,active,mode);
             var source=screen(current.Iso-current.Forward*radius);var iso=screen(current.Iso);
             if(active){dc.DrawEllipse(brush,null,source,4,4);Arrow(dc,source,iso,brush,1.4);dc.DrawEllipse(null,pen,iso,4,4);}
             var first=samples[0];if(active)Label(dc,"B"+beam.Number,screen(first.Iso+first.SourceDirection*(radius*1.2)),brush);
-            if(active)Label(dc,(mode==BeamModulationMode.PlannedRate?"Planned rate setting":"Angular modulation")+(maxRate>0?" (max "+maxRate.ToString("0.##",CultureInfo.InvariantCulture)+" "+BeamMotion.Unit(beam,mode)+")":" unavailable"),new Point(rect.Left+5,rect.Top+5),brush);
+            if(active)ArcModulationDrawing.Legend(dc,new Point(rect.Left+5,rect.Top+5),"B"+beam.Number,maxRate,BeamMotion.Unit(beam,mode),true);
         }
         static void Arrow(DrawingContext dc,Point from,Point to,Brush brush,double width)
         {

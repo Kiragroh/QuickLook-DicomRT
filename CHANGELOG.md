@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.23 — 27 September 2026
+
+- Arc modulation is now a compact, constant-width band instead of radial spikes, shared by image, MPR and 3D views.
+- Blue brightness shows angular meterset on a linear scale from zero to the active field maximum. Each control-point interval retains its original value; no smoothing, clipping of peaks or logarithmic rescaling is applied. A dark band remains visible at zero; unavailable values use a dotted gray path.
+- The active field has a compact MU/degree color key. Other fields stay muted; the current source position and aperture remain yellow.
+
 ## 0.2.22 — 27 September 2026
 
 - Waiting field outlines stay visible during control-point playback. Their first-control-point geometry is prepared independently of the active field; only the active fixed-field aperture changes. Arc playback does not rebuild the gray field contours.
