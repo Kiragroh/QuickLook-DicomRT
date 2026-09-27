@@ -54,7 +54,7 @@ namespace QuickLook.DicomRT
      var bitmap=BitmapSource.Create(pixels.Width,pixels.Height,96,96,PixelFormats.Bgra32,null,pixels.Pixels,pixels.Width*4);bitmap.Freeze();
      var result=new Frame{Bitmap=bitmap,Raster=pixels,Scene=copy};
      var tolerance=copy.Plane=="Native"&&copy.Volume!=null?Math.Max(.001,copy.Volume.SpacingZ*.49):.01;
-     foreach(var overlay in copy.InteractionPreview?new List<RoiOverlay>():copy.Structures)
+     foreach(var overlay in copy.Structures)
      {
       cancel.Token.ThrowIfCancellationRequested();if(overlay?.Roi==null||!overlay.Roi.Visible)continue;
       var roi=overlay.Roi;var brush=new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue));brush.Freeze();var pen=new Pen(brush,1.3);pen.Freeze();
@@ -66,7 +66,7 @@ namespace QuickLook.DicomRT
      }
      return result;
     },cancel.Token);
-    if(disposed||mine!=generation)return;copy.Focus=scene.Focus;frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair · contours on release":null;InvalidateVisual();
+    if(disposed||mine!=generation)return;copy.Focus=scene.Focus;frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair":null;InvalidateVisual();
    }
    catch(OperationCanceledException){}
    catch(Exception){if(!disposed&&mine==generation){status=frame==null?"Image display unavailable":"Update failed; showing previous view";InvalidateVisual();}}

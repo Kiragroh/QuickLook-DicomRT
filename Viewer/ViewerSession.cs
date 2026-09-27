@@ -88,14 +88,14 @@ namespace QuickLook.DicomRT
 
         private bool initialIsocenterApplied,userNavigatedImage;
         private PlanData initialIsocenterPlan;
-        private async Task TryInitialIsocenterAsync()
+        private async Task<bool> TryInitialIsocenterAsync()
         {
-            if(disposed||(initialIsocenterApplied&&initialIsocenterPlan==selectedPlan)||userNavigatedImage||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true)return;
+            if(disposed||(initialIsocenterApplied&&initialIsocenterPlan==selectedPlan)||userNavigatedImage||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true)return false;
             if(await JumpToPlanDoseAsync()){
                 // An early preview is provisional until the final image context is ready.
                 initialIsocenterApplied=scanComplete&&(volume!=null||!currentStack.CanMpr);
-                initialIsocenterPlan=selectedPlan;
-            }
+                initialIsocenterPlan=selectedPlan;return true;
+            }return false;
         }
         private async Task<bool> JumpToPlanDoseAsync(bool maximumOnly=false)
         {
@@ -134,9 +134,10 @@ namespace QuickLook.DicomRT
                 if(token.IsCancellationRequested||generation!=seriesGeneration)return;
                 if (!stack.CanMpr) { status.Text = "Native image stack · " + stack.GeometryWarning; return; }
                 status.Text = $"{stack.Entries.Count} slices · loading volume in the background …";
-                var loaded = await Task.Run(() => VolumeData.Load(stack, token), token);
+                var decoded=new Dictionary<string,PixelPlane>(pixelCache,StringComparer.OrdinalIgnoreCase);
+                var loaded = await Task.Run(() => VolumeData.Load(stack,token,null,entry=>{PixelPlane cached;return decoded.TryGetValue(entry.Path,out cached)?cached:PixelPlane.Load(entry);},2), token);
                 if (token.IsCancellationRequested || generation != seriesGeneration) return;
-                volume = loaded; pixelCache.Clear(); pixelOrder.Clear(); if(native==null)await ShowSliceAsync(requestedSliceIndex,true); await TryInitialIsocenterAsync(); Redraw();
+                volume = loaded; pixelCache.Clear(); pixelOrder.Clear(); bool imageRedrawn=false;if(native==null){await ShowSliceAsync(requestedSliceIndex,true);imageRedrawn=true;}if(await TryInitialIsocenterAsync())imageRedrawn=true;if(!imageRedrawn)Redraw();
                 status.Text = $"{catalog?.Files.Count ?? stack.Entries.Count} files · {catalog?.Stacks.Count ?? 1} image groups · MPR ready" + ((catalog?.SkippedFiles ?? 0) > 0 ? $" · {catalog.SkippedFiles} files skipped" : "");
             }
             catch (OperationCanceledException) { }

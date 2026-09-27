@@ -20,6 +20,8 @@ Click the small orientation character in a slice or 3D view to choose **Human, F
 
 Background preparation uses distinct recorded beam views, prioritizes the active field and computes fractional views in a bounded playback lookahead. DRRs and contours run on separate background workers. Identical fixed-field projections are reused; hidden fractional DRRs are skipped. The rotating gear shows separate DRR/ROI counts and an estimated remaining preparation time. Scrolling in 2 × 2 refreshes only the changed slice, retaining the orthogonal images and contours.
 
+The upper image timeline includes shared **Play/Pause**. Clicking or dragging the crosshair keeps structure contours in the preview frames. Full-volume loading reuses decoded preview slices and limits decoding to two workers.
+
 ## What you can inspect
 
 | Workflow | What is available |

@@ -1,6 +1,8 @@
 ﻿## 0.2.30 — Image toolbar playback
 
-- Release build without warnings/errors; 427 WPF checks pass. Added checks verify button placement before the CP slider, start/pause through the shared timeline, immediate state synchronization from MLC and 3D, and disabled state for the neutral all-fields selection.
+- Release build without warnings/errors; 439 WPF checks and all 11 Core synthetic test groups pass. Added checks verify button placement before the CP slider, start/pause through the shared timeline, immediate state synchronization from MLC and 3D, and disabled state for the neutral all-fields selection.
+- Crosshair preview tests cover axial, coronal and sagittal frames: prior complete frame retained while pending, current image/contours in the same plane, and identical boundary counts before and after release. The test host now installs a WPF dispatcher synchronization context before starting asynchronous UI work.
+- Core tests verify cached-slice reuse, bounded decoding concurrency, byte-identical serial/parallel voxel values, photometric interpretation, ordered progress and invalid-plane rejection.
 - Uses the existing playback timer; no additional rendering, projection or mesh work is scheduled by the new control.
 
 ## 0.2.29 — Preparation workload and linked navigation

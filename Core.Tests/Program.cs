@@ -12,10 +12,21 @@ class Program {
  static string folder;
  static int failures;
  static int Main(string[] args){if(args.Length==2&&args[0]=="--accept")return Acceptance.Run(args[1]);folder=Path.Combine(Path.GetTempPath(),"quicklook-core-tests-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder); try {
-  Run("sampling",Sampling); Run("pixel decode",Pixels); Run("header and stack ordering",Catalog); Run("RT-first incremental catalog",PriorityCatalog); Run("unsafe geometry",Unsafe); Run("complete nested tags",Tags); Run("endian and bit layout",Endian);Run("volume boundaries",Boundaries);Run("stack partitioning",Partitioning);Run("unsupported intensity transforms",UnsupportedTransforms);
+  Run("cached parallel volume assembly",ParallelVolume);Run("sampling",Sampling); Run("pixel decode",Pixels); Run("header and stack ordering",Catalog); Run("RT-first incremental catalog",PriorityCatalog); Run("unsafe geometry",Unsafe); Run("complete nested tags",Tags); Run("endian and bit layout",Endian);Run("volume boundaries",Boundaries);Run("stack partitioning",Partitioning);Run("unsupported intensity transforms",UnsupportedTransforms);
   Console.WriteLine(failures==0?"PASS: all Core synthetic checks":"FAIL: "+failures+" Core synthetic groups");return failures==0?0:1;
  }finally{Directory.Delete(folder,true);}}
  static void Run(string name,Action action){try{action();Console.WriteLine("PASS: "+name);}catch(Exception e){failures++;Console.WriteLine("FAIL: "+name+" ("+e.GetType().Name+")");}}
+ static void ParallelVolume(){
+  var stack=Stack(0,2,4,6,8,10);var baseline=VolumeData.Load(stack,CancellationToken.None);var cached=PixelPlane.Load(stack.Entries[2]);int decodes=0,reused=0,active=0,maxActive=0;var gate=new object();var progress=new List<int>();
+  var actual=VolumeData.Load(stack,CancellationToken.None,n=>progress.Add(n),e=>{
+   lock(gate){active++;maxActive=Math.Max(maxActive,active);}try{
+    if(ReferenceEquals(e,stack.Entries[2])){Interlocked.Increment(ref reused);return cached;}
+    Interlocked.Increment(ref decodes);return PixelPlane.Load(e);
+   }finally{lock(gate)active--;}
+  },2);
+  Check(decodes==5&&reused==1,"cached slice not decoded twice");Check(maxActive<=2,"bounded decoding concurrency");Check(actual.Values.SequenceEqual(baseline.Values)&&actual.Min==baseline.Min&&actual.Max==baseline.Max&&actual.Invert==baseline.Invert,"parallel assembly preserves intensities and photometric interpretation");Check(progress.SequenceEqual(Enumerable.Range(1,6)),"parallel completion progress monotonic");
+  bool rejected=false;try{VolumeData.Load(stack,CancellationToken.None,null,e=>ReferenceEquals(e,stack.Entries[3])?new PixelPlane{Width=1,Height=1,Values=new float[1]}:PixelPlane.Load(e),2);}catch(InvalidOperationException){rejected=true;}Check(rejected,"parallel geometry failure keeps its original exception type");
+ }
  static void Sampling(){
   var v=new VolumeData{Width=2,Height=2,Depth=2,Origin=new Vec3(10,20,30),AxisX=new Vec3(0,1,0),AxisY=new Vec3(0,0,1),AxisZ=new Vec3(1,0,0),SpacingX=2,SpacingY=3,SpacingZ=4,Values=new float[]{0,1,2,3,4,5,6,7}};
   var p=v.WorldAt(1,1,1); Check((p-new Vec3(14,22,33)).Length<1e-8,"oblique pixel centers");

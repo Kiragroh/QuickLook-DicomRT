@@ -1,5 +1,7 @@
-using System;
+﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace QuickLook.DicomRT
 {
@@ -13,6 +15,9 @@ namespace QuickLook.DicomRT
         public bool Invert;
 
         public static VolumeData Load(ImageStack stack, CancellationToken token, Action<int> progress = null)
+            => Load(stack,token,progress,null,1);
+
+        public static VolumeData Load(ImageStack stack,CancellationToken token,Action<int> progress,Func<DicomEntry,PixelPlane> decoder,int parallelism)
         {
             token.ThrowIfCancellationRequested();
             double step;
@@ -27,17 +32,22 @@ namespace QuickLook.DicomRT
                 Origin = e.Origin, AxisX = e.AxisX, AxisY = e.AxisY, AxisZ = e.AxisX.Cross(e.AxisY).Normalized(),
                 SpacingX = e.SpacingX, SpacingY = e.SpacingY, SpacingZ = step, Min = float.PositiveInfinity, Max = float.NegativeInfinity
             };
-            for (int i = 0; i < result.Depth; i++)
-            {
-                token.ThrowIfCancellationRequested();
-                var plane = PixelPlane.Load(stack.Entries[i]);
-                if (plane.Width != result.Width || plane.Height != result.Height || (i > 0 && plane.Invert != result.Invert))
+            decoder=decoder??(entry=>PixelPlane.Load(entry));
+            // Set photometric interpretation from the first slice before parallel assembly.
+            var first=decoder(stack.Entries[0]);result.Invert=first.Invert;
+            int completed=0;var gate=new object();
+            Action<int> copy=i=>{
+                token.ThrowIfCancellationRequested();var plane=i==0?first:decoder(stack.Entries[i]);
+                if(plane.Width!=result.Width||plane.Height!=result.Height||plane.Invert!=result.Invert||plane.Values==null||plane.Values.Length!=result.Width*result.Height)
                     throw new InvalidOperationException("Pixel planes have inconsistent dimensions or photometric interpretation.");
-                result.Invert = plane.Invert;
-                Array.Copy(plane.Values, 0, result.Values, i * result.Width * result.Height, plane.Values.Length);
-                result.Min = Math.Min(result.Min, plane.Min); result.Max = Math.Max(result.Max, plane.Max);
-                progress?.Invoke(i + 1);
-            }
+                Array.Copy(plane.Values,0,result.Values,i*result.Width*result.Height,plane.Values.Length);
+                lock(gate){result.Min=Math.Min(result.Min,plane.Min);result.Max=Math.Max(result.Max,plane.Max);progress?.Invoke(++completed);}
+            };
+            copy(0);
+            int workers=Math.Max(1,Math.Min(2,Math.Min(parallelism,Environment.ProcessorCount-1)));
+            if(workers==1){for(int i=1;i<result.Depth;i++)copy(i);}
+            else try{Parallel.For(1,result.Depth,new ParallelOptions{CancellationToken=token,MaxDegreeOfParallelism=workers},copy);}
+            catch(AggregateException ex){ExceptionDispatchInfo.Capture(ex.Flatten().InnerExceptions[0]).Throw();throw;}
             return result;
         }
 
