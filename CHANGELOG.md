@@ -2,6 +2,20 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.15 — 27 September 2026
+
+### Start at the plan isocenter
+
+- When the first compatible dose, plan and image stack are ready, the image position automatically moves to the **mapped plan isocenter**. Existing frame and rigid-registration mapping is respected.
+- The correct native source slice is selected even when opening directly into MLC or 3D. With multiple isocenters, the active field is preferred when available.
+- This initial positioning runs once. Scrolling, selecting a slice or image series, dragging the crosshair or zooming during loading keeps your chosen navigation state.
+
+### Whole-viewer and individual-view PNG exports
+
+- The top **PNG** button and **Ctrl+Shift+S** save the whole viewer, including open RT and DICOM Tags sidebars, toolbars, footer and GPU-rendered 3D content.
+- Right-click Native, Axial, Coronal, Sagittal, 3D, DVH or MLC to save **only that view**, including individual 2 × 2 tiles.
+- Export filenames retain patient ID and relevant plan ID. Tooltips and help explain the two export scopes.
+
 ## 0.2.14 — 27 September 2026
 
 ### Larger, movable orientation panel

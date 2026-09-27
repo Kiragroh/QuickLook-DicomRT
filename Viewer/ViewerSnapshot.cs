@@ -16,7 +16,7 @@ namespace QuickLook.DicomRT
         public static void AttachMenu(FrameworkElement view,Func<FrameworkElement> target=null,string name="View")
         {
             var menu=view.ContextMenu??new ContextMenu{Background=Theme.Panel,Foreground=Theme.Foreground};
-            var save=new MenuItem{Header="Save view as image...",ToolTip="Save this view as a PNG image"};
+            var save=new MenuItem{Header="Save view as image...",ToolTip="Save only this view as PNG; use the top PNG button for the entire viewer"};
             save.Click+=(s,e)=>{var identity=ExportIdentity.GetContext(view);var dialog=new Microsoft.Win32.SaveFileDialog{Filter="PNG image|*.png",FileName=identity.FileName(name,".png"),Title="Save view as image"};if(dialog.ShowDialog(Window.GetWindow(view))!=true)return;try{Save(identity.Stamp(Capture(target?.Invoke()??view)),dialog.FileName);}catch(Exception){MessageBox.Show("Unable to save this view.","Save image");}};
             menu.Items.Add(save);view.ContextMenu=menu;
         }

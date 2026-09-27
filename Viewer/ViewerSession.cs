@@ -87,10 +87,24 @@ namespace QuickLook.DicomRT
                     var choice = tagSource.Items.Cast<TagChoice>().FirstOrDefault(x => x.Entry != null && SamePath(x.Entry.Path, initialEntry.Path));
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
-                RefreshPlanChoices();RefreshRt();if(sumMode)await BuildSumAsync();
+                RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
             }
             catch (OperationCanceledException) { }
             catch (Exception) { if (!disposed) status.Text = "Unable to load the complete DICOM preview. Check the file, read permissions or encoding."; }
+        }
+
+        private bool initialIsocenterApplied,userNavigatedImage;
+        private async Task TryInitialIsocenterAsync()
+        {
+            if(disposed||initialIsocenterApplied||userNavigatedImage||sumMode||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true||selectedPlan==null)return;
+            if(!SelectedDoses.Any(d=>TransformToImage(d.FrameUid)!=null))return;
+            var map=TransformToImage(selectedPlan.FrameUid);var points=IsocenterNavigation.MappedPoints(selectedPlan,map);if(points.Count==0)return;
+            var point=points[0];if(points.Count>1&&activeFieldPoint!=null&&map!=null){var active=map.Transform(activeFieldPoint.Isocenter);if(points.Any(p=>(p-active).Length<.1))point=active;}
+            initialIsocenterApplied=true;focus=point;viewportCenter=point;
+            // Also select the actual source slice when opening in MLC/3D, so returning
+            // to Native cannot display the old midpoint with an out-of-plane crosshair.
+            int nearest=Enumerable.Range(0,currentStack.Entries.Count).OrderBy(i=>Math.Abs((currentStack.Entries[i].Origin-point).Dot(currentStack.Entries[i].AxisX.Cross(currentStack.Entries[i].AxisY)))).First();
+            await ShowSliceAsync(nearest,true);
         }
 
         private async Task SelectStackAsync(ImageStack stack)
@@ -114,7 +128,8 @@ namespace QuickLook.DicomRT
             {
                 await ShowSliceAsync(sliceIndex, preservedFocus.HasValue);
                 if (token.IsCancellationRequested || generation != seriesGeneration) return;
-                if(!sameImageSeries)SetInitialWindow(); RefreshRt();
+                if(!sameImageSeries)SetInitialWindow(); RefreshRt();await TryInitialIsocenterAsync();
+                if(token.IsCancellationRequested||generation!=seriesGeneration)return;
                 if (!stack.CanMpr) { status.Text = "Native image stack · " + stack.GeometryWarning; return; }
                 status.Text = $"{stack.Entries.Count} slices · loading volume in the background …";
                 var loaded = await Task.Run(() => VolumeData.Load(stack, token), token);

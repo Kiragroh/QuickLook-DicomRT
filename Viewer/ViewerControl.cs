@@ -85,7 +85,7 @@ namespace QuickLook.DicomRT
             var middle=BuildMiddle();Grid.SetColumn(middle,2);body.Children.Add(middle);var splitter=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitter,3);body.Children.Add(splitter);
             rightPanel=BuildRight();Grid.SetColumn(rightPanel,4);body.Children.Add(rightPanel);UpdatePanels();
             var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
-            series.SelectionChanged += async (s, e) => { if (!changing && series.SelectedItem is ImageStack stack) await SelectStackAsync(stack); };
+            series.SelectionChanged += async (s, e) => { if (!changing && series.SelectedItem is ImageStack stack) {userNavigatedImage=true;await SelectStackAsync(stack);} };
             planes.SelectionChanged += (s, e) => { if (!changing) { if ((string)planes.SelectedItem != "Native" && volume == null) { changing = true; planes.SelectedItem = "Native"; changing = false; status.Text = "MPR becomes available once a volume with suitable geometry has loaded."; } RebuildPanes(); } };
             tagSource.SelectionChanged += (s, e) => UpdateTags();
             tagSearch.TextChanged += (s, e) => { tagTimer.Stop(); tagTimer.Start(); };
@@ -93,7 +93,7 @@ namespace QuickLook.DicomRT
             roiSearch.TextChanged += (s, e) => BuildRoiList();
             plans.SelectionChanged += async (s, e) => await SelectPlanChoiceAsync();
             opacity.ValueChanged += (s, e) => Redraw(); iso.Checked += (s, e) => Redraw(); iso.Unchecked += (s, e) => Redraw();
-            sliceSlider.ValueChanged += async (s, e) => { if (!changing && currentStack != null) await ShowSliceAsync((int)Math.Round(e.NewValue), true); };
+            sliceSlider.ValueChanged += async (s, e) => { if (!changing && currentStack != null) {userNavigatedImage=true;await ShowSliceAsync((int)Math.Round(e.NewValue), true);} };
             IsVisibleChanged+=(s,e)=>{if(!IsVisible){if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();}};
             Unloaded+=(s,e)=>{if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();};
             focusTimer.Tick+=(s,e)=>{if(!focusDirty)return;focusDirty=false;Redraw();};
@@ -156,7 +156,7 @@ namespace QuickLook.DicomRT
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
                 pane.PickInteraction+=active=>{movingCrosshair=active;if(active){if(!viewportCenter.HasValue)viewportCenter=focus;focusTimer.Start();}else{focusTimer.Stop();focusDirty=false;Redraw();}};
-                pane.Picked += (p, point) => { focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
+                pane.Picked += (p, point) => { userNavigatedImage=true;focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{userNavigatedImage=true;viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
                 var cell=new Grid();cell.Children.Add(pane);ViewerSnapshot.AttachMenu(pane,()=>cell,views[i]);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }

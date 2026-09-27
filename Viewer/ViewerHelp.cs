@@ -16,7 +16,7 @@ namespace QuickLook.DicomRT
         }
         Button BuildScreenshotButton()
         {
-            var button=Theme.Button("PNG");button.ToolTip="Save a screenshot of the current view (Ctrl+Shift+S)";button.Click+=(s,e)=>SaveScreenshot();return button;
+            var button=Theme.Button("PNG");button.ToolTip="Save the entire viewer, including open RT and Tags panels (Ctrl+Shift+S)";button.Click+=(s,e)=>SaveScreenshot();return button;
         }
         void ShowAbout()
         {
@@ -27,8 +27,8 @@ namespace QuickLook.DicomRT
             var links=new WrapPanel();foreach(var link in new[]{Tuple.Create("GitHub / downloads","https://github.com/Kiragroh/QuickLook-DicomRT"),Tuple.Create("What is new / changelog","https://github.com/Kiragroh/QuickLook-DicomRT/blob/main/CHANGELOG.md"),Tuple.Create("Developer profile","https://kiragroh.github.io/"),Tuple.Create("QuickLook for Windows","https://github.com/QL-Win/QuickLook")}){
                 var button=Theme.Button(link.Item1);button.ToolTip=link.Item2;button.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo(link.Item2){UseShellExecute=true});}catch(Exception){status.Text="Unable to open browser.";}};links.Children.Add(button);
             }panel.Children.Add(links);panel.Children.Add(Theme.Text("Keyboard & mouse",14,Theme.Accent));
-            panel.Children.Add(Theme.Text("Space in Explorer   Open preview\nCtrl+1 / 2 / 3 / 4   Native / Axial / Coronal / Sagittal\nCtrl+5 / 6   Linked 2 x 2 / standalone 3D\nAlt+I / M / D / V   Image / MLC / DVH / 3D\nCtrl+I   Go to isocenter\nCtrl+F   Search DICOM tags\nCtrl+Shift+S   Save screenshot (PNG)\nHome   Fit image\nF1   This help\nLeft drag   Move linked crosshair\nRight drag   Custom window / level\nCtrl+wheel   Image zoom\nMLC wheel   1 CP; Shift+wheel   0.1 CP\nRight-click view   Save view as PNG\nRight-click DVH   Also export active curves and metrics",11));
-            var shot=Theme.Button("Save screenshot");shot.ToolTip="Save the current central view, including displayed patient information (Ctrl+Shift+S)";shot.Click+=(s,e)=>{infoPopup.IsOpen=false;SaveScreenshot();};panel.Children.Add(shot);
+            panel.Children.Add(Theme.Text("Space in Explorer   Open preview\nCtrl+1 / 2 / 3 / 4   Native / Axial / Coronal / Sagittal\nCtrl+5 / 6   Linked 2 x 2 / standalone 3D\nAlt+I / M / D / V   Image / MLC / DVH / 3D\nCtrl+I   Go to isocenter\nCtrl+F   Search DICOM tags\nCtrl+Shift+S   Save entire viewer (PNG)\nHome   Fit image\nF1   This help\nLeft drag   Move linked crosshair\nRight drag   Custom window / level\nCtrl+wheel   Image zoom\nMLC wheel   1 CP; Shift+wheel   0.1 CP\nRight-click view   Save only that view as PNG\nRight-click DVH   Also export active curves and metrics",11));
+            var shot=Theme.Button("Save entire viewer");shot.ToolTip="Save all visible panels, toolbars and displayed identifiers (Ctrl+Shift+S)";shot.Click+=(s,e)=>{infoPopup.IsOpen=false;SaveScreenshot();};panel.Children.Add(shot);
             infoPopup=DarkPopup(infoButton.IsVisible?(UIElement)infoButton:this,new ScrollViewer{Content=panel,MaxHeight=620,VerticalScrollBarVisibility=ScrollBarVisibility.Auto});if(!infoButton.IsVisible)infoPopup.Placement=PlacementMode.Center;infoPopup.IsOpen=true;
         }
         void InitializeShortcuts()
@@ -48,9 +48,9 @@ namespace QuickLook.DicomRT
         }
         void SaveScreenshot()
         {
-            var identity=CurrentExportIdentity(workspaceMode=="DVH");var dialog=new Microsoft.Win32.SaveFileDialog{Filter="PNG image|*.png",FileName=identity.FileName(workspaceMode=="Bild"?(string)planes.SelectedItem:workspaceMode,".png"),Title="Save current view (including displayed identifiers)"};
+            var identity=CurrentExportIdentity(workspaceMode=="DVH");var dialog=new Microsoft.Win32.SaveFileDialog{Filter="PNG image|*.png",FileName=identity.FileName("Viewer_"+(workspaceMode=="Bild"?(string)planes.SelectedItem:workspaceMode),".png"),Title="Save entire viewer (including sidebars and displayed identifiers)"};
             if(dialog.ShowDialog(Window.GetWindow(this))!=true)return;
-            try{ViewerSnapshot.Save(identity.Stamp(ViewerSnapshot.Capture(workspace)),dialog.FileName);status.Text="Screenshot saved.";}catch(Exception){status.Text="Unable to save screenshot.";}
+            try{ViewerSnapshot.Save(identity.Stamp(ViewerSnapshot.Capture(this)),dialog.FileName);status.Text="Screenshot saved.";}catch(Exception){status.Text="Unable to save screenshot.";}
         }
     }
 }

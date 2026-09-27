@@ -1,4 +1,14 @@
-﻿# 0.2.14 verification
+﻿# 0.2.15 verification
+
+256 WPF interaction checks passed. Initial positioning checks cover absent dose, incompatible dose frame, preserving manual navigation, choosing the native isocenter slice while in MLC, and preventing repeat automatic jumps.
+
+The approved public nonpatient benchmark was opened directly from RTPLAN, switching early to MLC/3D. Initial dose positioning selected the expected native isocenter slice. Automatic field fitting still matched explicit Reset view after CT arrival (scene radius 200.8 mm on this fixture).
+
+PNG capture with both sidebars open produced a 1600 × 900 whole-viewer image and a 941 × 771 individual 3D crop. GPU readback was present; the whole-viewer export was inspected locally. These are engineering checks, not clinical acceptance.
+
+---
+
+# 0.2.14 verification
 
 251 WPF interaction checks passed, including enlarged/grouped orientation, moving and resizing the shared panel without changing source geometry, shared play/pause across view switches, plan-end looping and active-field synchronization, collimator text, automatic fit not locking the camera, and CT-based radius updates with manual camera preservation.
 

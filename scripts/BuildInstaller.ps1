@@ -19,7 +19,7 @@ if($LASTEXITCODE -ne 0){throw 'Installer test build failed.'}
 if($LASTEXITCODE -ne 0){throw 'Installer payload tests failed.'}
 dotnet build (Join-Path $repoRoot 'Installer\Installer.csproj') -c Release --nologo -v quiet "-p:PayloadPath=$PackagePath" "-p:PayloadHashPath=$hashPath"
 if($LASTEXITCODE -ne 0){throw 'Installer build failed.'}
-$target=Join-Path $OutputDirectory 'QuickLook-DicomRT-Setup-0.2.14.exe'
+$target=Join-Path $OutputDirectory 'QuickLook-DicomRT-Setup-0.2.15.exe'
 Copy-Item -LiteralPath (Join-Path $repoRoot 'Installer\bin\Release\net462\QuickLook-DicomRT-Setup.exe') -Destination $target -Force
 $stdout=Join-Path $buildArtifacts 'verify-payload.stdout.txt'
 $stderr=Join-Path $buildArtifacts 'verify-payload.stderr.txt'

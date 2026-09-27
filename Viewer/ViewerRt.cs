@@ -66,7 +66,7 @@ namespace QuickLook.DicomRT
         }
         private async Task MoveFocusAsync(Vec3 world)
         {
-            focus = world;viewportCenter=world;
+            userNavigatedImage=true;focus = world;viewportCenter=world;
             if (workspaceMode=="Bild" && currentStack != null && (string)planes.SelectedItem == "Native")
             {
                 int nearest = Enumerable.Range(0, currentStack.Entries.Count).OrderBy(i => Math.Abs((currentStack.Entries[i].Origin - world).Dot(currentStack.Entries[i].AxisX.Cross(currentStack.Entries[i].AxisY)))).First();
@@ -77,6 +77,7 @@ namespace QuickLook.DicomRT
         }
         private async Task ScrollAsync(string plane, int steps)
         {
+            userNavigatedImage=true;
             if (plane == "Native") { await ShowSliceAsync(requestedSliceIndex + steps, true); return; }
             if (volume == null) return;
             double step = Math.Min(volume.SpacingX, Math.Min(volume.SpacingY, volume.SpacingZ));

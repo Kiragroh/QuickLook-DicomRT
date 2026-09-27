@@ -23,5 +23,14 @@ internal static partial class Program
   var playback=Get<MlcPlaybackControl>(viewer,"centralPlayback");double position=cursor.Value;Mode("MLC");await Save("mlc-orientation.png","Larger LINAC and isocenter slice in one movable, scalable orientation panel.");if(Math.Abs(playback.LocalPosition-position)>1e-6)throw new Exception("View switch lost CP");Mode("3D");await Settle();
   Console.WriteLine("3D_CP_REVIEW_PASS samples=60 dispatch_median_ms="+times.OrderBy(t=>t).ElementAt(30).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+" dispatch_p95_ms="+times.OrderBy(t=>t).ElementAt(56).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+" meshes_reused=True tracks_reused=True shared_position=True");
   Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";await Save("3d-cp-quad.png","Linked overview preserves the 3D field, control point and mini MLC.");
+  Panels(true,true);Invoke(viewer,"UpdateTags");ScrubTagRows();Mode("3D");await Settle();
+  var snapshot=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.ViewerSnapshot");
+  var full=(System.Windows.Media.Imaging.BitmapSource)snapshot.GetMethod("Capture").Invoke(null,new object[]{viewer});
+  var crop=(System.Windows.Media.Imaging.BitmapSource)snapshot.GetMethod("Capture").Invoke(null,new object[]{three});
+  if(full.PixelWidth!=Width||full.PixelHeight!=Height||crop.PixelWidth>=full.PixelWidth||crop.PixelHeight>=full.PixelHeight)throw new Exception("Full viewer and view crop dimensions are inconsistent");
+  snapshot.GetMethod("Save").Invoke(null,new object[]{full,System.IO.Path.Combine(output,"full-viewer-export.png")});
+  snapshot.GetMethod("Save").Invoke(null,new object[]{crop,System.IO.Path.Combine(output,"3d-crop-export.png")});
+  Console.WriteLine("PNG_SCOPE_PASS full="+full.PixelWidth+"x"+full.PixelHeight+" crop="+crop.PixelWidth+"x"+crop.PixelHeight+" sidebars=open gpu=readback");
+
  }
 }

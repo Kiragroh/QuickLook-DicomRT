@@ -46,7 +46,7 @@ class Program
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==1&&!Field<bool>(viewer,"sumMode"),"Multiple doses offer a sum without selecting it automatically");
             }
-            MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
+            InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);

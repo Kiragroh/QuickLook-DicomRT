@@ -14,7 +14,13 @@ internal static partial class Program
   await Wait(()=>Get<QuickLook.DicomRT.PlanData>(viewer,"selectedPlan")!=null,"initial RT plan");
   if(Get<object>(viewer,"volume")!=null)throw new Exception("Early-load precondition missed");
   Mode("MLC");Get<System.Windows.Controls.CheckBox>(viewer,"showFields").IsChecked=true;Mode("3D");
-  await viewer.LoadCompletion;await Settle();await Save("early-fields.png","Fields enabled before CT loading completes; final 3D context fits the loaded image volume.");
+  await viewer.LoadCompletion;
+  if(!Get<bool>(viewer,"initialIsocenterApplied"))throw new Exception("Initial dose isocenter jump missing");
+  var initialPlan=Get<QuickLook.DicomRT.PlanData>(viewer,"selectedPlan");var stack=Get<QuickLook.DicomRT.ImageStack>(viewer,"currentStack");var iso=initialPlan.Beams[0].ControlPoints[0].Isocenter;
+  int expected=Enumerable.Range(0,stack.Entries.Count).OrderBy(i=>Math.Abs((stack.Entries[i].Origin-iso).Dot(stack.Entries[i].AxisX.Cross(stack.Entries[i].AxisY)))).First();
+  if(Get<int>(viewer,"sliceIndex")!=expected)throw new Exception("Initial source slice is not at plan isocenter");
+  Console.WriteLine("INITIAL_ISO_PASS actual_native_slice=True");
+  await Settle();await Save("early-fields.png","Fields enabled before CT loading completes; final 3D context fits the loaded image volume.");
   var three=Get<QuickLook.DicomRT.ThreeDControl>(viewer,"threeDView");double before=Get<double>(three,"radius"),distance=Get<double>(three,"distance");
   Invoke(three,"ResetCamera");Invoke(three,"FitFieldGuides");
   if(Math.Abs(before-Get<double>(three,"radius"))>1e-6||Math.Abs(distance-Get<double>(three,"distance"))>1e-4)throw new Exception("Early field fit differs from settled reset");
