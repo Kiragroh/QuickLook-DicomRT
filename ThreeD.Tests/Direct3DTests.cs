@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -14,6 +14,7 @@ internal static class Direct3DTests
  static byte[] Pixels(BitmapSource bmp){var converted=new FormatConvertedBitmap(bmp,PixelFormats.Bgra32,null,0);var bytes=new byte[converted.PixelWidth*converted.PixelHeight*4];converted.CopyPixels(bytes,converted.PixelWidth*4,0);return bytes;}
  internal static BitmapSource CaptureControl(ThreeDControl control)
  {
+  var initialization=(System.Threading.Tasks.Task)typeof(ThreeDControl).GetField("gpuInitialization",Flags).GetValue(control);FrameBenchmark.Pump(()=>initialization.IsCompleted,10);
   var bridge=typeof(ThreeDControl).GetField("gpu",Flags).GetValue(control);if(bridge==null)throw new Exception("Expected Direct3D test device");
   var view=(H.Viewport3DX)bridge.GetType().GetField("View",Flags).GetValue(bridge);FrameBenchmark.Pump(()=>view.RenderHost?.RenderTargetBufferView!=null,10);
   view.RenderHost.InvalidateRender();view.RenderHost.UpdateAndRender();return (BitmapSource)Call(bridge,"Capture");

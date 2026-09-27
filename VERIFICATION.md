@@ -1,4 +1,14 @@
-﻿# 0.2.13 verification
+﻿# 0.2.14 verification
+
+251 WPF interaction checks passed, including enlarged/grouped orientation, moving and resizing the shared panel without changing source geometry, shared play/pause across view switches, plan-end looping and active-field synchronization, collimator text, automatic fit not locking the camera, and CT-based radius updates with manual camera preservation.
+
+An approved public nonpatient benchmark was opened directly from RTPLAN. Fields was enabled before the CT volume existed, then the view switched to 3D. After loading, its automatically fitted radius and camera distance matched an explicit Reset view exactly (scene radius 200.8 mm on this fixture). Captures of early loading, the larger MLC orientation panel, standalone 3D and linked 2 × 2 were inspected locally.
+
+Across 60 CP updates, dispatch latency was 0.21 ms median / 0.38 ms p95, with anatomy and track arrays reused. This is local event-dispatch evidence, not a frame-time or clinical validation claim.
+
+---
+
+# 0.2.13 verification
 
 241 WPF interaction checks passed. New raster checks verify zero alpha inside the aperture, decreasing bank-side opacity to zero, removal of shared leaf edges, and transparency only inside the combined double-layer opening. Existing checks cover gantry/couch/collimator orientation, CP updates, static fields and shared view controls.
 

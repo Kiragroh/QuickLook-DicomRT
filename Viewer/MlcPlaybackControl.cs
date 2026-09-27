@@ -16,7 +16,7 @@ namespace QuickLook.DicomRT
         private readonly Button play = Theme.Button("▶ Play");
         private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
         private readonly MlcAperture aperture = new MlcAperture { MinHeight = 180, MinWidth = 160, Margin = new Thickness(0, 8, 0, 8) };
-        private readonly LinacOrientationControl orientation = new LinacOrientationControl {Width=155,Height=160,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(8,8,12,12)};
+        private readonly LinacOrientationControl orientation = new LinacOrientationControl {Width=300,Height=260};
         private readonly ComboBox layerView=Theme.Combo();
         private readonly Canvas markers = new Canvas { Height = 12, Margin = new Thickness(13,0,13,0) };
         private PlanBeam beam; private PlanData plan; private PlanBeam[] playbackBeams=new PlanBeam[0]; private int[] counts = new int[0]; private bool selecting;
@@ -26,6 +26,11 @@ namespace QuickLook.DicomRT
         public event Action<Vec3> IsocenterSelected;
         public event Action MprRequested;
         public double Position => cursor.Value;
+        public bool IsPlaying=>timer.IsEnabled;
+        public event Action<bool> PlaybackStateChanged;
+        public void TogglePlayback(){if(IsPlaying){Pause();return;}if(cursor.Maximum<=0)return;if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";PlaybackStateChanged?.Invoke(true);}
+        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}cursor.Value=cursor.Value>=cursor.Maximum?0:Math.Min(cursor.Maximum,cursor.Value+(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds);}
+
         public void Navigate(PlanBeam selected,double local){Pause();int index=Array.IndexOf(playbackBeams,selected);if(index>=0)cursor.Value=counts.Take(index).Sum()+Math.Max(0,Math.Min(counts[index]-1,local));}
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}
         public MlcPlaybackControl()
@@ -38,16 +43,16 @@ namespace QuickLook.DicomRT
             bottom.Children.Add(Theme.Text("PLAN TIMELINE · markers indicate beam ends",10,Theme.Muted));bottom.Children.Add(cursor);bottom.Children.Add(markers);
             bottom.Children.Add(Theme.Text("Mouse wheel: 1 CP · Shift: 0.1 CP · MLC first · imaging last · preview, not delivery time",10,Theme.Muted));
             var jump=Theme.Button("Go to isocenter");jump.Click+=(s,e)=>{if(beam?.ControlPoints.Count>0){int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);IsocenterSelected?.Invoke(beam.ControlPoints[(int)local].Isocenter);}};bottom.Children.Add(jump);
-            SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);apertureArea.Children.Add(orientation);Children.Add(apertureArea);InitializeAnatomy(settings,apertureArea);
+            SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);Children.Add(apertureArea);InitializeAnatomy(settings,apertureArea);
             beams.SelectionChanged+=(s,e)=>{if(selecting)return;Pause();int index=beams.SelectedIndex;if(index>=0)cursor.Value=counts.Take(index).Sum();UpdateFrame();};
-            cursor.ValueChanged+=(s,e)=>UpdateFrame();markers.SizeChanged+=(s,e)=>DrawMarkers();
-            play.Click+=(s,e)=>{if(timer.IsEnabled)Pause();else if(cursor.Maximum>0){if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";}};
-            timer.Tick+=(s,e)=>{cursor.Value=Math.Min(cursor.Maximum,cursor.Value+(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds);if(cursor.Value>=cursor.Maximum)Pause();};
+            cursor.PreviewMouseLeftButtonDown+=(s,e)=>Pause();cursor.ValueChanged+=(s,e)=>UpdateFrame();markers.SizeChanged+=(s,e)=>DrawMarkers();
+            play.ToolTip="Play / pause the shared plan preview in a continuous loop; speed is CP/s, not delivery time";play.Click+=(s,e)=>TogglePlayback();
+            timer.Tick+=(s,e)=>AdvancePlayback();
             Unloaded+=(s,e)=>Pause();
         }
         public void SetPlan(PlanData value){Pause();SuspendProjection();projectionSuspended=!IsVisible;interpolated=null;aperture.Projection=null;fieldArrangement.Set(null,null,null,null,null);plan=value;extents.Clear();foreach(var item in value?.Beams??new System.Collections.Generic.List<PlanBeam>())extents[item]=BeamExtent(item);playbackBeams=MlcTimeline.PlaybackOrder(plan);planNoncoplanar=playbackBeams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=playbackBeams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=playbackBeams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
         private void DrawMarkers(){markers.Children.Clear();int offset=0;foreach(int count in counts){offset+=count;if(count==0)continue;var dot=new System.Windows.Shapes.Ellipse{Width=5,Height=5,Fill=Theme.Accent,ToolTip="Beam end · CP "+offset};Canvas.SetLeft(dot,Math.Max(0,markers.ActualWidth)*(offset-1)/Math.Max(1,cursor.Maximum)-2.5);Canvas.SetTop(dot,3);markers.Children.Add(dot);}}
-        private void Pause(){bool playing=timer.IsEnabled;timer.Stop();play.Content="▶ Play";if(playing)RequestProjection(true);}
+        public void Pause(){bool playing=timer.IsEnabled;timer.Stop();play.Content="▶ Play";if(playing){PlaybackStateChanged?.Invoke(false);RequestProjection(true);}}
         public void Dispose(){Pause();SuspendProjection();}
         private void UpdateFrame()
         {

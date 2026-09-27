@@ -6,6 +6,20 @@ using System.Threading.Tasks;
 using System.Windows.Threading;
 internal static partial class Program
 {
+ static async Task EarlyFieldsReview(string folder)
+ {
+  sourceKind="approved public nonpatient benchmark";viewer?.Dispose();viewer=new QuickLook.DicomRT.ViewerControl{Width=Width,Height=Height};window.Content=viewer;window.Show();viewer.UpdateLayout();
+  var cat=await Task.Run(()=>QuickLook.DicomRT.DicomCatalog.Scan(System.IO.Directory.EnumerateFiles(folder).First(),System.Threading.CancellationToken.None));
+  viewer.Open(cat.Files.First(e=>e.Modality=="RTPLAN").Path);
+  await Wait(()=>Get<QuickLook.DicomRT.PlanData>(viewer,"selectedPlan")!=null,"initial RT plan");
+  if(Get<object>(viewer,"volume")!=null)throw new Exception("Early-load precondition missed");
+  Mode("MLC");Get<System.Windows.Controls.CheckBox>(viewer,"showFields").IsChecked=true;Mode("3D");
+  await viewer.LoadCompletion;await Settle();await Save("early-fields.png","Fields enabled before CT loading completes; final 3D context fits the loaded image volume.");
+  var three=Get<QuickLook.DicomRT.ThreeDControl>(viewer,"threeDView");double before=Get<double>(three,"radius"),distance=Get<double>(three,"distance");
+  Invoke(three,"ResetCamera");Invoke(three,"FitFieldGuides");
+  if(Math.Abs(before-Get<double>(three,"radius"))>1e-6||Math.Abs(distance-Get<double>(three,"distance"))>1e-4)throw new Exception("Early field fit differs from settled reset");
+  Console.WriteLine("EARLY_FIELDS_PASS automatic_fit_matches_reset=True radius_mm="+before.ToString("0.0",System.Globalization.CultureInfo.InvariantCulture));
+ }
  static async Task LoadingReview(string folder)
  {
   var samples=new List<double>();var watch=Stopwatch.StartNew();double last=watch.Elapsed.TotalMilliseconds;

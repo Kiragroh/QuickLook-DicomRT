@@ -2,6 +2,21 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.14 — 27 September 2026
+
+### Larger, movable orientation panel
+
+- The MLC view combines the **isocenter slice and a larger LINAC model** in one orientation panel.
+- Drag the panel header to move it. Resize with the bottom-right grip or **Ctrl + mouse wheel** over the panel; the reset button restores its default size and position. Both views scale together without rebuilding the source slice.
+- The panel stays inside the available view area. The Fields toggle controls its slice arrangement; the LINAC orientation remains available.
+
+### Shared looping playback in 3D and MLC
+
+- A **Play / Pause button beside the 3D CP slider** controls the same plan timeline as the MLC view. It runs from the current position through the fields and loops back at the plan end.
+- Playing, pausing, active field and fractional CP position remain synchronized when switching between MLC, standalone 3D and linked 2 × 2. Speed follows the MLC CP/s setting; it is preview speed, not delivery timing.
+- The **collimator angle** appears beside the 3D CP slider and next to the moving aperture guide.
+- Automatic field fitting no longer marks the camera as manually adjusted. When CT arrives after an early switch to MLC/3D, the context and schematic arc radius update correctly. Explicit reset fits both anatomy and field tracks; genuine manual camera input is retained.
+
 ## 0.2.13 — 27 September 2026
 
 ### Open aperture in the 3D MLC guide

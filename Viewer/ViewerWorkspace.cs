@@ -113,7 +113,7 @@ namespace QuickLook.DicomRT
         private void UpdateDoseRange(){doseRange.Text=$"Colorwash {doseMin.Value:0}–{doseMax.Value:0} % · relative to each dose maximum";}
         private void EnsurePlayback()
         {
-            if(centralPlayback==null){centralPlayback=new MlcPlaybackControl{Visibility=Visibility.Collapsed};centralPlayback.MprRequested+=OpenMpr;centralPlayback.FieldsVisibilityChanged+=SetSharedFieldsVisibility;centralPlayback.SetFieldsVisible(showFields.IsChecked==true);centralPlayback.FrameChanged+=(b,cp)=>{if(centralPlayback.IsVisible)neutralFields=false;activeField=b;activeFieldPoint=cp;SyncFieldControls();UpdateFieldOverlays();};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
+            if(centralPlayback==null){centralPlayback=new MlcPlaybackControl{Visibility=Visibility.Collapsed};centralPlayback.MprRequested+=OpenMpr;centralPlayback.PlaybackStateChanged+=playing=>threeDView?.SetPlaying(playing);centralPlayback.FieldsVisibilityChanged+=SetSharedFieldsVisibility;centralPlayback.SetFieldsVisible(showFields.IsChecked==true);centralPlayback.FrameChanged+=(b,cp)=>{if(centralPlayback.IsVisible)neutralFields=false;activeField=b;activeFieldPoint=cp;SyncFieldControls();UpdateFieldOverlays();};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
             if(centralPlan!=selectedPlan){activeField=null;activeFieldPoint=null;centralPlan=selectedPlan;centralPlayback.SetPlan(selectedPlan);}
         }
         private void SetWorkspace(string mode)
@@ -123,7 +123,7 @@ namespace QuickLook.DicomRT
             foreach(UIElement child in workspace.Children)child.Visibility=Visibility.Collapsed;
             if(imageHeader!=null)imageHeader.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;
             if(imageFooter!=null)imageFooter.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;
-            if(mode!="MLC")centralPlayback?.Dispose();
+            if(mode!="MLC"&&mode!="3D"&&!(mode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"))centralPlayback?.Pause();
             if(mode!="DVH")dvhView?.Cancel();
             if(mode=="Bild")imageGrid.Visibility=Visibility.Visible;
             else if(mode=="MLC")

@@ -46,6 +46,11 @@ internal static class ThreeDControlPointScenarios
    slider.Value=1;Pixels(guide);var second=Pixels(guide);check(Get<Point?>(guide,"MiniatureAnchor")==fixedAnchor&&!first.SequenceEqual(second),"static-field MLC changes while its source marker stays fixed");
    Call(viewer,"SetWorkspace","MLC");check(playback.LocalPosition==1&&Get<PlanBeam>(viewer,"activeField")==plan.Beams[1],"3D to MLC preserves beam and CP");
    playback.Navigate(plan.Beams[0],1.5);Call(viewer,"SetWorkspace","3D");check(slider.Value==1.5&&picker.SelectedItem==plan.Beams[0],"MLC to 3D synchronizes fractional CP");
+   check(Get<TextBlock>(three,"beamPosition").Text.Contains("Coll"),"3D CP information includes collimator angle");
+   var play3=Get<Button>(three,"beamPlay");play3.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));check(playback.IsPlaying&&play3.Content.ToString()=="Ⅱ","3D Play starts shared playback");
+   Call(playback,"AdvancePlayback");double playingAt=playback.Position;Call(viewer,"SetWorkspace","MLC");check(playback.IsPlaying&&playback.Position==playingAt,"playback continues at same position when switching into MLC");
+   Get<Button>(playback,"play").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Call(viewer,"SetWorkspace","3D");check(!playback.IsPlaying&&playback.Position==playingAt&&play3.Content.ToString()=="▶","MLC pause is retained and reflected in 3D");
+   var global=Get<Slider>(playback,"cursor");global.Value=global.Maximum;playback.TogglePlayback();global.Value=global.Maximum;Call(playback,"AdvancePlayback");check(playback.IsPlaying&&global.Value==0&&picker.SelectedItem==plan.Beams[0],"shared plan loops at end with synchronized active field");playback.Pause();
    plan.Beams[0].ControlPoints[2].MlcLayers.RemoveAt(1);playback.Navigate(plan.Beams[0],1.6);Pixels(guide);check(!Get<bool>(guide,"MiniatureVisible")&&Get<RenderScene>(viewer,"latestScene").ActiveControlPoint==null,"incompatible CP geometry clears the prior miniature instead of presenting stale leaves");
    picker.SelectedIndex=0;Pixels(guide);check(!Get<bool>(guide,"MiniatureVisible")&&slider.Visibility==Visibility.Collapsed,"neutral all-fields view has no miniature or active CP slider");
    }finally{window.Close();}

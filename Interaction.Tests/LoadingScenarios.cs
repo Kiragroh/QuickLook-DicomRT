@@ -22,8 +22,11 @@ internal static class LoadingScenarios
   }
   using(var three=new ThreeDControl()){
    var scene=new RenderScene{Entry=new DicomEntry{FrameUid="A",SeriesUid="series",Modality="CT"}};three.SetScene(scene);
+   three.Measure(new Size(1000,800));three.Arrange(new Rect(0,0,1000,800));three.UpdateLayout();
+   Call(three,"FitFieldGuides");check(!Get<bool>(three,"cameraAdjusted"),"automatic field fit does not lock the early ROI-only camera");
    var prepared=Activator.CreateInstance(typeof(ThreeDControl).GetNestedType("Prepared",BindingFlags.NonPublic));Set(three,"prepared",prepared);Set(three,"cameraAdjusted",true);
    var next=new RenderScene{Entry=scene.Entry,Volume=new VolumeData{Width=2,Height=2,Depth=2,Values=new float[8],SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)}};three.SetScene(next);
+   check(Get<double>(three,"radius")==10,"CT completion updates physical track radius even after manual camera input");
    check(ReferenceEquals(prepared,Get<object>(three,"prepared"))&&Get<bool>(three,"cameraAdjusted"),"background CT completion retains prepared scene and user camera");
    three.SetScene(new RenderScene{FrameUid="A",Entry=new DicomEntry{Modality="RTSTRUCT"}});
    Set(three,"prepared",prepared);Set(three,"cameraAdjusted",true);three.SetScene(next);

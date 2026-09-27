@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Media3D;
@@ -15,7 +15,15 @@ internal static class LinacOrientationScenarios
         var source=new RotateTransform3D(g).Transform(new Point3D(0,0,1));var support=new RotateTransform3D(c).Transform(new Point3D(0,1,0));var expected=MlcTimeline.CouchDirection(80);
         check(Math.Abs(source.X-1)<1e-8&&Math.Abs(source.Y)<1e-8&&Math.Abs(source.Z)<1e-8,"3D mini gantry transforms IEC source correctly");
         check(Math.Abs(support.X-expected[0])<1e-8&&Math.Abs(support.Y-expected[1])<1e-8,"3D mini couch rotates around isocenter in IEC fixed frame");
-        check(widget.HorizontalAlignment==HorizontalAlignment.Right&&widget.VerticalAlignment==VerticalAlignment.Bottom&&widget.Width<=280,"3D mini occupies the aperture right corner");
+        check(widget.Width==300&&widget.Height==260,"LINAC has a larger dedicated viewport");
+        var overlay=(FrameworkElement)type.GetField("contextOverlay",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(playback);
+        var slice=(FrameworkElement)type.GetField("fieldArrangement",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(playback);
+        check(ReferenceEquals(widget.Parent,slice.Parent),"LINAC and slice share the movable scaling group");
+        playback.Measure(new Size(1400,1100));playback.Arrange(new Rect(0,0,1400,1100));playback.UpdateLayout();
+        var card=(FrameworkElement)overlay.GetType().GetField("card",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(overlay);double x=System.Windows.Controls.Canvas.GetLeft(card),size=card.Width;
+        overlay.GetType().GetMethod("MoveBy",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(overlay,new object[]{-60d,20d});
+        check(System.Windows.Controls.Canvas.GetLeft(card)<x,"orientation group can move inside the aperture area");
+        overlay.GetType().GetMethod("ResizeBy",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(overlay,new object[]{-40d});check(card.Width<size&&widget.Width==300&&slice.Width==300,"group resize scales both views without reflowing source render geometry");
         modelType.GetMethod("Set").Invoke(widget,new object[]{90d,0d});source=new RotateTransform3D(g).Transform(new Point3D(0,0,1));check(Math.Abs(source.X-1)<1e-8,"Couch change does not rotate the gantry source");
         var plan=new PlanData();plan.Beams.Add(new PlanBeam{PatientPosition="HFS",Name="A",ControlPoints={new ControlPoint{Couch=0},new ControlPoint{Couch=0}}});plan.Beams.Add(new PlanBeam{PatientPosition="HFS",Name="B",ControlPoints={new ControlPoint{Couch=45}}});playback.SetPlan(plan);
         var patient=(Model3DGroup)modelType.GetField("patientHost",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(widget);var before=patient.Children[0].Transform.Transform(new Point3D(0,0,.55));

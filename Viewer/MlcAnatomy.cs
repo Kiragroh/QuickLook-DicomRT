@@ -26,7 +26,8 @@ namespace QuickLook.DicomRT
         public void Close(){Dispose();projectionCache.Dispose();}
         public void Preload(PlanData value,RenderScene scene,Matrix4 map){projectionCache.Configure(value,scene,map);}
         RoiOverlay[] SelectedOutlines()=>(anatomy?.Structures??new System.Collections.Generic.List<RoiOverlay>()).Where(r=>{string type=r.Roi.InterpretedType?.Trim().ToUpperInvariant();return type=="PTV"?showPtv.IsChecked==true:type=="ORGAN"?showOrgans.IsChecked==true:showOther.IsChecked==true;}).ToArray();
-        readonly FieldArrangementControl fieldArrangement=new FieldArrangementControl{Width=265,Height=245,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8)};
+        readonly FieldArrangementControl fieldArrangement=new FieldArrangementControl{Width=300,Height=230};
+        MlcContextPanel contextOverlay;
         RenderScene anatomy;Matrix4 planMap;ControlPoint interpolated;
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
@@ -43,13 +44,14 @@ namespace QuickLook.DicomRT
             var info=Theme.Button("i");info.ToolTip=projectionStatus;row.Children.Add(info);
             showOther.ToolTip="Other selected ROIs, including CTV/GTV. Use the left structure list for individual visibility.";
             showPtv.ToolTip=showOrgans.ToolTip="Projected outer boundary of selected structures; visible above the leaf banks.";
-            area.Children.Add(fieldArrangement);
+            contextOverlay=new MlcContextPanel(area,fieldArrangement,orientation);area.Children.Add(contextOverlay);
             area.PreviewMouseWheel+=OnControlPointWheel;cursor.PreviewMouseWheel+=OnControlPointWheel;
             projectionDelay.Tick+=(s,e)=>{projectionDelay.Stop();if(!projectionBusy)ProjectionCompletion=RenderProjectionAsync();};
             IsVisibleChanged+=(s,e)=>{if(IsVisible){projectionSuspended=false;RequestProjection(true);}else SuspendProjection();};
         }
         void OnControlPointWheel(object sender,MouseWheelEventArgs e)
         {
+            if(contextOverlay?.IsMouseOver==true&&(Keyboard.Modifiers&ModifierKeys.Control)!=0){contextOverlay.ResizeBy(e.Delta*.25);e.Handled=true;return;}
             Pause();cursor.Value=((Keyboard.Modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder):MlcTimeline.RecordedWheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder));e.Handled=true;
         }
         public void SetAnatomy(RenderScene scene,Matrix4 map)

@@ -116,7 +116,7 @@ namespace QuickLook.DicomRT
    }
    dc.Pop();
    foreach(var edge in miniatureEdges){var a=edge.Vertical?world(edge.Fixed,edge.From):world(edge.From,edge.Fixed);var b=edge.Vertical?world(edge.Fixed,edge.To):world(edge.To,edge.Fixed);Line(dc,a,b,Brushes.Gold,1.2);}
-   Label(dc,"B"+scene.ActiveBeam.Number+" · CP "+(scene.ActiveControlPointIndex+1).ToString("0.0",CultureInfo.InvariantCulture),corners.OrderBy(v=>v.Y).First()+new Vector(3,-15),Brushes.Gold);
+   Label(dc,"B"+scene.ActiveBeam.Number+" · CP "+(scene.ActiveControlPointIndex+1).ToString("0.0",CultureInfo.InvariantCulture)+" · C "+cp.Collimator.ToString("0.#",CultureInfo.InvariantCulture)+"°",corners.OrderBy(v=>v.Y).First()+new Vector(3,-15),Brushes.Gold);
   }
   protected override void OnRender(DrawingContext dc)
   {

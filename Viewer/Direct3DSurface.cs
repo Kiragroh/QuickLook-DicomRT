@@ -21,7 +21,8 @@ namespace QuickLook.DicomRT
   readonly H.GroupModel3D surfaces=new H.GroupModel3D(), guides=new H.GroupModel3D();
   readonly Dictionary<MeshGeometry3D,H.MeshGeometry3D> meshes=new Dictionary<MeshGeometry3D,H.MeshGeometry3D>();
   readonly Dictionary<MeshGeometry3D,H.MeshGeometryModel3D> nodes=new Dictionary<MeshGeometry3D,H.MeshGeometryModel3D>();
-  internal Direct3DSurface(H.DefaultEffectsManager preparedEffects=null)
+  internal Direct3DSurface():this(null){}
+  internal Direct3DSurface(H.DefaultEffectsManager preparedEffects)
   {
    effects=preparedEffects??new H.DefaultEffectsManager();
    try{View=new H.Viewport3DX{EffectsManager=effects,Camera=camera,BackgroundColor=Color.FromRgb(16,19,20),IsHitTestVisible=false,
