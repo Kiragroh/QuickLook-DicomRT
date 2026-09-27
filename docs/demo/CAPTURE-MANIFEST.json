@@ -1,5 +1,5 @@
 {
-  "version": "0.2.5",
+  "version": "0.2.20",
   "complete": true,
   "width": 1600,
   "height": 900,
@@ -8,29 +8,40 @@
   "method": "Settled actual ViewerControl states; actual Direct3D GPU readback composed at its control position. Timeline is editorial and does not measure playback speed.",
   "segments": [
     {
-      "folder": "scroll",
+      "folder": "mpr",
       "pattern": "frame-%03d.png",
-      "frameCount": 120,
+      "frameCount": 60,
       "nominalFps": 15,
-      "durationSeconds": 8,
+      "durationSeconds": 4,
       "shownFeatures": [
-        "Native CT slice navigation",
-        "RT contours",
-        "Colorwash and isodose lines"
+        "Linked MPR + 3D",
+        "Active fields",
+        "Dose and structures"
       ]
     },
     {
-      "folder": "dose",
+      "folder": "orbit",
       "pattern": "frame-%03d.png",
-      "frameCount": 120,
+      "frameCount": 60,
       "nominalFps": 15,
-      "durationSeconds": 8,
+      "durationSeconds": 4,
       "shownFeatures": [
-        "Wash opacity adjustment",
-        "Isodoses on and off",
-        "Custom local Gy levels",
-        "Gy Default restore",
-        "Relative global controls shown without saving"
+        "3D orbit",
+        "Field geometry",
+        "Changing actual MLC aperture"
+      ]
+    },
+    {
+      "folder": "mlc",
+      "pattern": "frame-%03d.png",
+      "frameCount": 60,
+      "nominalFps": 15,
+      "durationSeconds": 4,
+      "shownFeatures": [
+        "Actual MLC aperture",
+        "CT-derived DRR",
+        "Target and brainstem outlines",
+        "Colored structure selection"
       ]
     },
     {
@@ -57,135 +68,46 @@
         "Selected nested entry retained when clearing search",
         "Actual selectable tag detail window"
       ]
-    },
-    {
-      "folder": "mpr",
-      "pattern": "frame-%03d.png",
-      "frameCount": 120,
-      "nominalFps": 15,
-      "durationSeconds": 8,
-      "shownFeatures": [
-        "Axial, coronal and sagittal synchronization",
-        "Moving physical 3D coordinate planes",
-        "Shared 3D control"
-      ]
-    },
-    {
-      "folder": "mlc",
-      "pattern": "frame-%03d.png",
-      "frameCount": 150,
-      "nominalFps": 15,
-      "durationSeconds": 10,
-      "shownFeatures": [
-        "Global plan control-point traversal",
-        "Field boundaries",
-        "MLC leaves and jaws",
-        "Synchronized gantry, couch and collimator schematic"
-      ]
-    },
-    {
-      "folder": "orbit",
-      "pattern": "frame-%03d.png",
-      "frameCount": 120,
-      "nominalFps": 15,
-      "durationSeconds": 8,
-      "shownFeatures": [
-        "All PTVs and selected brainstem organs",
-        "Full actual scene geometry during orbit",
-        "Skin and dose switches",
-        "ROI focus and restore"
-      ]
     }
   ],
   "checks": [
-    "Gy Apply and Gy Default were invoked only while absoluteIsodoses was true; no percentage preference write was invoked.",
-    "DVH calculation awaited: 25 complete Â· 0 with partial coverage Â· 0 without a curve",
     "Nested selected TagRow reference retained after clearing search; actual TagDetailPopup captured without clipboard writes.",
-    "MPR and full 3D use the same ThreeDControl instance throughout transitions.",
-    "MLC global cursor traversed minimum to maximum across 150 settled states.",
     "Unchanged approved public RTPLAN opened alone; HasImage=false and actual central MLC component captured.",
-    "MLC and RT-only captures used WPF software composition of the actual unchanged components in a fresh process.",
-    "3D explicitly enables PTV, Organs and Other switches (Brainstem is AVOIDANCE in the source): 24 PTVs; Brainstem.",
-    "Final orbit captured through actual GPU readback with software WPF composition; Support and External controls absent; projected ISO locator visually verified."
+    "Current capture includes linked 2x2 with active fields, MLC DRR and effective outline indicators; tag sidebar enlarged for readable presentation."
   ],
   "stills": [
     {
-      "file": "image-clean.png",
+      "file": "hero-quad-fields.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "Original CT, approved public nonpatient benchmark.",
+      "caption": "Actual 0.2.20 linked MPR + 3D: active field, dose, structures, and shared isocenter.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
     },
     {
-      "file": "rt-overview.png",
+      "file": "rt-hierarchy.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "CT with all PTVs, the selected Brainstem and physical RTDOSE overlays.",
+      "caption": "Individual plan, dose and structure selection with image-availability label; targeted search controls.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
     },
     {
-      "file": "structures-jump.png",
+      "file": "three-d-fields.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "Structure search and navigation to an actual target centre; ROI display and dose remain physically aligned.",
+      "caption": "Shared 3D geometry with the active field and collimator-oriented aperture.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
     },
     {
-      "file": "dose-wash.png",
+      "file": "mlc-outlines.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "RTDOSE colorwash with adjustable opacity.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "dose-isodoses.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Isodose lines with colorwash hidden.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "dose-combined.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Colorwash and isodose lines combined.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "dose-levels-edited.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Custom Gy levels applied only to the current dose selection and viewer session.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "dose-default-gy.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Default restores automatic whole-Gy levels for the current dose selection.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "relative-isodoses.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Relative percentage controls: Apply globally and Default are visible; neither is activated.",
+      "caption": "Actual mid-field aperture, CT-derived DRR and highlighted effective outlines.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
@@ -194,7 +116,7 @@
       "file": "dvh.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "Approximate cumulative DVH for all selected PTVs and Brainstem.",
+      "caption": "Approximate cumulative DVH for all selected PTVs and brainstem organs.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
@@ -254,19 +176,10 @@
       "method": "Actual TagDetailPopup RenderTargetBitmap"
     },
     {
-      "file": "mpr-three.png",
+      "file": "dose-controls.png",
       "source": "approved public nonpatient benchmark",
       "uiLanguage": "en",
-      "caption": "Synchronized axial, coronal, sagittal and shared 3D coordinate planes.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "mlc.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Global control-point timeline with field boundaries, leaf aperture and synchronized linac/collimator orientation.",
+      "caption": "Dose maximum and compact isodose controls.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
@@ -276,42 +189,6 @@
       "source": "unchanged isolated RTPLAN from approved public nonpatient benchmark",
       "uiLanguage": "en",
       "caption": "Actual RTPLAN-only entry: MLC preview remains available without an image series.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "three-d-roi.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "All source PTVs and the selected Brainstem; Other is enabled because the source labels Brainstem as AVOIDANCE.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "three-d-skin.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Transparent CT-derived skin provides orientation around all selected PTV and organ surfaces.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "three-d-dose.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Physical RTDOSE isosurface with target and organ surfaces in shared coordinates.",
-      "width": 1600,
-      "height": 900,
-      "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
-    },
-    {
-      "file": "three-d-focused.png",
-      "source": "approved public nonpatient benchmark",
-      "uiLanguage": "en",
-      "caption": "Brainstem focus highlights its actual geometry and retains translucent target context.",
       "width": 1600,
       "height": 900,
       "method": "Actual ViewerControl RenderTargetBitmap; no desktop capture or generated UI"
@@ -337,34 +214,5 @@
     "Tag values are redacted in display memory only. Copy controls are visible but clipboard actions are not performed.",
     "DVH and derived surfaces are approximate previews, not clinical validation."
   ],
-  "omissions": [],
-  "validation": {
-    "totalFrames": 840,
-    "allPngsReadable": true,
-    "frameSize": [
-      1600,
-      900
-    ],
-    "sequenceFrameCounts": {
-      "scroll": 120,
-      "dose": 120,
-      "mpr": 120,
-      "orbit": 120,
-      "mlc": 150,
-      "dvh": 120,
-      "tags": 90
-    },
-    "distinctFrameHashes": {
-      "scroll": 77,
-      "dose": 47,
-      "mpr": 119,
-      "orbit": 120,
-      "mlc": 150,
-      "dvh": 4,
-      "tags": 6
-    },
-    "stills": 23,
-    "intentionalHolds": "Dose, DVH and tags include held states; CT scroll revisits integer slices."
-  },
-  "captureDiagnostics": "Native WPF offscreen composition failed during an intermediate capture. Affected sequences were fully recaptured in fresh processes using WPF software composition. Final 3D frames retain the actual Direct3D GPU readback; no geometry was substituted."
+  "omissions": []
 }

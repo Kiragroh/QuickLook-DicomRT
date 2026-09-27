@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -33,7 +33,7 @@ internal static partial class Program
  }
  static void WriteTourNotes(bool complete)
  {
-  var data=new{version="0.2.5",complete,width=Width,height=Height,nominalFps=15,source="Explicitly approved public nonpatient benchmark",method="Settled actual ViewerControl states; actual Direct3D GPU readback composed at its control position. Timeline is editorial and does not measure playback speed.",segments=tourSegments,checks=tourChecks,stills=artifacts,availability,limitations=new[]{"This source has no MR or registration object; fusion is not demonstrated.","This source has one plan; plan summation is not demonstrated.",rtOnlyCaptured?"RT-only capture opens an unchanged copy of the approved public RTPLAN in an isolated temporary folder without CT, structures or dose.":"RT-only entry without an image series is not part of this capture.","Percentage mode is shown without activating Apply globally or Default; no global preference write.","Tag values are redacted in display memory only. Copy controls are visible but clipboard actions are not performed.","DVH and derived surfaces are approximate previews, not clinical validation."},omissions};
+  var data=new{version=typeof(ViewerControl).Assembly.GetName().Version.ToString(),complete,width=Width,height=Height,nominalFps=15,source="Explicitly approved public nonpatient benchmark",method="Settled actual ViewerControl states; actual Direct3D GPU readback composed at its control position. Timeline is editorial and does not measure playback speed.",segments=tourSegments,checks=tourChecks,stills=artifacts,availability,limitations=new[]{"This source has no MR or registration object; fusion is not demonstrated.","This source has one plan; plan summation is not demonstrated.",rtOnlyCaptured?"RT-only capture opens an unchanged copy of the approved public RTPLAN in an isolated temporary folder without CT, structures or dose.":"RT-only entry without an image series is not part of this capture.","Percentage mode is shown without activating Apply globally or Default; no global preference write.","Tag values are redacted in display memory only. Copy controls are visible but clipboard actions are not performed.","DVH and derived surfaces are approximate previews, not clinical validation."},omissions};
   string json=new JavaScriptSerializer{MaxJsonLength=int.MaxValue}.Serialize(data);
   File.WriteAllText(Path.Combine(output,"capture-notes.json"),json);File.WriteAllText(Path.Combine(output,"manifest.json"),json);
  }
@@ -156,7 +156,7 @@ internal static partial class Program
  static async Task CaptureTourTags()
  {
   Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="Axial";Panels(false,true);var sources=Get<ComboBox>(viewer,"tagSource");var plan=Get<PlanData>(viewer,"selectedPlan");foreach(var item in sources.Items){var e=item.GetType().GetProperty("Entry")?.GetValue(item,null)as DicomEntry;if(e==plan.Entry){sources.SelectedItem=item;break;}}
-  ScrubTagRows();TourTagFilter("");var tree=Get<TreeView>(viewer,"tagTree");Expand(tree.ItemsSource.Cast<TagNode>(),false);await Save("tags-collapsed.png","RTPLAN hierarchy; identifying attribute display values are redacted.");
+  Get<ColumnDefinition>(viewer,"rightColumn").Width=new GridLength(545);Invoke(viewer,"UpdateTags");ScrubTagRows();TourTagFilter("");var tree=Get<TreeView>(viewer,"tagTree");Expand(tree.ItemsSource.Cast<TagNode>(),false);await Save("tags-collapsed.png","RTPLAN hierarchy; identifying attribute display values are redacted.");
   TagRow selected=null;
   await TourSequence("tags",90,new[]{"Nested DICOM sequence search","Selected nested entry retained when clearing search","Actual selectable tag detail window"},async i=>{
    if(i==18){TourTagFilter("Beam");await Save("tags-expanded.png","Search reveals matching nested beam sequence attributes.");}

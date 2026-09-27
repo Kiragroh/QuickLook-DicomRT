@@ -4,23 +4,45 @@
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.20.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.20.exe) · [Open the presentation](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 30-second announcement](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Announcement-30s-0.2.20.mp4)
 
-[Open the HTML presentation in your browser](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
+![Four linked views with dose, structures and active field geometry](docs/demo/screens/hero-quad-fields.png)
 
-[Download the single-file HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6-Standalone.html) for portal uploads: all images, chapter clips and the complete film with music are embedded in one 52.7 MiB HTML file. No companion folders or external media requests are needed. GitHub and installer links remain optional online links.
+**Select a file. Press Space. Inspect the RT context.** The linked 2 × 2 workspace combines axial, coronal and sagittal images with 3D anatomy and the active field. All screenshots and clips below are fresh captures from version 0.2.20 using the approved public nonpatient multimets benchmark.
 
-![DICOM RT workspace](docs/demo/screens/rt-overview.png)
+[Download the single-file HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Feature-Tour-0.2.20-Standalone.html) for offline viewing or portal uploads. Screenshots, chapter clips and the 30-second film with original upbeat music are embedded; no companion folders are needed. GitHub and download links require connectivity. [Feature changelog](CHANGELOG.md).
 
-[Read the feature changelog](CHANGELOG.md) for the full list of new capabilities and shortcuts.
+## What you can inspect
 
-## New in 0.2.20
+| Workflow | What is available |
+|---|---|
+| Images + RT | Linked crosshair, native/MPR views, zoom, window presets, contours, colorwash and editable isodoses |
+| Fields + MLC | Synchronized field selection and CP timeline; play/pause; true aperture; collimator rotation; CT-derived DRR; projected PTV/organ/other outlines |
+| 3D | Shared mesh cache across full 3D and 2 × 2; additive structures; transparent skin; isocenter; field paths and moving aperture |
+| DVH | Click a structure to focus its curve; compact volume display; metrics on hover; export active curves with or without metrics |
+| DICOM tags | Search retained text across nested sequences; double-click to copy a tag, label or value; keep the selected entry when clearing search |
+| Independent RT | Inspect a plan's MLC without CT or dose; select individual doses and structure sets without a plan |
+| Discovery | Clearly labeled image availability; Search more images on demand; repeatable Search subfolders for additional RT |
+| Plan sums | Explicit compatible groups, selectable contributing plans, Generate sum, included-plan labels and Dmax navigation |
+| Export + help | Whole-viewer PNG or individual view export, patient/plan-aware names, grouped shortcut tables in Info / F1 |
 
-- **Search more images:** load matching image series for the current RT selection on demand. Already discovered paths are used directly; other images remain deferred.
-- **Clear RT hierarchy:** plans with individual dose/structure entries, standalone RT objects, and explicit image-availability labels.
-- **RT without CT:** switching to a plan without matching loaded images removes the previous anatomy while keeping its MLC usable. Dose and structures remain independently selectable for 3D and available DVH analysis.
-- **Focused opening:** image files prefer matching plans; RT files retain their own selection. Large directories still need header discovery, but unrelated image volumes are not loaded automatically.
-- Retains selectable plan sums, Dmax navigation, custom electron cutouts, compact opacity controls and repeatable subfolder search.
+## See what is switched on
+
+![MLC, DRR and enabled contour indicators](docs/demo/screens/mlc-outlines.png)
+
+The MLC structure list highlights effective outlines in their own contour colors. **Outline**, **Group off**, **Hidden** and **No match** explain the combined category and individual-checkbox state. Uncheck one PTV to remove only that outline. DRR and leaf opacity are independently adjustable.
+
+![Compact DVH with curve focus](docs/demo/screens/dvh-focused.png)
+
+DVH exports optionally include Dmean, Dmedian, Dmax, Dmin, D98 and D2. Numbers use up to four decimal places; a curves-only export keeps downstream import simple.
+
+## Built around responsive inspection
+
+- RT objects are discovered with priority. Image opening prefers a matching plan; opening an RT file retains that exact object.
+- Other image series retain lightweight identities until needed. **Search more images** uses known matching paths directly, or searches a selected folder. Large directories still require enumeration and metadata reads.
+- DRRs, projected outlines and 3D surfaces are prepared in the background and reused. Additional 3D structures arrive incrementally, without discarding the existing scene.
+- Full 3D and 2 × 2 share their camera, settings and prepared meshes. Outline-list indicators update in place, outside control-point playback.
+- These are design and engineering checks, not a universal latency guarantee. The edited 30-second video demonstrates features rather than measured loading or playback speed.
 
 ## Workspace features
 
@@ -112,7 +134,7 @@ Optional read-only checks emit aggregate results without patient names, identifi
 
 `scripts/CreateSynthetic.py` creates a synthetic CT/MR/RT/REG example. `Harness <file> --verify` loads the same WPF control in an offscreen test window and exits after verification. This does not replace interactive acceptance in QuickLook.
 
-Synthetic fixtures are for tests only. The 0.2.6 presentation and 112-second HyperFrames feature film use only the approved public nonpatient multi-metastasis benchmark. GPT Image created conceptual Space-key and direct-file artwork, never anatomy or viewer screenshots. The edited film demonstrates features rather than measured interaction latency. This case has no MR/REG, dual-layer MLC or multiple-plan demonstration. `Rt.Tests --private-mlc <authorized-folder>` provides aggregate-only dual-layer acceptance.
+Synthetic fixtures are for tests only. The 0.2.20 presentation and 30-second HyperFrames announcement film use only the approved public nonpatient multi-metastasis benchmark. The current tour opens with a real four-view capture. Earlier GPT Image conceptual artwork never substitutes for anatomy or viewer screenshots. The edited film demonstrates features rather than measured interaction latency. This case has no MR/REG, dual-layer MLC or multiple-plan demonstration. `Rt.Tests --private-mlc <authorized-folder>` provides aggregate-only dual-layer acceptance.
 
 ## Reuse and contribute
 

@@ -1,24 +1,9 @@
-QuickLook DICOM RT 0.2.6 feature tour
-
-Clinical-looking imagery: actual ViewerControl captures from the explicitly approved public, nonpatient multi-metastasis benchmark. 191 CT files, one RTSTRUCT, one RTPLAN and one RTDOSE. The captured selection contains 24 PTVs and Brainstem (source type AVOIDANCE). No private case imagery or synthetic anatomy appears.
-
-Conceptual artwork: built-in GPT Image generated the Space key and direct-file graphics. Exact prompts and provenance: art/imagegen-prompts.md.
-
-Film: deterministic local HyperFrames 0.8.78 + GSAP composition at 1600 x 900, 30 fps, 112 seconds. Actual settled UI capture sequences are nominally 15 fps. DVH and tag footage are slowed for readability. The film is edited to explain features; it is not a real-time interaction benchmark, treatment delivery timing or clinical validation.
-
-Authoring reference: https://github.com/nateherkai/hyperframes-student-kit
-
-Capabilities outside this dataset: MR/spatial registration, dual-layer MLC and multiple-plan dose summation. These are described, not depicted as if present in the benchmark.
-
-Capture notes: CAPTURE-MANIFEST.json. Viewer source and tests: https://github.com/Kiragroh/QuickLook-DicomRT
-
-Background attribution:
-Apple Quick Look: https://support.apple.com/guide/mac-help/preview-a-file-mh14119/mac
-QuickLook for Windows: https://github.com/QL-Win/QuickLook
-Existing DICOM image support: https://github.com/QL-Win/QuickLook/releases
-
-Revised film: conceptual Space-key art (0–6 s), Space-key press (6–8 s), then actual viewer reveal. Enlarged DVH (58–68 s) and full DICOM tag search (80–90 s) have explicit headings. The final fourteen seconds (98–112 s) say Available now on GitHub with the large repository address, Windows installation call to action and software prerequisites.
-
-Music: One Key - Upbeat, an original electronic track synthesized locally with scripts/video/compose-soundtrack.py. No third-party recordings or samples. Four-on-the-floor kick, backbeat claps, offbeat synth bass, bright chord stabs and a melodic hook; 120 BPM, four beats per bar. Every scene boundary falls on a two-second bar. Final mix targets -15 LUFS / -1.5 dBTP. Player controls can mute the soundtrack.
-
-HTML revision: static GPT Image space-magic.png opening; no opening video or persistent film CTA. The full film is offered on the final chapter. New art is purely conceptual; all actual medical captures remain unchanged.
+DICOM RT for QuickLook 0.2.20 feature tour
+All medical imagery: explicitly approved public nonpatient multimets benchmark.
+Actual current ViewerControl states and actual GPU readback, rendered by DemoCapture.
+No synthetic anatomy or generated application screenshots.
+MLC and slice sequences are editorial captures of settled states, not latency measurements.
+The tag sidebar is enlarged for readability; identifying tag values are redacted in display memory.
+No private patient case is included. Source DICOM files are unchanged.
+Music: original deterministic, sample-free upbeat electronic composition, 120 BPM.
+Film: HyperFrames 0.8.78, 1600 x 900, 30 fps, 30 seconds.

@@ -1,11 +1,6 @@
-Verified feature tour: 12 English HTML slides, 33 required referenced assets, and a 112.000-second H.264/AAC film at 1600x900 / 30 fps / 3360 frames. Seven actual-capture chapter clips remain available. HyperFrames lint: zero errors and zero warnings across 21 composition files.
-
-The HTML opening uses static conceptual GPT Image artwork with a quiet GitHub availability link. It contains no autoplay video. The complete film is offered on the final chapter only. Browser checks passed at 1600x1000, 1280x720 and 430x932: no missing assets, horizontal overflow, JavaScript errors or failed requests. Explore navigation, all 12 chapters, final film duration/playback, Escape, chapter Pause and direct file:// artwork/video passed.
-
-The film opens with the new Space-key artwork. DVH is enlarged and labeled at 58-68s. Full DICOM tag search is enlarged and labeled at 80-90s, followed by the copy popup at 90-94s. The 98-112s closing card prominently says Available now on GitHub, shows the repository URL, and includes the Windows installation statement and prerequisites. Opening, DVH, tag search, popup and closing frames were visually inspected; final encoded tag/closing frames were checked again.
-
-Music: original, sample-free upbeat electronic composition at 120 BPM, four beats per bar. All 19 scene starts and durations are multiples of the two-second bar. Final film contains AAC audio; measured mean -15.4 dBFS and sample peak -1.5 dBFS. Loudness-normalization target is -15 LUFS / -1.5 dBTP. Fade-in and fade-out are included. Captions carry the complete message for muted playback.
-
-Medical captures remain from the authorized nonpatient multimets case. GPT Image artwork is conceptual only. DVH and tags are slowed editorially for legibility. Edited pacing is not a performance benchmark or clinical validation.
-
-Upbeat revision: four-on-the-floor kick, backbeat claps, offbeat synth bass, bright chord stabs and melodic hook. Penultimate performance card removed. Final encoded frame at 100s confirms the GitHub card is already visible. Online HTML: https://kiragroh.github.io/QuickLook-DicomRT/ (GitHub Pages, main /docs).
+13 English slides; first slide shows linked MPR + 3D with active fields.
+14 embedded assets, verified against their source SHA-256 hashes.
+HTML JavaScript syntax and navigation logic verified in isolated Node VM with DOM stubs.
+Actual browser layout review was blocked by local-file browser policy, not bypassed.
+Source screenshots and selected extracted film frames visually inspected.
+Engineering checks only; no clinical-validation or measured-latency claim.

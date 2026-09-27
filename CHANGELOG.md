@@ -4,6 +4,12 @@ Feature highlights for DICOM RT for QuickLook. [Download the latest Windows inst
 
 ## 0.2.20 — 27 September 2026
 
+### Updated feature tour
+
+- Fresh screenshots and chapter clips from 0.2.20, with active field geometry in the opening MPR + 3D view.
+- A 30-second announcement film with original upbeat music, visible DVH and tag search, and a six-second GitHub installation card.
+- Thirteen English slides, available on GitHub Pages and as one HTML file with all media embedded for offline or portal viewing.
+
 ### See which MLC outlines are enabled
 
 - The structure list highlights enabled MLC outlines in their own contour color, with a tinted name, bold text and an **Outline** indicator.

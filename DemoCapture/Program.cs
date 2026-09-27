@@ -41,7 +41,7 @@ internal static partial class Program
  }
  static async Task Save(string name,string caption,bool record=true)
  {
-  await Settle();string path=Path.Combine(output,name);Directory.CreateDirectory(Path.GetDirectoryName(path));
+  await Settle();if(Get<bool>(viewer,"tagsVisible")){var tagTree=Get<TreeView>(viewer,"tagTree");foreach(var scroll in Descendants<ScrollViewer>(tagTree))scroll.ScrollToHorizontalOffset(0);viewer.UpdateLayout();}string path=Path.Combine(output,name);Directory.CreateDirectory(Path.GetDirectoryName(path));
   // Offscreen WPF capture does not reliably include a D3DImage. Insert the actual
   // GPU readback at the same visual position below the orientation badge for capture.
   var overlays=new List<Action>();
@@ -174,6 +174,9 @@ internal static partial class Program
  }
  [STAThread] static int Main(string[] args)
  {
+  if(args.Length==3 && args[0]=="--approved-release-mlc")return RunReleaseTour(args[1],args[2],false,true);
+  if(args.Length==3 && args[0]=="--approved-release-finish")return RunReleaseTour(args[1],args[2],true);
+  if(args.Length==3 && args[0]=="--approved-release-tour")return RunReleaseTour(args[1],args[2]);
   if(args.Length==3 && args[0]=="--approved-public-tour-mlc")return RunPublicTour(args[1],args[2],false,false,true);
   if(args.Length==3 && args[0]=="--approved-public-tour-orbit")return RunPublicTour(args[1],args[2],true,true);
   if(args.Length==3 && args[0]=="--approved-public-tour-refresh")return RunPublicTour(args[1],args[2],true);
