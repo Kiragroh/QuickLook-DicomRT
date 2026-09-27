@@ -95,10 +95,12 @@ namespace QuickLook.DicomRT
             catch(OperationCanceledException){}
             catch(Exception){if(!token.IsCancellationRequested)fusionStatus.Text="This image series cannot be overlaid as a volume.";}
         }
+        private readonly Button doseMaximumButton=Theme.Button("↗ Dose maximum");
         private UIElement BuildDoseTools()
         {
-            var panel=new StackPanel();panel.Children.Add(wash);panel.Children.Add(Theme.Text("Opacity",10,Theme.Muted));opacity.Width=double.NaN;panel.Children.Add(opacity);
-            panel.Children.Add(doseRange);panel.Children.Add(Theme.Text("Lower threshold",10,Theme.Muted));panel.Children.Add(doseMin);panel.Children.Add(Theme.Text("Upper threshold",10,Theme.Muted));panel.Children.Add(doseMax);
+            var panel=new StackPanel();doseMaximumButton.ToolTip="Go to the maximum finite dose voxel in the selected dose or generated sum";doseMaximumButton.Click+=async(s,e)=>{userNavigatedImage=true;await JumpToPlanDoseAsync(true);};panel.Children.Add(doseMaximumButton);panel.Children.Add(wash);
+            var adjustments=new StackPanel();adjustments.Children.Add(Theme.Text("Opacity",10,Theme.Muted));opacity.Width=double.NaN;adjustments.Children.Add(opacity);
+            adjustments.Children.Add(doseRange);adjustments.Children.Add(Theme.Text("Lower threshold",10,Theme.Muted));adjustments.Children.Add(doseMin);adjustments.Children.Add(Theme.Text("Upper threshold",10,Theme.Muted));adjustments.Children.Add(doseMax);panel.Children.Add(new Expander{Header="Colorwash adjustments",Content=adjustments,Foreground=Theme.Foreground,Margin=new Thickness(4)});
             panel.Children.Add(iso);panel.Children.Add(Theme.Text("Isodose units",10,Theme.Muted));
             isodoseMode.Items.Add(new ComboBoxItem{Content="Gy"});isodoseMode.Items.Add(new ComboBoxItem{Content="%"});
             isodoseMode.ToolTip="Gy: local to this dose selection. %: global percentages of each dose grid maximum.";

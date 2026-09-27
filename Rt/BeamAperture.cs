@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace QuickLook.DicomRT
 {
@@ -14,6 +15,9 @@ namespace QuickLook.DicomRT
             double left=double.NegativeInfinity,right=double.PositiveInfinity,bottom=left,top=right;
             if(point.XJaws?.Length==2){left=point.XJaws[0];right=point.XJaws[1];}
             if(point.YJaws?.Length==2){bottom=point.YJaws[0];top=point.YJaws[1];}
+            foreach(var block in point.Blocks.Where(b=>b.Type=="APERTURE")){
+                left=Math.Max(left,block.Outline.Min(p=>p.X));right=Math.Min(right,block.Outline.Max(p=>p.X));bottom=Math.Max(bottom,block.Outline.Min(p=>p.Y));top=Math.Min(top,block.Outline.Max(p=>p.Y));
+            }
             result.Add(new Opening{Left=left,Right=right,Bottom=bottom,Top=top});
             foreach(var layer in point.MlcLayers)
             {

@@ -17,6 +17,7 @@ class Program
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--private-sum")return PrivateSumAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-bev")return PrivateBeamAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
         var preferenceScope=new IsodosePreferenceScenarios.TestScope();
@@ -44,9 +45,9 @@ class Program
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==0,"One dose never offers a sum");
                 Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Second dose"});
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
-                Check(Field<ComboBox>(viewer,"plans").Items.Count==1&&!Field<bool>(viewer,"sumMode"),"Multiple doses offer a sum without selecting it automatically");
+                Check(Field<ComboBox>(viewer,"plans").Items.Count==0&&!Field<bool>(viewer,"sumMode"),"Unassociated dose objects do not offer an unsafe sum");
             }
-            FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
+            SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);

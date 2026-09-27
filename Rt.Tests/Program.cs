@@ -80,11 +80,13 @@ internal static class Program
         Near(dose.Sample(new Vec3(1.5,1,13.5)),2.65,"irregular trilinear dose");
         Assert(float.IsNaN(dose.Sample(new Vec3(0,0,16))),"outside dose");
         Assert(dose.Volume==null,"irregular dose cannot expose uniform volume");
+        Near((dose.MaximumPosition.Value-new Vec3(3,2,15)).Length,0,"irregular dose maximum physical location");
         Assert(dose.Units=="GY","physical dose unit");
         var relative=DoseGrid.Load(new DicomEntry {Dataset=DoseDataset(new double[]{0,2,4},"RELATIVE")});
         Assert(relative.Units=="RELATIVE","relative unit retained"); Assert(relative.Volume!=null,"regular dose volume");
         var absolute=DoseGrid.Load(new DicomEntry {Dataset=DoseDataset(new double[]{10,12,15})}); Near(absolute.Sample(new Vec3(0,0,12)),2,"absolute axial offset");
         var descending=DoseGrid.Load(new DicomEntry {Dataset=DoseDataset(new double[]{0,-2,-5})}); Near(descending.Sample(new Vec3(0,0,6.5)),2.5,"descending irregular offset");
+        Near((descending.MaximumPosition.Value-new Vec3(3,2,5)).Length,0,"descending dose maximum retains correct frame and origin");
         bool rejected=false; try {DoseGrid.Load(new DicomEntry {Dataset=DoseDataset(new double[]{0,2,1})});} catch(ArgumentException){rejected=true;} Assert(rejected,"nonmonotonic offsets rejected");
     }
     static DicomDataset ContourItem(double x) => new DicomDataset().Add(DicomTag.ContourGeometricType,"CLOSED_PLANAR").Add(DicomTag.NumberOfContourPoints,4).Add(DicomTag.ContourData,x,0d,0d,x+2,0d,0d,x+2,2d,0d,x,2d,0d);

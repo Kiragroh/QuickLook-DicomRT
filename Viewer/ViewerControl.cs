@@ -20,7 +20,8 @@ namespace QuickLook.DicomRT
         private readonly TextBox roiSearch = new TextBox { Margin = new Thickness(0, 6, 0, 6), Padding = new Thickness(6), MinHeight = 28, ToolTip = "Filter structures" };
         private readonly TextBlock status = Theme.Text("Opening DICOM file …"), position = Theme.Text(""), registrationStatus = Theme.Text(""), rtSummary = Theme.Text("");
         private readonly TextBlock tagStatus = Theme.Text("", 11, Theme.Muted);
-        private readonly StackPanel roiList = new StackPanel(), doseList = new StackPanel();
+        private readonly StackPanel roiList = new StackPanel(), doseList = new StackPanel(), sumMembers = new StackPanel();
+        private TabControl rtTabs;
         private readonly Grid imageGrid = new Grid();
         private readonly TextBlock patientIdentity=Theme.Text("",11,Theme.Muted);
         private readonly CheckBox showFields=new CheckBox{Content="Fields",Foreground=Theme.Foreground,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(6),ToolTip="Beam aperture intersections and projected central axes on the displayed slice; other beams at their first control point"};
@@ -84,7 +85,7 @@ namespace QuickLook.DicomRT
             leftPanel=BuildRtPanel();body.Children.Add(leftPanel);var splitLeft=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitLeft,1);body.Children.Add(splitLeft);
             var middle=BuildMiddle();Grid.SetColumn(middle,2);body.Children.Add(middle);var splitter=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitter,3);body.Children.Add(splitter);
             rightPanel=BuildRight();Grid.SetColumn(rightPanel,4);body.Children.Add(rightPanel);UpdatePanels();
-            var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
+            var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};DockPanel.SetDock(searchSubfolders,Dock.Right);footer.Children.Add(searchSubfolders);searchSubfolders.Click+=async(s,e)=>await SearchSubfoldersAsync();activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
             series.SelectionChanged += async (s, e) => { if (!changing && series.SelectedItem is ImageStack stack) {userNavigatedImage=true;await SelectStackAsync(stack);} };
             planes.SelectionChanged += (s, e) => { if (!changing) { if ((string)planes.SelectedItem != "Native" && volume == null) { changing = true; planes.SelectedItem = "Native"; changing = false; status.Text = "MPR becomes available once a volume with suitable geometry has loaded."; } RebuildPanes(); } };
             tagSource.SelectionChanged += (s, e) => UpdateTags();
@@ -104,11 +105,11 @@ namespace QuickLook.DicomRT
         {
             var outer = new DockPanel(); var top = new StackPanel();
             top.Children.Add(BuildPlanPicker());top.Children.Add(BuildViewButtons());top.Children.Add(rtSummary); top.Children.Add(registrationStatus); DockPanel.SetDock(top, Dock.Top); outer.Children.Add(top);
-            var tabs = new TabControl { Background = Theme.Panel, BorderThickness = new Thickness(0), Margin = new Thickness(0, 8, 0, 0) };
+            var tabs = rtTabs = new TabControl { Background = Theme.Panel, BorderThickness = new Thickness(0), Margin = new Thickness(0, 8, 0, 0) };
             var roiPanel = new DockPanel(); var filters = new StackPanel(); filters.Children.Add(Theme.Text("Find structures", 10, Theme.Muted)); filters.Children.Add(roiSearch); var toggles = new WrapPanel();
             Button all = Theme.Button("All"), none = Theme.Button("None"); all.Click += (s, e) => SetRois(true); none.Click += (s, e) => SetRois(false); toggles.Children.Add(all); toggles.Children.Add(none); filters.Children.Add(toggles); filters.Children.Add(Theme.Text("Click a name to locate the structure", 10, Theme.Muted)); DockPanel.SetDock(filters, Dock.Top); roiPanel.Children.Add(filters); roiPanel.Children.Add(new ScrollViewer { Content = roiList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
             tabs.Items.Add(new TabItem { Header = "Structures", Content = roiPanel });
-            var doseContent=new StackPanel();doseContent.Children.Add(BuildDoseTools());doseContent.Children.Add(doseList);var dosePanel=new ScrollViewer { Content=doseContent,VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
+            var doseContent=new StackPanel();doseContent.Children.Add(sumMembers);doseContent.Children.Add(BuildDoseTools());doseContent.Children.Add(doseList);var dosePanel=new ScrollViewer { Content=doseContent,VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
             tabs.Items.Add(new TabItem { Header = "Doses", Content = dosePanel });
 
             outer.Children.Add(tabs); return Theme.Box(outer);

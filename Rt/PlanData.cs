@@ -13,6 +13,7 @@ namespace QuickLook.DicomRT
     }
     public sealed class ControlPoint
     {
+        public List<BeamBlock> Blocks=new List<BeamBlock>();
         public double DoseRateSet=double.NaN;
         public double GantryPitch,TablePitch,TableRoll,TableEccentric;
         public int Index; public double Gantry,Collimator,Couch,MetersetWeight; public Vec3 Isocenter;
@@ -59,10 +60,11 @@ namespace QuickLook.DicomRT
                         leafDefinitions.Add(new MlcLayer {Key=type+"#"+leafDefinitions.Count(x=>x.Type==type),Type=type,Boundaries=boundaries});
                     }
                 }
+                var blocks=RtDicom.Items(item,DicomTag.BlockSequence).Select(b=>BeamBlock.Create(RtDicom.Text(b,DicomTag.BlockType),RtDicom.Numbers(b,DicomTag.BlockData),RtDicom.Int(b,DicomTag.BlockNumberOfPoints))).ToList();
                 ControlPoint previous=null;
                 foreach(var cp in RtDicom.Items(item,DicomTag.ControlPointSequence))
                 {
-                    var current=new ControlPoint {Index=RtDicom.Int(cp,DicomTag.ControlPointIndex,beam.ControlPoints.Count),
+                    var current=new ControlPoint {Blocks=blocks,Index=RtDicom.Int(cp,DicomTag.ControlPointIndex,beam.ControlPoints.Count),
                         DoseRateSet=RtDicom.Number(cp,DicomTag.DoseRateSet,previous?.DoseRateSet??double.NaN),
                         Gantry=RtDicom.Number(cp,DicomTag.GantryAngle,previous?.Gantry??double.NaN),Collimator=RtDicom.Number(cp,DicomTag.BeamLimitingDeviceAngle,previous?.Collimator??double.NaN),Couch=RtDicom.Number(cp,DicomTag.PatientSupportAngle,previous?.Couch??double.NaN),
                         GantryPitch=RtDicom.Number(cp,new DicomTag(0x300a,0x014a),previous?.GantryPitch??0),TablePitch=RtDicom.Number(cp,new DicomTag(0x300a,0x0140),previous?.TablePitch??0),TableRoll=RtDicom.Number(cp,new DicomTag(0x300a,0x0144),previous?.TableRoll??0),TableEccentric=RtDicom.Number(cp,new DicomTag(0x300a,0x0125),previous?.TableEccentric??0),

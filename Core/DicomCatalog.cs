@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -62,14 +62,18 @@ namespace QuickLook.DicomRT
         /// A seed is an already-read instance from this folder (normally the initially displayed image).
         /// </summary>
         public static DicomCatalog Scan(string selectedFile, CancellationToken token, Action<int> progress = null,
-            Action<DicomEntry> entryFound = null, Action<string,int,int> phaseProgress = null, DicomEntry seed = null)
+            Action<DicomEntry> entryFound = null, Action<string,int,int> phaseProgress = null, DicomEntry seed = null, string searchRoot = null, bool recursive = false)
         {
             token.ThrowIfCancellationRequested();
             var result = new DicomCatalog();
-            string folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(selectedFile));
+            string folder = searchRoot==null?System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(selectedFile)):System.IO.Path.GetFullPath(searchRoot);
             var groups = new Dictionary<string, List<ImageStack>>(StringComparer.Ordinal);
             var paths = new List<string>();
-            foreach (var path in Directory.EnumerateFiles(folder)) { token.ThrowIfCancellationRequested(); paths.Add(path); }
+            var folders=new Stack<string>();folders.Push(folder);
+            while(folders.Count>0){token.ThrowIfCancellationRequested();var directory=folders.Pop();
+                try{foreach(var path in Directory.EnumerateFiles(directory)){token.ThrowIfCancellationRequested();paths.Add(path);}if(recursive)foreach(var child in Directory.EnumerateDirectories(directory)){token.ThrowIfCancellationRequested();if((File.GetAttributes(child)&FileAttributes.ReparsePoint)==0)folders.Push(child);}}
+                catch(UnauthorizedAccessException){result.SkippedFiles++;}catch(IOException){result.SkippedFiles++;}
+            }
             var deferred = new List<string>();
             string seedPath = string.IsNullOrEmpty(seed?.Path) ? null : System.IO.Path.GetFullPath(seed.Path);
             int processed = 0;

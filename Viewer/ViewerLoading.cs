@@ -16,9 +16,12 @@ namespace QuickLook.DicomRT
         private int rtFailures, loadRevision, summedRevision=-1;
         private CancellationTokenSource sumLoad;
         private DoseSumResult sumResult;
+        private List<DoseGrid> sumGroup;
+        private readonly HashSet<string> sumExcluded=new HashSet<string>();
+        private string summedSelection;private int planSelectionRevision;
         private sealed class PlanChoice
         {
-            public PlanData Plan;public bool Sum;public override string ToString()=>Sum?"Σ Plan sum · available plan doses":Plan.Label;
+            public PlanData Plan;public bool Sum;public List<DoseGrid> Doses;public string Label;public override string ToString()=>Sum?Label:Plan.Label;
         }
         private UIElement BuildPlanPicker()
         {
@@ -28,22 +31,23 @@ namespace QuickLook.DicomRT
         }
         private void RefreshPlanChoices()
         {
-            var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();if(doses.Count>1)choices.Add(new PlanChoice{Sum=true});
+            var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();foreach(var group in DoseSum.CompatibleGroups(doses,registrations))choices.Add(new PlanChoice{Sum=true,Doses=group,Label="Σ "+string.Join(" + ",group.Select(DosePlanLabel))});
             bool prior=changing;changing=true;plans.ItemsSource=choices;
-            var choice=sumMode?choices.FirstOrDefault(c=>c.Sum):choices.FirstOrDefault(c=>!c.Sum&&c.Plan==selectedPlan);
+            var choice=sumMode?choices.FirstOrDefault(c=>c.Sum&&sumGroup!=null&&c.Doses.Any(d=>sumGroup.Contains(d))):choices.FirstOrDefault(c=>!c.Sum&&c.Plan==selectedPlan);
             if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTDOSE")
             {var reference=doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.PlanUid;choice=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==reference);selectedPlan=choice?.Plan;}
             if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTSTRUCT")
             {var matches=choices.Where(c=>c.Plan!=null&&c.Plan.StructureSopUid==initialEntry.SopUid).ToArray();choice=matches.Length==1?matches[0]:null;selectedPlan=choice?.Plan;}
             if(choice==null){var opened=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==initialEntry?.SopUid);bool referencedOnly=initialEntry?.Modality=="RTDOSE"||initialEntry?.Modality=="RTSTRUCT";choice=opened??(referencedOnly?null:choices.FirstOrDefault(c=>c.Plan!=null));selectedPlan=choice?.Plan;sumMode=false;}
-            plans.SelectedItem=choice;changing=prior;
+            if(choice?.Sum==true)sumGroup=choice.Doses;plans.SelectedItem=choice;changing=prior;
             if(viewButtons.ContainsKey("MLC"))viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
         }
         private async Task SelectPlanChoiceAsync()
         {
             if(changing)return;var choice=plans.SelectedItem as PlanChoice;if(choice==null)return;
-            userSelectedPlan=true;sumLoad?.Cancel();sumMode=choice.Sum;selectedPlan=choice.Plan;
+            int selection=++planSelectionRevision;userSelectedPlan=true;initialIsocenterApplied=true;sumLoad?.Cancel();sumMode=choice.Sum;selectedPlan=choice.Plan;sumGroup=choice.Doses;
             viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
+            if(sumMode&&rtTabs!=null)rtTabs.SelectedIndex=1;
             if(sumMode&&workspaceMode=="MLC")SetWorkspace("Bild");
             if(!sumMode&&scanComplete)activity.Visibility=Visibility.Collapsed;RefreshRt();
             if(sumMode)await BuildSumAsync();
@@ -51,6 +55,7 @@ namespace QuickLook.DicomRT
                 var stack=MatchingPlanStack();
                 if(stack!=null&&stack!=currentStack){changing=true;series.SelectedItem=stack;changing=false;await SelectStackAsync(stack);if(!disposed)RefreshRt();}
             }
+            if(!sumMode&&selection==planSelectionRevision&&!disposed)await JumpToPlanDoseAsync();
         }
         private ImageStack MatchingPlanStack()
         {
@@ -65,19 +70,40 @@ namespace QuickLook.DicomRT
         {
             if(!sumMode||disposed)return;
             if(!scanComplete){sumResult=null;activity.Text="● Plan sum is waiting for the RT scan to finish …";return;}
-            if(summedRevision==loadRevision&&sumResult!=null){RefreshRt();return;}
+            var sources=(sumGroup??new List<DoseGrid>()).Where(d=>!sumExcluded.Contains(d.PlanUid)).ToList();
+            string selection=string.Join("|",sources.Select(d=>d.Entry.SopUid).OrderBy(x=>x));
+            if(sources.Count<2){activity.Text="Select at least two plans and generate the sum.";activity.Visibility=Visibility.Visible;BuildDoseList();return;}
+            if(summedRevision==loadRevision&&summedSelection==selection&&sumResult!=null){RefreshRt();await JumpToPlanDoseAsync();return;}
             sumLoad?.Cancel();sumLoad?.Dispose();sumLoad=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);var token=sumLoad.Token;int revision=loadRevision;
             activity.Visibility=Visibility.Visible;activity.Text="● Adding dose grids in physical space …";sumResult=null;Redraw();
-            var sources=doses.ToList();var links=registrations.ToList();
+            var links=registrations.ToList();
             try
             {
                 var result=await Task.Run(()=>DoseSum.Calculate(sources,links,token),token);
                 if(disposed||token.IsCancellationRequested||revision!=loadRevision||!sumMode)return;
-                sumResult=result;summedRevision=revision;activity.Text=result.Dose!=null?"✓ Plan sum ready":"Plan sum unavailable";RefreshRt();
+                sumResult=result;summedRevision=revision;summedSelection=selection;activity.Text=result.Dose!=null?"✓ Plan sum ready":"Plan sum unavailable";
+                if(result.Dose!=null){result.Dose.Label="Σ "+string.Join(" + ",sources.Select(DosePlanLabel));
+                    var stack=catalog?.Stacks.Where(s=>s.FrameUid==result.Dose.FrameUid).OrderByDescending(s=>s.Modality=="CT").ThenByDescending(s=>s.Entries.Count).FirstOrDefault();
+                    if(stack!=null&&(!HasImage||TransformToImage(result.Dose.FrameUid)==null)){changing=true;series.SelectedItem=stack;changing=false;await SelectStackAsync(stack);}
+                }
+                if(disposed||token.IsCancellationRequested||!sumMode)return;RefreshRt();await JumpToPlanDoseAsync();
             }
             catch(OperationCanceledException){}
             catch(Exception){if(!token.IsCancellationRequested)activity.Text="Plan sum unavailable; check dose associations and units.";}
         }
+        private string DosePlanLabel(DoseGrid dose)=>planData.FirstOrDefault(p=>p.Entry.SopUid==dose.PlanUid)?.Label??dose.Label;
+        private UIElement BuildSumMembers()
+        {
+            var panel=new StackPanel();panel.Children.Add(Theme.Text("Included plans",12,Theme.Accent));panel.Children.Add(Theme.Text("Compatible physical PLAN doses · same frame or rigid REG",10,Theme.Muted));
+            foreach(var dose in sumGroup??new List<DoseGrid>()){
+                var check=new CheckBox{Content=DosePlanLabel(dose),IsChecked=!sumExcluded.Contains(dose.PlanUid),Foreground=Theme.Foreground,Margin=new Thickness(2,4,2,4)};
+                check.Checked+=(s,e)=>{sumExcluded.Remove(dose.PlanUid);MarkSumPending();};check.Unchecked+=(s,e)=>{sumExcluded.Add(dose.PlanUid);MarkSumPending();};panel.Children.Add(check);
+            }
+            var generate=Theme.Button("Generate sum");generate.ToolTip="Add only the checked physical PLAN doses. No fraction scaling. Compatible coordinate systems only.";generate.Click+=async(s,e)=>await BuildSumAsync();panel.Children.Add(generate);
+            if(sumResult?.Dose!=null)panel.Children.Add(Theme.Text("Displayed: "+sumResult.Dose.Label,11,Theme.Accent));
+            return panel;
+        }
+        private void MarkSumPending(){activity.Visibility=Visibility.Visible;activity.Text="Selection changed · click Generate sum to update";sumLoad?.Cancel();}
         // Called by the scanner on its worker thread. Only matching patient's RT objects are decoded.
         private void OnEntryFound(DicomEntry entry)
         {

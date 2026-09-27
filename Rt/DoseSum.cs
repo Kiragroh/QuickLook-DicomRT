@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -18,6 +18,20 @@ namespace QuickLook.DicomRT
     }
     public static class DoseSum
     {
+        // Separate spatial groups before selecting a reference. Never let the first
+        // unrelated dose silently determine which other plans are excluded.
+        public static List<List<DoseGrid>> CompatibleGroups(IReadOnlyList<DoseGrid> doses,IReadOnlyList<RegistrationLink> registrations)
+        {
+            var links=(registrations??new List<RegistrationLink>()).ToList();
+            var eligible=(doses??new List<DoseGrid>()).Where(d=>d!=null&&d.Units=="GY"&&d.DoseType=="PHYSICAL"&&d.SummationType=="PLAN"&&d.ReferencedPlanCount==1&&!string.IsNullOrEmpty(d.PlanUid)&&!string.IsNullOrEmpty(d.FrameUid)&&!string.IsNullOrEmpty(d.Entry?.SopUid))
+                .GroupBy(d=>d.Entry.SopUid).Select(g=>g.First()).GroupBy(d=>d.PlanUid).Where(g=>g.Count()==1).Select(g=>g.First()).OrderBy(d=>d.PlanUid,StringComparer.Ordinal);
+            var result=new List<List<DoseGrid>>();
+            foreach(var dose in eligible){var group=result.FirstOrDefault(g=>g.All(other=>{
+                if(!string.IsNullOrEmpty(other.Entry.PatientKey)&&!string.IsNullOrEmpty(dose.Entry.PatientKey)&&other.Entry.PatientKey!=dose.Entry.PatientKey)return false;
+                var map=RegistrationReader.Resolve(links,other.FrameUid,dose.FrameUid);return map!=null&&Rigid(map);
+            }));if(group==null){group=new List<DoseGrid>();result.Add(group);}group.Add(dose);}
+            return result.Where(g=>g.Count>1&&g.Any(d=>d.Volume!=null)).ToList();
+        }
         sealed class Input {public DoseGrid Dose;public Matrix4 ReferenceToDose;}
         /// <summary>In-memory physical dose preview on the first eligible regular dose grid.
         /// Every output node requires finite values in every included source; other nodes remain NaN.

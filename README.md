@@ -1,10 +1,10 @@
 ﻿# DICOM RT for QuickLook
 
-**Version 0.2.16** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
+**Version 0.2.17** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.16.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.17.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
 
 [Open the HTML presentation in your browser](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
 
@@ -14,12 +14,13 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 [Read the feature changelog](CHANGELOG.md) for the full list of new capabilities and shortcuts.
 
-## New in 0.2.16
+## New in 0.2.17
 
-- **Full-pane field geometry:** gantry tracks and fixed-field aperture intersections extend into free space beyond the CT raster, staying inside their own view.
-- **Prepared MLC playback:** exact fractional CP projections are warmed ahead of the cursor. DRR preparation runs separately from contours; current computation finishes into the cache instead of being discarded at each tick.
-- **Responsive DRR:** compact 192-pixel projections prepare during navigation and refine to 384 pixels when stationary. Playback retains the complete current CP while a missing exact-angle overlay is prepared; manual navigation remains available. No previous-angle anatomy is substituted.
-- The top **PNG** button saves the whole viewer, including open sidebars; right-click a view for its crop. Initial compatible dose loading positions the image at the plan isocenter unless you have navigated manually.
+- **Selectable plan sums:** separate compatible spatial groups, named plan members, checkboxes and an explicit Generate sum action.
+- **Fast navigation:** plan changes go to isocenter or Dmax; generated sums go to Dmax. The Dose panel also has a Dose maximum button.
+- **Custom electron cutouts:** recorded APERTURE/SHIELDING blocks appear in slice intersections, beam-eye view and the 3D aperture guide.
+- **Compact opacity controls:** vertically stacked 3D opacity controls and a collapsible colorwash section.
+- **Search subfolders:** when no RT is found, select a common parent to discover matching RT in sibling folders without closing the image preview.
 
 ## Workspace features
 
@@ -38,9 +39,9 @@ The DRR is a HU-derived display projection, not a calibrated treatment image. It
 
 Install and start [QuickLook for Windows](https://github.com/QL-Win/QuickLook) first. The plugin was developed against QuickLook 4.5 and targets .NET Framework 4.6.2; the .NET Framework 4.8 runtime is required. Direct3D 11 provides the main 3D renderer. QuickLook is a separate dependency and is not bundled.
 
-Download **QuickLook-DicomRT-Setup-0.2.16.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
+Download **QuickLook-DicomRT-Setup-0.2.17.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
 
-For manual installation, download `QuickLook.Plugin.DicomRT-0.2.16.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
+For manual installation, download `QuickLook.Plugin.DicomRT-0.2.17.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
 
 ## Explore a dataset
 
@@ -119,7 +120,7 @@ Core geometry, RT interpretation and WPF presentation are separate projects; see
 
 This is an independent C# implementation. DICOM Browser was a feature reference; no Rust code or binaries from it are included. See [dependency notices](THIRD_PARTY.md) and [generated icon provenance](assets/README.md).
 
-### Export and arc display (0.2.16)
+### Export and arc display (0.2.17)
 
 Exports include Patient ID and the relevant Plan ID in the filename; PNGs and detailed DVH tables carry them inside the export too. DVH CSV offers a complete table with metrics or a four-column curves-only format, both with at most four decimal places.
 

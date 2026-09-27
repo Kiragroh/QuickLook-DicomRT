@@ -18,7 +18,7 @@ namespace QuickLook.DicomRT
         }
         public static ControlPoint Interpolate(ControlPoint a,ControlPoint b,double t)
         {
-            return new ControlPoint {DoseRateSet=t<1?a.DoseRateSet:b.DoseRateSet,Gantry=Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),Couch=Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false),Collimator=Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false),
+            return new ControlPoint {Blocks=a.Blocks,DoseRateSet=t<1?a.DoseRateSet:b.DoseRateSet,Gantry=Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),Couch=Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false),Collimator=Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false),
                 Isocenter=a.Isocenter+(b.Isocenter-a.Isocenter)*t,GantryPitch=a.GantryPitch+(b.GantryPitch-a.GantryPitch)*t,TablePitch=a.TablePitch+(b.TablePitch-a.TablePitch)*t,TableRoll=a.TableRoll+(b.TableRoll-a.TableRoll)*t,TableEccentric=a.TableEccentric+(b.TableEccentric-a.TableEccentric)*t,
                 XJaws=Positions(a.XJaws,b.XJaws,t),YJaws=Positions(a.YJaws,b.YJaws,t),MlcLayers=Layers(a,b,t).ToList()};
         }

@@ -1,4 +1,18 @@
-﻿# 0.2.16 verification
+﻿# 0.2.17 verification
+
+280 WPF interaction checks passed. New coverage includes compatible sum grouping, explicit member exclusion, maximum-voxel navigation, concave block area, shielding subtraction, prepared block-geometry reuse, and recursive UI discovery while retaining the displayed image and rejecting another patient's RT.
+
+371 render/coordinate checks and 48 contour reformat checks passed. A rotated, concave electron aperture was checked against 4,107 independent analytic ray-projection samples across axial, coronal and sagittal planes. Raster capture was unavailable in the disconnected test session; field-pane clipping is verified from the actual WPF drawing tree and inherited clip regions instead of claiming a screenshot check.
+
+135 RT assertions and the Core suite passed, including irregular/descending dose-maximum coordinates, folder-local default discovery, recursive sibling-folder discovery with RT priority, and cancellation.
+
+The user-supplied private case was read locally without exporting identifiers or images. Four plans and four doses loaded. Separate coordinate groups were identified; the three compatible electron plans generated a sum and a two-plan subset regenerated correctly. Dmax navigation and all four individual-plan switches were exercised. Three custom cutouts parsed successfully. First BEV cutout preparation took 5.4 ms; 100 prepared geometry lookups took 0.3 ms in one local run.
+
+These are engineering checks, not clinical acceptance or guaranteed cold-start timings. Sums combine user-selected physical PLAN doses without fraction scaling, extrapolation, or inferred clinical course equivalence. Custom block guides do not model electron transport or penumbra. Private data is absent from release assets.
+
+---
+
+# 0.2.16 verification
 
 265 WPF interaction checks passed, including fractional exact-angle contour/DRR cache hits, changed playback speeds, stationary 384-pixel DRR refinement, a raster check for visible gantry geometry beyond the CT rectangle, fixed-field intersections beyond that rectangle, and pane clipping. Render checks passed: 368 render/coordinate checks and 48 contour reformat checks.
 

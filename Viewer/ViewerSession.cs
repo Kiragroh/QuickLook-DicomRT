@@ -88,6 +88,7 @@ namespace QuickLook.DicomRT
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
                 RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
+                searchSubfolders.Visibility=structures.Count+doses.Count+planData.Count==0?System.Windows.Visibility.Visible:System.Windows.Visibility.Collapsed;
             }
             catch (OperationCanceledException) { }
             catch (Exception) { if (!disposed) status.Text = "Unable to load the complete DICOM preview. Check the file, read permissions or encoding."; }
@@ -96,15 +97,19 @@ namespace QuickLook.DicomRT
         private bool initialIsocenterApplied,userNavigatedImage;
         private async Task TryInitialIsocenterAsync()
         {
-            if(disposed||initialIsocenterApplied||userNavigatedImage||sumMode||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true||selectedPlan==null)return;
+            if(disposed||initialIsocenterApplied||userNavigatedImage||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true)return;
             if(!SelectedDoses.Any(d=>TransformToImage(d.FrameUid)!=null))return;
-            var map=TransformToImage(selectedPlan.FrameUid);var points=IsocenterNavigation.MappedPoints(selectedPlan,map);if(points.Count==0)return;
-            var point=points[0];if(points.Count>1&&activeFieldPoint!=null&&map!=null){var active=map.Transform(activeFieldPoint.Isocenter);if(points.Any(p=>(p-active).Length<.1))point=active;}
-            initialIsocenterApplied=true;focus=point;viewportCenter=point;
-            // Also select the actual source slice when opening in MLC/3D, so returning
-            // to Native cannot display the old midpoint with an out-of-plane crosshair.
-            int nearest=Enumerable.Range(0,currentStack.Entries.Count).OrderBy(i=>Math.Abs((currentStack.Entries[i].Origin-point).Dot(currentStack.Entries[i].AxisX.Cross(currentStack.Entries[i].AxisY)))).First();
-            await ShowSliceAsync(nearest,true);
+            if(await JumpToPlanDoseAsync())initialIsocenterApplied=true;
+        }
+        private async Task<bool> JumpToPlanDoseAsync(bool maximumOnly=false)
+        {
+            Vec3? destination=null;
+            if(!maximumOnly&&!sumMode&&selectedPlan!=null){var points=IsocenterNavigation.MappedPoints(selectedPlan,TransformToImage(selectedPlan.FrameUid));if(points.Count>0){destination=points[0];if(activeFieldPoint!=null&&selectedPlan.Beams.Contains(activeField)){var map=TransformToImage(selectedPlan.FrameUid);if(map!=null){var active=map.Transform(activeFieldPoint.Isocenter);if(points.Any(p=>(p-active).Length<.1))destination=active;}}}}
+            if(!destination.HasValue){var dose=SelectedDoses.Where(d=>d.MaximumPosition.HasValue&&TransformToImage(d.FrameUid)!=null).OrderByDescending(d=>d.Maximum).FirstOrDefault();if(dose!=null)destination=TransformToImage(dose.FrameUid).Transform(dose.MaximumPosition.Value);}
+            if(!destination.HasValue)return false;
+            var point=destination.Value;focus=point;viewportCenter=point;
+            if(currentStack!=null&&currentStack.Entries.Count>0){int nearest=Enumerable.Range(0,currentStack.Entries.Count).OrderBy(i=>Math.Abs((currentStack.Entries[i].Origin-point).Dot(currentStack.Entries[i].AxisX.Cross(currentStack.Entries[i].AxisY)))).First();await ShowSliceAsync(nearest,true);}
+            else Redraw();return true;
         }
 
         private async Task SelectStackAsync(ImageStack stack)

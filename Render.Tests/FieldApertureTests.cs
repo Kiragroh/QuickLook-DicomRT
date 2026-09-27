@@ -8,6 +8,15 @@ internal static class FieldApertureTests
 {
     public static void Run(Action<bool,string> check)
     {
+        var block=BeamBlock.Create("APERTURE",new[]{-20d,-20,20,-20,20,0,0,0,0,20,-20,20},6);
+        var blockPoint=new ControlPoint{Gantry=54,Collimator=32,Isocenter=new Vec3(35,-40,0),XJaws=new[]{-100d,100},YJaws=new[]{-100d,100},Blocks={block}};
+        string blockReason;var blockBeam=new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};var project=BeamProjection.Create(blockBeam,blockPoint,Matrix4.Identity,out blockReason);
+        var blockVolume=new VolumeData{Width=101,Height=101,Depth=101,Origin=new Vec3(-100,-100,-100),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1),SpacingX=2,SpacingY=2,SpacingZ=2};
+        foreach(var plane in new[]{"Axial","Coronal","Sagittal"}){
+            var slice=SliceGeometry.Create(new RenderScene{Volume=blockVolume,Plane=plane,Focus=blockPoint.Isocenter});var actual=FieldArrangementDrawing.Opening(project,blockPoint,slice).Clone();actual.Transform=new ScaleTransform(1000,1000);int compared=0;
+            for(int y=0;y<37;y++)for(int x=0;x<37;x++){double u=(x+.37)/37,v=(y+.61)/37,bx,by;var world=slice.WorldAt(u,v);bool front=project.Project(world,out bx,out by);bool expected=front&&bx>=-20&&bx<=20&&by>=-20&&by<=20&&(bx<=0||by<=0);if(actual.FillContains(new Point(u*1000,v*1000),.000001,ToleranceType.Absolute)!=expected)throw new Exception("custom block slice disagrees with independent analytic ray projection in "+plane);compared++;}
+            check(compared==1369,"rotated concave electron aperture matches ray projection in "+plane);
+        }
         var motion=new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};motion.ControlPoints.Add(new ControlPoint{Gantry=350,GantryRotationDirection="CW",DoseRateSet=600});motion.ControlPoints.Add(new ControlPoint{Gantry=10});
         check(BeamMotion.IsArc(motion)&&Math.Abs(BeamMotion.Travel(motion.ControlPoints[0],motion.ControlPoints[1])-20)<1e-8,"arc uses directed wraparound");
         var path=BeamMotion.Path(motion,Matrix4.Identity);check(path.Length==11&&path.All(p=>p.Rate==600),"arc source track carries segment rate");

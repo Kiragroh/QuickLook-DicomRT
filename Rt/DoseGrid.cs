@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Dicom;
 using Dicom.Imaging;
@@ -11,6 +11,7 @@ namespace QuickLook.DicomRT
         public string FrameUid,Units,PlanUid,Label,DoseType,SummationType;
         public int ReferencedPlanCount;
         public float Maximum; public bool Visible=true;
+        public Vec3? MaximumPosition {get;private set;}
         int width,height,depth; float[] values; double[] offsets;
         Vec3 origin,xAxis,yAxis,zAxis; double sx,sy;
         // Geometry-only sampling bounds also cover nonuniform frame offsets.
@@ -48,7 +49,7 @@ namespace QuickLook.DicomRT
             if((bits!=16 && bits!=32) || stored<1 || stored>bits || high<stored-1 || high>=bits || px.SamplesPerPixel!=1) throw new ArgumentException("Unsupported dose pixel encoding.");
             bool signed=RtDicom.Int(d,DicomTag.PixelRepresentation)==1;
             var data=new float[checked(w*h*n)];
-            float minimum=float.PositiveInfinity,maximum=float.NegativeInfinity;
+            float minimum=float.PositiveInfinity,maximum=float.NegativeInfinity;int maximumIndex=0;
             ulong mask=(1UL<<stored)-1,sign=1UL<<(stored-1);
             for(int z=0;z<n;z++)
             {
@@ -63,7 +64,7 @@ namespace QuickLook.DicomRT
                     long integer=signed && (raw&sign)!=0 ? (long)raw-(1L<<stored) : (long)raw;
                     double scaled=integer*scale;
                     if(!RtDicom.Finite(scaled) || Math.Abs(scaled)>float.MaxValue) throw new ArgumentException("Nonfinite dose samples.");
-                    float value=(float)scaled; data[dest+i]=value; minimum=Math.Min(minimum,value); maximum=Math.Max(maximum,value);
+                    float value=(float)scaled; data[dest+i]=value; minimum=Math.Min(minimum,value); if(value>maximum){maximum=value;maximumIndex=dest+i;}
                 }
             }
             if(direction<0) Array.Reverse(off);
@@ -71,6 +72,7 @@ namespace QuickLook.DicomRT
                 PlanUid=RtDicom.Items(d,DicomTag.ReferencedRTPlanSequence).Select(i=>RtDicom.Text(i,DicomTag.ReferencedSOPInstanceUID)).FirstOrDefault()??"",ReferencedPlanCount=RtDicom.Items(d,DicomTag.ReferencedRTPlanSequence).Count(),
                 Label=RtDicom.Text(d,DicomTag.DoseSummationType,"RTDOSE"),Maximum=maximum,width=w,height=h,depth=n,values=data,offsets=off,
                 origin=new Vec3(pos[0],pos[1],pos[2]),xAxis=ax,yAxis=ay,zAxis=ax.Cross(ay).Normalized(),sx=spacing[1],sy=spacing[0]};
+            grid.MaximumPosition=grid.origin+ax*((maximumIndex%w)*grid.sx)+ay*((maximumIndex/w%h)*grid.sy)+grid.zAxis*off[maximumIndex/(w*h)];
             double dz=n>1?off[1]-off[0]:1;
             if(n>1 && Enumerable.Range(1,n-1).All(i=>Math.Abs((off[i]-off[i-1])-dz)<=1e-5))
                 grid.Volume=new VolumeData {Width=w,Height=h,Depth=n,Values=data,Origin=grid.origin+grid.zAxis*off[0],AxisX=ax,AxisY=ay,AxisZ=grid.zAxis,
@@ -100,7 +102,8 @@ namespace QuickLook.DicomRT
         {
             if(volume==null || volume.Values==null || volume.Width<1 || volume.Height<1 || volume.Depth<1 || (long)volume.Width*volume.Height*volume.Depth!=volume.Values.Length)
                 throw new ArgumentException("Invalid derived dose volume.");
-            return new DoseGrid {Volume=volume,Entry=new DicomEntry {Modality="RTDOSE",FrameUid=frameUid},FrameUid=frameUid,Units="GY",DoseType="PHYSICAL",SummationType="MULTI_PLAN",PlanUid="",Label=label,Maximum=volume.Max,
+            int maximumIndex=-1;float maximum=float.NegativeInfinity;for(int i=0;i<volume.Values.Length;i++)if(RtDicom.Finite(volume.Values[i])&&volume.Values[i]>maximum){maximum=volume.Values[i];maximumIndex=i;}
+            return new DoseGrid {MaximumPosition=maximumIndex<0?(Vec3?)null:volume.WorldAt(maximumIndex%volume.Width,maximumIndex/volume.Width%volume.Height,maximumIndex/(volume.Width*volume.Height)),Volume=volume,Entry=new DicomEntry {Modality="RTDOSE",FrameUid=frameUid},FrameUid=frameUid,Units="GY",DoseType="PHYSICAL",SummationType="MULTI_PLAN",PlanUid="",Label=label,Maximum=volume.Max,
                 width=volume.Width,height=volume.Height,depth=volume.Depth,values=volume.Values,offsets=Enumerable.Range(0,volume.Depth).Select(i=>i*volume.SpacingZ).ToArray(),origin=volume.Origin,xAxis=volume.AxisX,yAxis=volume.AxisY,zAxis=volume.AxisZ,sx=volume.SpacingX,sy=volume.SpacingY};
         }
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,6 +36,12 @@ class Program {
  }
  static void Catalog(){string dir=Path.Combine(folder,"catalog");Directory.CreateDirectory(dir);string path=null;foreach(int z in new[]{4,0,2}){path=Path.Combine(dir,"slice"+z+".dcm");new DicomFile(Make(z)).Save(path);}new DicomFile(Make(0,2)).Save(Path.Combine(dir,"echo.dcm"));File.WriteAllText(Path.Combine(dir,"other.txt"),"not dicom");var c=DicomCatalog.Scan(path,CancellationToken.None);Check(c.Files.Count==4&&c.SkippedFiles==1,"bounded directory scan");Check(c.Stacks.Count==2,"echo split");var s=c.Stacks.Single(x=>x.Entries.Count==3);Check(s.CanMpr&&s.Entries[0].Origin.Z==0&&s.Entries[2].Origin.Z==4,"geometric ordering");var v=VolumeData.Load(s,CancellationToken.None);Check(v.Depth==3&&v.SpacingZ==2&&v.Values.Length==12,"load volume");}
  static ImageStack Stack(params double[] zs){var s=new ImageStack();int i=0;foreach(var z in zs)s.Entries.Add(DicomCatalog.ReadEntry(Save(Make(z),"unsafe"+(i++)+".dcm")));return s;}
+ static void RecursiveCatalog(){
+  var root=Path.Combine(folder,"nested");var ct=Path.Combine(root,"CT");var rt=Path.Combine(root,"RT","plan");Directory.CreateDirectory(ct);Directory.CreateDirectory(rt);string selected=Path.Combine(ct,"ct.dcm");new DicomFile(Make(0)).Save(selected);
+  var dataset=new DicomDataset().Add(DicomTag.SOPClassUID,DicomUID.RTPlanStorage).Add(DicomTag.SOPInstanceUID,"2.25.99801").Add(DicomTag.Modality,"RTPLAN").Add(DicomTag.PatientID,"SYNTHETIC");new DicomFile(dataset).Save(Path.Combine(rt,"opaque.bin"));
+  Check(DicomCatalog.Scan(selected,CancellationToken.None).Files.Count==1,"default search remains folder-local");var seen=new List<string>();var catalog=DicomCatalog.Scan(selected,CancellationToken.None,entryFound:e=>seen.Add(e.Modality),searchRoot:root,recursive:true);Check(catalog.Files.Count==2&&seen[0]=="RTPLAN","chosen common parent finds sibling RT with RT-first decoding");
+  using(var cancel=new CancellationTokenSource()){cancel.Cancel();bool stopped=false;try{DicomCatalog.Scan(selected,cancel.Token,searchRoot:root,recursive:true);}catch(OperationCanceledException){stopped=true;}Check(stopped,"recursive discovery is cancellable");}
+ }
  static void PriorityCatalog(){
   var dir=Path.Combine(folder,"priority");Directory.CreateDirectory(dir);var paths=new List<string>();
   for(int i=0;i<48;i++){var path=Path.Combine(dir,"000-image-"+i.ToString("D3")+".dcm");new DicomFile(Make(i*2)).Save(path);paths.Add(path);}

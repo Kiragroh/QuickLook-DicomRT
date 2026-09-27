@@ -77,23 +77,18 @@ namespace QuickLook.DicomRT
         // Merge the filled leaf ray intersections before stroking: no internal leaf seams.
         internal static Geometry Opening(BeamProjection projection,ControlPoint cp,SliceGeometry g,CancellationToken token=default(CancellationToken),Rect? viewport=null)
         {
-            Geometry union=null;var bounds=viewport??new Rect(0,0,1,1);
-            foreach(var r in BeamAperture.Rectangles(cp))
-            {
-                token.ThrowIfCancellationRequested();
-                var corners=new[]{projection.PlanePoint(r.Left,r.Bottom),projection.PlanePoint(r.Right,r.Bottom),projection.PlanePoint(r.Right,r.Top),projection.PlanePoint(r.Left,r.Top)};
+            var bounds=viewport??new Rect(0,0,1,1);
+            Geometry ProjectPolygons(IEnumerable<Vec3[]> parts){Geometry merged=null;foreach(var part in parts){
+                token.ThrowIfCancellationRequested();var corners=part.Select(v=>projection.PlanePoint(v.X,v.Y)).ToArray();
                 var polygon=new List<Vec3>{g.WorldAt(bounds.Left,bounds.Top),g.WorldAt(bounds.Right,bounds.Top),g.WorldAt(bounds.Right,bounds.Bottom),g.WorldAt(bounds.Left,bounds.Bottom)};
-                var center=projection.PlanePoint((r.Left+r.Right)*.5,(r.Bottom+r.Top)*.5);
-                for(int i=0;i<4&&polygon.Count>0;i++){
-                    var normal=(corners[i]-projection.Source).Cross(corners[(i+1)%4]-projection.Source).Normalized();
-                    if(normal.Dot(center-projection.Source)<0)normal=normal*-1;
-                    polygon=Clip(polygon,projection.Source,normal);
-                }
-                polygon=Clip(polygon,projection.Source+projection.Forward*.001,projection.Forward);
-                if(polygon.Count<3)continue;
-                var part=new StreamGeometry();using(var c=part.Open()){c.BeginFigure(new Point(g.U(polygon[0]),g.V(polygon[0])),true,true);c.PolyLineTo(polygon.Skip(1).Select(v=>new Point(g.U(v),g.V(v))).ToArray(),true,false);}union=union==null?(Geometry)part:Geometry.Combine(union,part,GeometryCombineMode.Union,null,.000001,ToleranceType.Absolute);
-            }
-            if(union==null)return null;
+                var center=projection.PlanePoint(part.Average(v=>v.X),part.Average(v=>v.Y));
+                for(int i=0;i<corners.Length&&polygon.Count>0;i++){var normal=(corners[i]-projection.Source).Cross(corners[(i+1)%corners.Length]-projection.Source).Normalized();if(normal.Dot(center-projection.Source)<0)normal=normal*-1;polygon=Clip(polygon,projection.Source,normal);}
+                polygon=Clip(polygon,projection.Source+projection.Forward*.001,projection.Forward);if(polygon.Count<3)continue;
+                var shape=new StreamGeometry();using(var c=shape.Open()){c.BeginFigure(new Point(g.U(polygon[0]),g.V(polygon[0])),true,true);c.PolyLineTo(polygon.Skip(1).Select(v=>new Point(g.U(v),g.V(v))).ToArray(),true,false);}
+                merged=merged==null?(Geometry)shape:Geometry.Combine(merged,shape,GeometryCombineMode.Union,null,.000001,ToleranceType.Absolute);
+            }return merged??Geometry.Empty;}
+            var union=ProjectPolygons(BeamAperture.Rectangles(cp).Select(r=>new[]{new Vec3(r.Left,r.Bottom,0),new Vec3(r.Right,r.Bottom,0),new Vec3(r.Right,r.Top,0),new Vec3(r.Left,r.Top,0)}));
+            foreach(var block in cp.Blocks)union=Geometry.Combine(union,ProjectPolygons(block.Triangles),block.Type=="APERTURE"?GeometryCombineMode.Intersect:GeometryCombineMode.Exclude,null,.000001,ToleranceType.Absolute);
             var result=union.GetOutlinedPathGeometry(.000001,ToleranceType.Absolute);result.Freeze();return result;
         }
         static List<Vec3> Clip(List<Vec3> input,Vec3 source,Vec3 normal)

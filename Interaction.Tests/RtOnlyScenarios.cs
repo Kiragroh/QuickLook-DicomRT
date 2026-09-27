@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -66,6 +66,17 @@ internal static class RtOnlyScenarios
         {
             string source=FixtureFolder(root);
             Action<string,string[]> stage=(name,files)=>{var folder=Path.Combine(root,name);Directory.CreateDirectory(folder);foreach(var file in files)File.Copy(Path.Combine(source,file),Path.Combine(folder,file));};
+            var split=Path.Combine(root,"split");var imageFolder=Path.Combine(split,"CT");var rtFolder=Path.Combine(split,"RT");Directory.CreateDirectory(imageFolder);Directory.CreateDirectory(rtFolder);
+            foreach(var name in new[]{"RTPLAN.dcm","RTDOSE.dcm","RTSTRUCT.dcm"})File.Copy(Path.Combine(source,name),Path.Combine(rtFolder,name));
+            var image=DicomFile.Open(Path.Combine(source,"RTDOSE.dcm")).Dataset;image.AddOrUpdate(DicomTag.SOPClassUID,DicomUID.CTImageStorage);image.AddOrUpdate(DicomTag.SOPInstanceUID,"1.2.826.0.1.3680043.10.543.91");image.AddOrUpdate(DicomTag.SeriesInstanceUID,"1.2.826.0.1.3680043.10.543.92");image.AddOrUpdate(DicomTag.Modality,"CT");var imagePath=Path.Combine(imageFolder,"image.dcm");new DicomFile(image).Save(imagePath);
+            var foreign=DicomFile.Open(Path.Combine(source,"RTPLAN.dcm")).Dataset;foreign.AddOrUpdate(DicomTag.PatientID,"OTHER_TEST_PATIENT");foreign.AddOrUpdate(DicomTag.SOPInstanceUID,"1.2.826.0.1.3680043.10.543.93");new DicomFile(foreign).Save(Path.Combine(rtFolder,"foreign.dcm"));
+            using(var viewer=Open(imagePath)){
+                check(Field<Button>(viewer,"searchSubfolders").Visibility==Visibility.Visible,"image-only discovery shows bottom-right subfolder search");var before=Field<DicomEntry>(viewer,"currentEntry");
+                Pump((Task)typeof(ViewerControl).GetMethod("SearchFolderAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{split}));
+                check(Field<List<PlanData>>(viewer,"planData").Count==1&&Field<List<DoseGrid>>(viewer,"doses").Count==1&&viewer.StructureCount>0,"recursive UI search adds matching RT and rejects other patient");
+                check(Field<DicomEntry>(viewer,"currentEntry").SopUid==before.SopUid&&viewer.HasImage,"recursive RT discovery preserves the displayed image");
+                check(Field<bool>(viewer,"layersVisible")&&Field<Button>(viewer,"searchSubfolders").Content.ToString()=="Search subfolders…","RT panel opens and search remains repeatable");
+            }
             stage("plan",new[]{"RTPLAN.dcm"});
             using(var viewer=Open(Path.Combine(root,"plan","RTPLAN.dcm")))
             {

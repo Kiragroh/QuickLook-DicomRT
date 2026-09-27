@@ -2,6 +2,32 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.17 — 27 September 2026
+
+### Selectable plan sums
+
+- Compatible physical PLAN doses are offered as separate spatial groups. An unrelated first dose no longer hides a sum in another frame of reference.
+- The dropdown names the group members. The Dose panel lists every plan with a checkbox and **Generate sum**. The displayed sum explicitly names its included plans; changing checkboxes keeps the previous result until regeneration.
+- Same-frame or unambiguously rigid-registered doses can be combined. Unrelated frames, ambiguous duplicate plan doses and incompatible units are excluded. There is no inferred clinical course grouping or fraction scaling; users choose which compatible plans contribute.
+
+### Isocenter and dose-maximum navigation
+
+- Initial compatible dose loading and individual-plan changes navigate to the mapped isocenter, with **Dmax as the fallback** when no isocenter is available. Initial loading still respects prior manual navigation.
+- Generated plan sums navigate to their maximum finite dose voxel. A **Dose maximum** button provides the same action on demand.
+- Maximum voxel locations are prepared during dose loading, including nonuniform and descending frame offsets.
+
+### Custom electron apertures
+
+- Individual DICOM APERTURE and SHIELDING block contours now contribute to image-plane field intersections, the beam-eye preview and the active 3D aperture miniature.
+- Concave cutouts retain their true boundary. Block coordinates are interpreted in their recorded IEC beam-limiting-device isocentric plane, including collimator rotation, without applying source-to-tray scaling twice.
+- These are geometric field guides, not an electron transport or penumbra calculation. Missing or unsupported block geometry is not replaced with a fabricated jaw aperture.
+
+### Compact controls and subfolder discovery
+
+- **Opacity** opens vertically stacked ROI and skin controls in 3D. Colorwash opacity and thresholds are grouped in a collapsed section of the Dose panel.
+- With no RT objects found, a bottom-right **Search subfolders** button lets you select the common parent of image and RT directories, including sibling folders.
+- Recursive discovery remains cancellable, prioritizes RT, filters loaded RT to the opened patient, skips inaccessible folders and directory links, and retains the displayed image. Source files remain unchanged.
+
 ## 0.2.16 — 27 September 2026
 
 ### Field geometry across the full image pane

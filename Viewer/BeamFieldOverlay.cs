@@ -21,6 +21,7 @@ namespace QuickLook.DicomRT
   internal bool ShowFields;
   PlanBeam miniatureBeam;ControlPoint miniaturePoint;double miniatureExtent;
   List<BeamAperture.Opening> miniatureOpenings=new List<BeamAperture.Opening>();
+  Geometry blockMiniature;
   List<ApertureEdge> miniatureEdges=new List<ApertureEdge>();
   internal Vec3[] MiniatureCorners=new Vec3[0];
   internal Point? MiniatureAnchor;internal Rect MiniatureBounds;
@@ -41,7 +42,7 @@ namespace QuickLook.DicomRT
    if(value?.ActiveBeam!=miniatureBeam||value?.ActiveControlPoint!=miniaturePoint){
     if(value?.ActiveBeam!=miniatureBeam)miniatureExtent=MiniatureExtent(value?.ActiveBeam);
     miniatureBeam=value?.ActiveBeam;miniaturePoint=value?.ActiveControlPoint;
-    miniatureOpenings=BeamAperture.Rectangles(miniaturePoint);miniatureEdges=ApertureBoundary(miniatureOpenings);
+    blockMiniature=miniaturePoint?.Blocks.Count>0?BlockApertureGeometry.Create(miniaturePoint):null;miniatureOpenings=BeamAperture.Rectangles(miniaturePoint);miniatureEdges=ApertureBoundary(miniatureOpenings);
 
    }
    InvalidateVisual();
@@ -98,6 +99,13 @@ namespace QuickLook.DicomRT
    MiniatureAnchor=anchor;MiniatureBounds=new Rect(new Point(corners.Min(v=>v.X),corners.Min(v=>v.Y)),new Point(corners.Max(v=>v.X),corners.Max(v=>v.Y)));MiniatureVisible=true;
    // All jaws and MLC layers intersect the opening. Leave this union completely
    // unpainted; only a short bank-side fringe fades away from the real boundary.
+   if(blockMiniature!=null){
+    var projected=new StreamGeometry();using(var context=projected.Open())foreach(var figure in blockMiniature.GetFlattenedPathGeometry().Figures){var vertices=new List<Point>{figure.StartPoint};foreach(var segment in figure.Segments){if(segment is PolyLineSegment poly)vertices.AddRange(poly.Points);else if(segment is LineSegment line)vertices.Add(line.Point);}
+      var display=new List<Point>();foreach(var v in vertices){Point at;if(Project(world(v.X,v.Y),out at))display.Add(at);}if(display.Count==vertices.Count&&display.Count>2){context.BeginFigure(display[0],true,true);context.PolyLineTo(display.Skip(1).ToArray(),true,false);}}
+    dc.PushClip(new CombinedGeometry(GeometryCombineMode.Exclude,new RectangleGeometry(new Rect(RenderSize)),projected));
+    for(int i=12;i>=1;i--)dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromArgb((byte)(8+3*(12-i)),113,167,191)),i*1.2),projected);dc.Pop();dc.DrawGeometry(null,new Pen(Brushes.Gold,1.2),projected);
+    Label(dc,"B"+scene.ActiveBeam.Number+" · C "+cp.Collimator.ToString("0.#",CultureInfo.InvariantCulture)+"°",corners.OrderBy(v=>v.Y).First()+new Vector(3,-15),Brushes.Gold);return;
+   }
    var aperture=new StreamGeometry();using(var g=aperture.Open())foreach(var r in miniatureOpenings){
     var vertices=new[]{world(r.Left,r.Bottom),world(r.Right,r.Bottom),world(r.Right,r.Top),world(r.Left,r.Top)};
     var screen=new Point[4];bool visible=true;for(int i=0;i<4;i++)if(!Project(vertices[i],out screen[i]))visible=false;

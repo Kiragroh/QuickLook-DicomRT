@@ -28,11 +28,12 @@ internal static class FieldClipScenarios
    int outside=0;var timeout=Stopwatch.StartNew();
    do{
     var drawing=new DrawingVisual();using(var dc=drawing.RenderOpen())typeof(SlicePane).GetMethod("OnRender",F).Invoke(pane,new object[]{dc});
-    var target=new RenderTargetBitmap(1000,600,96,96,PixelFormats.Pbgra32);target.Render(drawing);var pixels=new byte[1000*600*4];target.CopyPixels(pixels,4000,0);
-    outside=0;for(int y=60;y<540;y++)for(int x=(int)Math.Ceiling(rect.Right)+8;x<970;x++){int k=(y*1000+x)*4;if(pixels[k+2]>160&&pixels[k+1]>130&&pixels[k]<125)outside++;}
-    if(outside>30)break;Thread.Sleep(5);
+    // Inspect the actual WPF drawing tree, including inherited clip regions.
+    // RenderTargetBitmap can return an empty surface in a disconnected session.
+    outside=CountFieldSegments(drawing.Drawing,new Rect(0,0,1000,600),rect.Right+8);
+    if(outside>10)break;Thread.Sleep(5);
    }while(timeout.ElapsedMilliseconds<3000);
-   check(rect.Right<800&&outside>30,"gantry ring renders into available pane beyond CT image boundary");
+   check(rect.Right<800&&outside>10,"gantry ring renders into available pane beyond CT image boundary");
    var fixedPoint=new ControlPoint{Gantry=90,Isocenter=geometry.Center,XJaws=new[]{-30d,30d},YJaws=new[]{-30d,30d}};string reason;
    var projection=BeamProjection.Create(beam,fixedPoint,Matrix4.Identity,out reason);
    var drawingType=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.FieldArrangementDrawing");
@@ -41,4 +42,10 @@ internal static class FieldClipScenarios
    check(pane.ClipToBounds,"field geometry remains clipped to its own view pane");
   }
  }
+ static int CountFieldSegments(Drawing drawing,Rect clip,double right)
+ {
+  if(drawing is DrawingGroup group){if(group.ClipGeometry!=null)clip.Intersect(group.ClipGeometry.Bounds);int count=0;foreach(var child in group.Children)count+=CountFieldSegments(child,clip,right);return count;}
+  if(drawing is GeometryDrawing geometry&&geometry.Pen?.Brush is SolidColorBrush brush&&brush.Color.R>160&&brush.Color.G>130&&brush.Color.B<125){var bounds=geometry.Bounds;bounds.Intersect(clip);return !bounds.IsEmpty&&bounds.Right>right?1:0;}return 0;
+ }
+
 }

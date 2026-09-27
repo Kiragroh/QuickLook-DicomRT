@@ -74,7 +74,7 @@ namespace QuickLook.DicomRT
     }
     internal sealed class MlcAperture : FrameworkElement
     {
-        private ControlPoint first,second;private double fraction;private int layerIndex=-1;
+        private Geometry blockAperture;private ControlPoint first,second;private double fraction;private int layerIndex=-1;
         private MlcProjectionFrame projection;
         public MlcProjectionFrame Projection {get=>projection;set{projection=value;InvalidateVisual();}}
         double drrLeafOpacity=.75;
@@ -82,7 +82,7 @@ namespace QuickLook.DicomRT
         public bool Compact {get;set;}
         public double Extent {get;set;}=100;
         public int LayerIndex {get=>layerIndex;set {layerIndex=value;InvalidateVisual();}}
-        public void Set(ControlPoint a,ControlPoint b,double t){first=a;second=b;fraction=t;Extent=100;
+        public void Set(ControlPoint a,ControlPoint b,double t){first=a;second=b;fraction=t;blockAperture=a?.Blocks.Count>0?BlockApertureGeometry.Create(MlcTimeline.Interpolate(a,b,t)):null;Extent=100;
             if(a!=null)foreach(var value in a.MlcLayers.Concat(b.MlcLayers).SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(a.XJaws??new double[0]).Concat(a.YJaws??new double[0]).Concat(b.XJaws??new double[0]).Concat(b.YJaws??new double[0]))Extent=Math.Max(Extent,Math.Abs(value)+10);
             InvalidateVisual();}
         protected override void OnRender(DrawingContext dc)
@@ -117,11 +117,12 @@ namespace QuickLook.DicomRT
                 if(mlcY){rect(-extent,-extent,bounds[0],extent,leaf);rect(bounds[n],-extent,extent,extent,leaf);}
                 else{rect(-extent,-extent,extent,bounds[0],leaf);rect(-extent,bounds[n],extent,extent,leaf);}
             }
-            if(!Compact){Label(dc,layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
+            if(!Compact){Label(dc,first.Blocks.Count>0?"Custom block aperture":layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
             Label(dc,"IEC beam limiting device plane · isocenter projection",6,18);}
             var jaw=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),20,25,30)):Theme.Brush("#D927313E");
             if(xj.Length==2){rect(-extent,-extent,xj[0],extent,jaw);rect(xj[1],-extent,extent,extent,jaw);}
             if(yj.Length==2){rect(-extent,-extent,extent,yj[0],jaw);rect(-extent,yj[1],extent,extent,jaw);}
+            if(blockAperture!=null){var opening=blockAperture.Clone();opening.Transform=new MatrixTransform(scale,0,0,-scale,cx,cy);var blocked=Geometry.Combine(new RectangleGeometry(imageRect),opening,GeometryCombineMode.Exclude,null);dc.DrawGeometry(jaw,null,blocked);dc.DrawGeometry(null,new Pen(Brushes.Gold,1.2),opening);}
             if(projection!=null){dc.PushClip(new RectangleGeometry(imageRect));dc.PushTransform(new MatrixTransform(imageRect.Width,0,0,imageRect.Height,imageRect.Left,imageRect.Top));foreach(var outline in projection.Outlines){dc.DrawGeometry(null,new Pen(Brushes.Black,3.5/imageRect.Width),outline.Boundary);dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromRgb(outline.Roi.Red,outline.Roi.Green,outline.Roi.Blue)),1.7/imageRect.Width),outline.Boundary);}dc.Pop();dc.Pop();}
             var cross=new Pen(Theme.Brush("#EE8068"),1);dc.DrawLine(cross,point(-6,0),point(6,0));dc.DrawLine(cross,point(0,-6),point(0,6));
             if(!Compact){Label(dc,"+Y",cx+3,34);Label(dc,"+X",Math.Max(0,ActualWidth-25),cy+3);Label(dc,$"±{extent:0} mm",6,Math.Max(0,ActualHeight-18));}

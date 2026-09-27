@@ -53,7 +53,7 @@ namespace QuickLook.DicomRT
         }
         private void BuildDoseList()
         {
-            doseList.Children.Clear();if(sumMode) doseList.Children.Add(Theme.Text(sumResult?.Message??"Preparing plan sum …",11,Theme.Accent));
+            doseList.Children.Clear();sumMembers.Children.Clear();doseMaximumButton.IsEnabled=SelectedDoses.Any(d=>d.MaximumPosition.HasValue&&TransformToImage(d.FrameUid)!=null);if(sumMode)sumMembers.Children.Add(BuildSumMembers());if(sumMode) doseList.Children.Add(Theme.Text(sumResult?.Message??"Preparing plan sum …",11,Theme.Accent));
             foreach (var dose in SelectedDoses)
             {
                 bool available = TransformToImage(dose.FrameUid) != null;
