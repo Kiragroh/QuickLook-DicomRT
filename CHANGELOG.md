@@ -2,6 +2,10 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.30 — 27 September 2026
+
+- Play/Pause beside the upper image control-point slider, available in single-slice and linked 2 × 2 views. It shares playback position and state with MLC and 3D; hovering explains the control. Disabled when no field is selected.
+
 ## 0.2.29 — 27 September 2026
 
 - Lighter background preparation: distinct recorded views across treatment fields, with exact fractional views prepared in a bounded active-field lookahead. Unchanged fixed-field projections are reused; setup/imaging views are prepared when selected.

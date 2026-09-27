@@ -8,6 +8,7 @@ namespace QuickLook.DicomRT
 {
     public sealed partial class ViewerControl
     {
+        readonly Button fieldPlay=Theme.Button("▶");
         readonly ComboBox fieldPicker=Theme.Combo(210);
         readonly Slider fieldCursor=new Slider{Minimum=0,SmallChange=.1,LargeChange=1,Width=180,Margin=new Thickness(8,4,8,4),VerticalAlignment=VerticalAlignment.Center};
         readonly TextBlock fieldPosition=Theme.Text("",10,Theme.Muted);
@@ -15,13 +16,20 @@ namespace QuickLook.DicomRT
         bool syncingFieldsVisibility;bool neutralFields;WrapPanel fieldControls;bool syncingFields;int fieldWheel;
         UIElement BuildFieldControls()
         {
-            fieldControls=new WrapPanel{Visibility=Visibility.Collapsed};fieldControls.Children.Add(fieldPicker);fieldControls.Children.Add(fieldCursor);fieldControls.Children.Add(fieldPosition);
+            fieldControls=new WrapPanel{Visibility=Visibility.Collapsed};fieldControls.Children.Add(fieldPicker);fieldControls.Children.Add(fieldPlay);fieldControls.Children.Add(fieldCursor);fieldControls.Children.Add(fieldPosition);
+            fieldPlay.Click+=(s,e)=>{EnsurePlayback();centralPlayback.TogglePlayback();};SetFieldPlaying(false);
             fieldPicker.ToolTip="Active field · other treatment fields stay faint at their first control point";
             fieldCursor.ToolTip="Active field control point · wheel 1 CP · Shift + wheel 0.1 CP; wheel over the image still changes slices";
             fieldPicker.SelectionChanged+=(s,e)=>{if(syncingFields)return;neutralFields=fieldPicker.SelectedItem is string;if(neutralFields){SyncFieldControls();UpdateFieldOverlays();}else if(fieldPicker.SelectedItem is PlanBeam beam){EnsurePlayback();centralPlayback.Navigate(beam,0);UpdateFieldOverlays();}};
             fieldCursor.ValueChanged+=(s,e)=>{if(!syncingFields&&activeField!=null)centralPlayback?.Navigate(activeField,e.NewValue);};
             fieldControls.PreviewMouseWheel+=(s,e)=>{fieldCursor.Value=((Keyboard.Modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(fieldCursor.Value,fieldCursor.Maximum,e.Delta,ref fieldWheel):MlcTimeline.RecordedWheelStep(fieldCursor.Value,fieldCursor.Maximum,e.Delta,ref fieldWheel));e.Handled=true;};
             showFields.Checked+=(s,e)=>SyncFieldControls();showFields.Unchecked+=(s,e)=>SyncFieldControls();return fieldControls;
+        }
+        void SetFieldPlaying(bool playing)
+        {
+            fieldPlay.Content=playing?"Ⅱ":"▶";
+            fieldPlay.ToolTip=playing?"Pause shared plan preview":"Play plan in a continuous loop · synchronized with MLC and 3D; speed follows MLC CP/s";
+            System.Windows.Automation.AutomationProperties.SetName(fieldPlay,playing?"Pause plan preview":"Play plan preview");
         }
         void SetSharedFieldsVisibility(bool enabled)
         {
@@ -36,6 +44,7 @@ namespace QuickLook.DicomRT
                 fieldControls.Visibility=showFields.IsChecked==true&&selectedPlan!=null?Visibility.Visible:Visibility.Collapsed;
                 var choices=new object[]{AllFields}.Concat(MlcTimeline.PlaybackOrder(selectedPlan)).ToArray();
                 if(!fieldPicker.Items.Cast<object>().SequenceEqual(choices))fieldPicker.ItemsSource=choices;
+                fieldPlay.IsEnabled=!neutralFields&&activeField!=null;SetFieldPlaying(centralPlayback?.IsPlaying==true);
                 fieldPicker.SelectedItem=neutralFields?(object)AllFields:activeField;fieldCursor.Visibility=fieldPosition.Visibility=neutralFields?Visibility.Collapsed:Visibility.Visible;fieldCursor.Maximum=Math.Max(0,(activeField?.ControlPoints.Count??1)-1);
                 fieldCursor.Value=centralPlayback?.LocalPosition??0;var mu=BeamMetersetInfo.At(activeField,fieldCursor.Value);fieldPosition.Text=$"CP {fieldCursor.Value+1:0.0} / {fieldCursor.Maximum+1:0} · "+mu.Text;fieldPosition.ToolTip=mu.Detail;
             }finally{syncingFields=false;}

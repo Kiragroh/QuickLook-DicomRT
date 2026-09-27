@@ -1,4 +1,9 @@
-﻿## 0.2.29 — Preparation workload and linked navigation
+﻿## 0.2.30 — Image toolbar playback
+
+- Release build without warnings/errors; 427 WPF checks pass. Added checks verify button placement before the CP slider, start/pause through the shared timeline, immediate state synchronization from MLC and 3D, and disabled state for the neutral all-fields selection.
+- Uses the existing playback timer; no additional rendering, projection or mesh work is scheduled by the new control.
+
+## 0.2.29 — Preparation workload and linked navigation
 
 - Release build: zero warnings/errors; 421 WPF interaction checks and 32 installer payload checks pass. Tests cover exact-view deduplication, changed collimator angles, setup opt-in, active-field priority, fractional lookahead, DRR-off behavior, progress generations/ETA and unchanged orthogonal slice geometry. No DICOM ray geometry or ROI silhouette resolution is reduced.
 - Read-only workload inspection of the requested private folder found 2,718 previous whole-plan view jobs versus 546 distinct recorded views across two plans (79.9% fewer scheduled global views). This is a workload count, not an 80% measured wall-time speedup; active fractional lookahead remains additional work. No identifiers or private images are published.
