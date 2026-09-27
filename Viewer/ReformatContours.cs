@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -25,7 +25,16 @@ namespace QuickLook.DicomRT
    for(int i=0;i<first.Length;i++)normal+=first[i].Cross(first[(i+1)%first.Length]);
    if(normal.Length<1e-8)return SliceGeometry.ContourLines(roi,map,g,tolerance);normal=normal.Normalized();
    var viewNormal=g.Normal;
-   if(normal.Cross(viewNormal).Length<1e-7){kind=OutlineKind.Original;return SliceGeometry.ContourLines(roi,map,g,tolerance);}
+   if(normal.Cross(viewNormal).Length<1e-7){
+    kind=OutlineKind.Original;
+    var levels=loops.Select(c=>normal.Dot(map.Transform(c.Points[0]))).Distinct().OrderBy(z=>z).ToArray();
+    double z=normal.Dot(g.Center);int nearest=Enumerable.Range(0,levels.Length).OrderBy(i=>Math.Abs(levels[i]-z)).First();
+    double local=tolerance;
+    if(levels.Length>1){var localGaps=levels.Zip(levels.Skip(1),(a,b)=>b-a).Where(d=>d>.001).OrderBy(d=>d).ToArray();if(localGaps.Length>0){double localTypical=localGaps[(localGaps.Length-1)/2];double adjacent=z<levels[nearest]&&nearest>0?levels[nearest]-levels[nearest-1]:z>levels[nearest]&&nearest+1<levels.Length?levels[nearest+1]-levels[nearest]:localTypical;local=Math.Max(local,Math.Min(adjacent,localTypical)*.5);}}
+    if(Math.Abs(levels[nearest]-z)>local+1e-6)return new List<WorldLine>();
+    var selected=new StructureRoi{Contours=loops.Where(c=>Math.Abs(normal.Dot(map.Transform(c.Points[0]))-levels[nearest])<.001).ToList()};
+    return SliceGeometry.ContourLines(selected,map,g,Math.Abs(levels[nearest]-z)+.001);
+   }
    if(loops.Length<2)return SliceGeometry.ContourLines(roi,map,g,tolerance);
    var axis=normal.Cross(viewNormal).Normalized();var stack=viewNormal.Cross(axis).Normalized();if(stack.Dot(normal)<0)stack=stack*-1;
    double scale=normal.Dot(stack);var rows=new List<Row>();bool xor=loops.Any(c=>c.GeometricType=="CLOSEDPLANAR_XOR");

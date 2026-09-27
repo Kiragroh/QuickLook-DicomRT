@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -188,11 +188,10 @@ namespace QuickLook.DicomRT
             try{token.ThrowIfCancellationRequested();if(disposed||!isCurrent())throw new OperationCanceledException();return await Task.Run(()=>PixelPlane.Load(entry),token);}
             finally{decodeGate.Release();}
         }
-        private void SetEntryFocus(DicomEntry entry) { focus = entry.Origin + entry.AxisX * ((entry.Columns - 1) * entry.SpacingX / 2) + entry.AxisY * ((entry.Rows - 1) * entry.SpacingY / 2); }
+        private void SetEntryFocus(DicomEntry entry) { viewportCenter=null;focus = entry.Origin + entry.AxisX * ((entry.Columns - 1) * entry.SpacingX / 2) + entry.AxisY * ((entry.Rows - 1) * entry.SpacingY / 2); }
         private void SetInitialWindow()
         {
-            if (currentEntry != null && currentEntry.WindowWidth > 0) SetWindow(currentEntry.WindowCenter, currentEntry.WindowWidth);
-            else if (currentEntry?.Modality == "CT") SetWindow(40, 400); else AutoWindow();
+            ApplyWindowPreset("Auto");
         }
         private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 

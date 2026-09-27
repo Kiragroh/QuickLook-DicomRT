@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -59,6 +59,10 @@ internal static class ReformatTests
   Check(Points(leadingGap).Min(p=>p.Z)>=-1.001,"leading gap does not inflate first end cap");
   var axial=Geometry("Axial",new Vec3(0,0,2));var original=SliceGeometry.ContourLines(Box(0,2,4),Matrix4.Identity,axial,.01);var retained=Outline(Box(0,2,4),axial);
   Check(original.Count==retained.Count&&original.Zip(retained,(a,b)=>(a.A-b.A).Length+(a.B-b.B).Length).All(d=>d<1e-9),"parallel original contours unchanged");
+  Check(Outline(Box(0,2,4),Geometry("Axial",new Vec3(0,0,2.3))).Count==4,"fractional parallel plane retains nearest contour slab");
+  Check(Outline(Box(0,2,20,22),Geometry("Axial",new Vec3(0,0,10))).Count==0,"parallel missing-level gap stays empty");
+  var anchored=new RenderScene{Volume=new VolumeData{Width=41,Height=41,Depth=41,SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)},Plane="Axial",Focus=new Vec3(20,20,20),ViewCenter=new Vec3(20,20,20)};
+  var before=SliceGeometry.Create(anchored);anchored.Focus=new Vec3(26,12,20);var after=SliceGeometry.Create(anchored);Check((before.WorldAt(.7,.3)-after.WorldAt(.7,.3)).Length<1e-8,"crosshair movement does not move the displayed in-plane viewport");
   // A native coronal image with an axial RTSTRUCT must use the same boundary
   // as MPR. The image's Native label says nothing about the contour orientation.
   var native=SliceGeometry.Create(new RenderScene{Plane="Native",Entry=new DicomEntry{HasGeometry=true,Origin=new Vec3(-20,0,20),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,0,-1),SpacingX=1,SpacingY=1},Native=new PixelPlane{Width=41,Height=41}});

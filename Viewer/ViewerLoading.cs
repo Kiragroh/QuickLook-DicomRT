@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -47,6 +47,19 @@ namespace QuickLook.DicomRT
             if(sumMode&&workspaceMode=="MLC")SetWorkspace("Bild");
             if(!sumMode&&scanComplete)activity.Visibility=Visibility.Collapsed;RefreshRt();
             if(sumMode)await BuildSumAsync();
+            else if(selectedPlan!=null&&catalog!=null&&(!HasImage||TransformToImage(selectedPlan.FrameUid)==null)){
+                var stack=MatchingPlanStack();
+                if(stack!=null&&stack!=currentStack){changing=true;series.SelectedItem=stack;changing=false;await SelectStackAsync(stack);if(!disposed)RefreshRt();}
+            }
+        }
+        private ImageStack MatchingPlanStack()
+        {
+            if(selectedPlan==null||catalog==null)return null;
+            var referenced=structures.FirstOrDefault(s=>s.Entry.SopUid==selectedPlan.StructureSopUid)?.ReferencedSeries;
+            if(referenced==null)return null;
+            var matches=catalog.Stacks.Where(s=>s.Entries.Any(e=>referenced.Contains(e.SeriesUid))&&RegistrationReader.Resolve(registrations,selectedPlan.FrameUid,s.FrameUid)!=null).ToArray();
+            if(matches.Length==1)return matches[0];
+            var ct=matches.Where(s=>s.Entries.All(e=>e.Modality=="CT")).ToArray();return ct.Length==1?ct[0]:null;
         }
         private async Task BuildSumAsync()
         {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 namespace QuickLook.DicomRT
 {
@@ -9,9 +9,16 @@ namespace QuickLook.DicomRT
             // Preserve high-resolution wheel deltas. One detent is one tenth CP.
             remainder=0;return Math.Max(0,Math.Min(maximum,cursor-delta/1200.0));
         }
+        public static double RecordedWheelStep(double cursor,double maximum,int delta,ref int remainder)
+        {
+            remainder+=delta;int detents=remainder/120;remainder-=detents*120;
+            if(detents==0)return cursor;
+            double next=detents<0?Math.Ceiling(cursor+1e-8)-detents-1:Math.Floor(cursor-1e-8)-detents+1;
+            return Math.Max(0,Math.Min(maximum,next));
+        }
         public static ControlPoint Interpolate(ControlPoint a,ControlPoint b,double t)
         {
-            return new ControlPoint {Gantry=Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),Couch=Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false),Collimator=Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false),
+            return new ControlPoint {DoseRateSet=t<1?a.DoseRateSet:b.DoseRateSet,Gantry=Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),Couch=Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false),Collimator=Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false),
                 Isocenter=a.Isocenter+(b.Isocenter-a.Isocenter)*t,GantryPitch=a.GantryPitch+(b.GantryPitch-a.GantryPitch)*t,TablePitch=a.TablePitch+(b.TablePitch-a.TablePitch)*t,TableRoll=a.TableRoll+(b.TableRoll-a.TableRoll)*t,TableEccentric=a.TableEccentric+(b.TableEccentric-a.TableEccentric)*t,
                 XJaws=Positions(a.XJaws,b.XJaws,t),YJaws=Positions(a.YJaws,b.YJaws,t),MlcLayers=Layers(a,b,t).ToList()};
         }

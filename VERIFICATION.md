@@ -1,4 +1,22 @@
-﻿# Version 0.2.8 — asynchronous projections and actual multi-layer field apertures
+﻿# 0.2.9 verification
+
+Release suites passed: 200 WPF interaction checks; 132 RT checks plus analytic DRR projection scenarios; 362 render checks and 48 contour checks; 82 DVH checks; directed playback checks; 44 3D checks plus surface, cache, framing and interaction suites.
+
+Added analytic regressions cover planned dose-rate inheritance, directed wraparound and full 360-degree arc paths, setup classification, fractional parallel contour slabs with missing-level gaps, stable in-plane crosshair geometry, constant/gradient DVH metrics and unavailable full-structure metrics for partial coverage. UI checks cover the neutral field choice, icon view buttons, presets, background preparation of hidden ROI groups, active CSV inclusion and chart export.
+
+The user-approved public nonpatient multicentre benchmark was opened through the actual WPF viewer. DRR/PTV/OAR snapshots, projected arc fields, neutral selection, custom histogram, compact DVH and standalone MLC/Direct3D PNG exports were generated and visually inspected locally. No clinical images or identifiers are included in the release.
+
+Observed on this workstation, with warm OS file cache: 60 MLC wheel events with DRR/PTV/organs enabled took 0.58 ms median and 2.71 ms p95 in the event handler. Including a deliberate 16 ms frame delay, p95 was 62.04 ms. Full 384px DRR settling was 276 ms median for the first tested positions and 46 ms on revisit; structure jump settling was 122 ms median. These are local component observations, not a cold-start guarantee or proof that background projections are instantaneous. Unavailable current overlays stay blank until ready.
+
+Dose Rate Set (300A,0115) follows the segment beginning at its control point; it is not inferred from meterset weights: https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_c.8.8.14.html
+
+A read-only local multi-plan acceptance run verified both plans, associated DRRs and current identity after automatically following the uniquely referenced compatible image series. Only aggregate pass results were retained; no clinical images or identifiers were exported.
+
+All geometric, dose, contour and DRR results remain inspection previews; software checks do not establish clinical validation.
+
+---
+
+# Version 0.2.8 — asynchronous projections and actual multi-layer field apertures
 
 Engineering validation on 2026-09-26; source DICOM files were read-only. This is not clinical acceptance.
 

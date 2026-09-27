@@ -11,12 +11,13 @@ namespace QuickLook.DicomRT
 {
     public sealed partial class MlcPlaybackControl
     {
+        Slider mlcOpacity;
         readonly CheckBox showDrr=new CheckBox{Content="DRR",IsChecked=false,Margin=new Thickness(5)};
         readonly CheckBox showPtv=new CheckBox{Content="PTV outlines",IsChecked=true,Margin=new Thickness(5)};
         readonly CheckBox showOrgans=new CheckBox{Content="Organ outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly CheckBox showOther=new CheckBox{Content="Other outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly TextBlock projectionStatus=Theme.Text("DRR needs an associated CT",10,Theme.Muted);
-        readonly DispatcherTimer projectionDelay=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(65)};
+        readonly DispatcherTimer projectionDelay=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};
         readonly MlcProjectionCache projectionCache=new MlcProjectionCache();
         public static double BeamExtent(PlanBeam beam)=>Math.Max(100,beam.ControlPoints.SelectMany(c=>c.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(c.XJaws??new double[0]).Concat(c.YJaws??new double[0])).Where(BeamProjection.Finite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
         public void Close(){Dispose();projectionCache.Dispose();}
@@ -29,10 +30,14 @@ namespace QuickLook.DicomRT
         string projectionKey;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
+        long lastCacheNotification;
         void InitializeAnatomy(StackPanel top,Grid area)
         {
-            projectionCache.FrameReady+=()=>{if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(IsVisible&&!projectionSuspended)TryCached();}),DispatcherPriority.Background);};
-            var row=new WrapPanel();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>RequestProjection(true);check.Unchecked+=(s,e)=>RequestProjection(true);}top.Children.Add(row);top.Children.Add(projectionStatus);
+            projectionCache.FrameReady+=()=>{long now=System.Diagnostics.Stopwatch.GetTimestamp();if(now-Interlocked.Read(ref lastCacheNotification)<System.Diagnostics.Stopwatch.Frequency/20)return;Interlocked.Exchange(ref lastCacheNotification,now);if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(IsVisible&&!projectionSuspended)TryCached();}),DispatcherPriority.Background);};
+            var row=top;foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>RequestProjection(true);check.Unchecked+=(s,e)=>RequestProjection(true);}
+            mlcOpacity=new Slider{Minimum=.1,Maximum=1,Value=.75,Width=70,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4),ToolTip="MLC opacity over DRR: transparent to dark"};
+            mlcOpacity.ValueChanged+=(s,e)=>aperture.DrrLeafOpacity=e.NewValue;row.Children.Add(Theme.Text("MLC",10,Theme.Muted));row.Children.Add(mlcOpacity);
+            var info=Theme.Button("i");info.ToolTip=projectionStatus;row.Children.Add(info);
             showOther.ToolTip="Other selected ROIs, including CTV/GTV. Use the left structure list for individual visibility.";
             showPtv.ToolTip=showOrgans.ToolTip="Projected outer boundary of selected structures; visible above the leaf banks.";
             area.Children.Add(fieldArrangement);
@@ -42,7 +47,7 @@ namespace QuickLook.DicomRT
         }
         void OnControlPointWheel(object sender,MouseWheelEventArgs e)
         {
-            Pause();cursor.Value=MlcTimeline.WheelStep(cursor.Value,cursor.Maximum,e.Delta*((Keyboard.Modifiers&ModifierKeys.Shift)!=0?10:1),ref wheelRemainder);e.Handled=true;
+            Pause();cursor.Value=((Keyboard.Modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder):MlcTimeline.RecordedWheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder));e.Handled=true;
         }
         public void SetAnatomy(RenderScene scene,Matrix4 map)
         {
@@ -62,7 +67,7 @@ namespace QuickLook.DicomRT
             if(projectionSuspended||beam==null||interpolated==null)return;
             var p=interpolated;
             string key=beam.Number+":"+string.Join(",",new[]{p.Gantry,p.Couch,p.Collimator,p.Isocenter.X,p.Isocenter.Y,p.Isocenter.Z,p.GantryPitch,p.TablePitch,p.TableRoll,p.TableEccentric,aperture.Extent}.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)))+":"+timer.IsEnabled;
-            if(!force&&key==projectionKey)return;projectionKey=key;projectionVersion++;aperture.Projection=null;
+            if(!force&&key==projectionKey)return;projectionKey=key;projectionVersion++;projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();aperture.Projection=null;
             if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());return;}
             projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());
             projectionStatus.Text="Preparing overlays in background …";
@@ -72,7 +77,7 @@ namespace QuickLook.DicomRT
         {
             if(beam==null||interpolated==null)return false;string reason;var p=BeamProjection.Create(beam,interpolated,planMap,out reason);if(p==null)return false;
             MlcProjectionFrame frame;var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;
-            if(!projectionCache.TryGet(p,ct,SelectedOutlines(),aperture.Extent,showDrr.IsChecked==true,out frame))return false;
+            if(!projectionCache.TryGet(p,ct,SelectedOutlines(),aperture.Extent,showDrr.IsChecked==true,out frame)){aperture.Projection=frame;projectionStatus.Text=frame.Note;return false;}
             projectionDelay.Stop();aperture.Projection=frame;projectionStatus.Text=frame.Note+(projectionCache.Total>0?$" · Views prepared {projectionCache.Prepared}/{projectionCache.Total}":"");return true;
         }
         async Task RenderProjectionAsync()

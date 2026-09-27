@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -11,7 +11,7 @@ using System.Windows.Media;
 namespace QuickLook.DicomRT
 {
     /// <summary>Call SetData only when opening DVH view. It cancels stale work and computes off the UI thread.</summary>
-    public sealed class DvhControl : UserControl, IDisposable
+    public sealed partial class DvhControl : UserControl, IDisposable
     {
         readonly TextBlock status=Theme.Text("Select structures and an RTDOSE.",11,Theme.Muted);
         readonly StackPanel legend=new StackPanel();
@@ -54,7 +54,7 @@ namespace QuickLook.DicomRT
             footer.Children.Add(Theme.Text("Slab volumes estimated from contour spacing; DVH may differ from the TPS. Uncovered dose remains unknown. Percentages refer to the entire estimated structure volume.",10,Theme.Muted));
             Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
             Unloaded+=(s,e)=>Cancel();
-            SizeChanged+=(s,e)=>UpdateLayoutMode();
+            SizeChanged+=(s,e)=>UpdateLayoutMode();InitializeExport();
         }
         void UpdateLayoutMode()
         {
@@ -69,7 +69,7 @@ namespace QuickLook.DicomRT
             if(disposed)return;Cancel();
             if(!ReferenceEquals(cachedDose,dose)){cache.Clear();visibility.Clear();cachedDose=dose;plot.FocusedStructure=null;}
             legend.Children.Clear();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
-            requestedCount=rois?.Count??0;Completion=Task.CompletedTask;
+            exportRois=(rois??new StructureRoi[0]).ToArray();requestedCount=rois?.Count??0;Completion=Task.CompletedTask;
             if(dose==null || rois==null || rois.Count==0){status.Text="No visible structures with a matching RTDOSE are available.";return;}
             // Snapshot mapping on the UI thread. Loaded contour/dose data are immutable.
             var selected=rois.Take(128).Select(r=>new Work {Roi=r,Transform=transform?.Invoke(r)}).ToArray();
@@ -100,12 +100,13 @@ namespace QuickLook.DicomRT
                     var brush=new SolidColorBrush(Color.FromRgb(work.Roi.Red,work.Roi.Green,work.Roi.Blue));brush.Freeze();
                     bool shown; if(!visibility.TryGetValue(work.Roi,out shown))shown=true;
                     var curve=new DvhPlot.Curve {Roi=work.Roi,Result=result,Color=brush,Visible=shown};plot.Curves.Add(curve);
-                    var row=new Border {Background=Brushes.Transparent,Padding=new Thickness(0,4,0,9)};
+                    var row=new Border {Background=Brushes.Transparent,Padding=new Thickness(0,2,0,3)};
                     var contents=new StackPanel();row.Child=contents;
                     var heading=new DockPanel();contents.Children.Add(heading);
                     var box=new CheckBox {IsChecked=shown,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,7,0),IsEnabled=result.DoseValues.Length>0,ToolTip="Show or hide curve"};
                     System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.Name);
                     DockPanel.SetDock(box,Dock.Left);heading.Children.Add(box);
+                    var info=Theme.Button("i");info.Padding=new Thickness(5,0,5,0);info.Margin=new Thickness(3,0,0,0);info.ToolTip=MetricDetails(result);ToolTipService.SetShowDuration(info,60000);DockPanel.SetDock(info,Dock.Right);heading.Children.Add(info);
                     var name=new Button {Content=work.Roi.Name,Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
                     name.Click+=(s,e)=>{FocusStructure(work.Roi);e.Handled=true;};heading.Children.Add(name);
                     box.Checked+=(s,e)=>{visibility[work.Roi]=curve.Visible=true;plot.InvalidateVisual();};
@@ -116,9 +117,9 @@ namespace QuickLook.DicomRT
                             if(source is CheckBox || source is Button)return;
                         FocusStructure(work.Roi);e.Handled=true;
                     };
-                    string metrics=result.EstimatedVolumeCc>0?$"{result.EstimatedVolumeCc:0.##} cm³ · coverage {result.CoverageFraction:P1} · grid ≤ {result.SamplingStepMm:0.##} mm":"No curve";
-                    contents.Children.Add(Theme.Text(metrics,10,Theme.Muted));
-                    contents.Children.Add(Theme.Text(result.Message,10,result.Status==DvhStatus.Complete?Theme.Muted:Theme.Accent));
+                    string metrics=result.EstimatedVolumeCc>0?$"{result.EstimatedVolumeCc:0.##} cm³":"No curve";
+                    if(result.Status!=DvhStatus.Complete)metrics+=" · "+(result.Status==DvhStatus.PartialCoverage?"partial coverage":"unavailable");
+                    contents.Children.Add(Theme.Text(metrics,10,result.Status==DvhStatus.Complete?Theme.Muted:Theme.Accent));
                     legend.Children.Add(row);
                     legend.Children.Add(new Border {Height=1,Background=Theme.Panel,Margin=new Thickness(0,0,0,5)});
                     plot.InvalidateVisual();status.Text=$"{plot.Curves.Count} / {rois.Length} structures calculated …";

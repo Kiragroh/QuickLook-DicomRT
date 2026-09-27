@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using System.Linq;
 using Dicom;
@@ -13,6 +13,7 @@ namespace QuickLook.DicomRT
     }
     public sealed class ControlPoint
     {
+        public double DoseRateSet=double.NaN;
         public double GantryPitch,TablePitch,TableRoll,TableEccentric;
         public int Index; public double Gantry,Collimator,Couch,MetersetWeight; public Vec3 Isocenter;
         public double[] MlcPositions,MlcBoundaries,XJaws,YJaws; public string MlcType;
@@ -61,6 +62,7 @@ namespace QuickLook.DicomRT
                 foreach(var cp in RtDicom.Items(item,DicomTag.ControlPointSequence))
                 {
                     var current=new ControlPoint {Index=RtDicom.Int(cp,DicomTag.ControlPointIndex,beam.ControlPoints.Count),
+                        DoseRateSet=RtDicom.Number(cp,DicomTag.DoseRateSet,previous?.DoseRateSet??double.NaN),
                         Gantry=RtDicom.Number(cp,DicomTag.GantryAngle,previous?.Gantry??double.NaN),Collimator=RtDicom.Number(cp,DicomTag.BeamLimitingDeviceAngle,previous?.Collimator??double.NaN),Couch=RtDicom.Number(cp,DicomTag.PatientSupportAngle,previous?.Couch??double.NaN),
                         GantryPitch=RtDicom.Number(cp,new DicomTag(0x300a,0x014a),previous?.GantryPitch??0),TablePitch=RtDicom.Number(cp,new DicomTag(0x300a,0x0140),previous?.TablePitch??0),TableRoll=RtDicom.Number(cp,new DicomTag(0x300a,0x0144),previous?.TableRoll??0),TableEccentric=RtDicom.Number(cp,new DicomTag(0x300a,0x0125),previous?.TableEccentric??0),
                         MetersetWeight=RtDicom.Number(cp,DicomTag.CumulativeMetersetWeight),Isocenter=RtDicom.Vector(RtDicom.Numbers(cp,DicomTag.IsocenterPosition),previous?.Isocenter??new Vec3(double.NaN,double.NaN,double.NaN)),

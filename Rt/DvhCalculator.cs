@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -19,6 +19,22 @@ namespace QuickLook.DicomRT
         public double SampledVolumeCc { get; internal set; }
         public double CoverageFraction => EstimatedVolumeCc > 0 ? SampledVolumeCc / EstimatedVolumeCc : 0;
         public double SamplingStepMm { get; internal set; }
+        public double Dmean { get; internal set; } = double.NaN;
+        public double Dmin { get; internal set; } = double.NaN;
+        public double Dmax { get; internal set; } = double.NaN;
+        public double Dmedian => DoseAtVolume(50);
+        public double D98 => DoseAtVolume(98);
+        public double D2 => DoseAtVolume(2);
+        double DoseAtVolume(double percent)
+        {
+            if(Status!=DvhStatus.Complete||DoseValues.Length<2)return double.NaN;
+            for(int i=1;i<DoseValues.Length;i++)if(CumulativeVolumePercent[i]<percent){
+                double a=CumulativeVolumePercent[i-1],b=CumulativeVolumePercent[i];
+                double value=DoseValues[i-1]+(DoseValues[i]-DoseValues[i-1])*(a-percent)/(a-b);
+                return Math.Max(Dmin,Math.Min(Dmax,value));
+            }
+            return double.NaN;
+        }
     }
 
     /// <summary>Bounded preview DVH: parallel contour slabs, midpoint sampling, trilinear dose.
@@ -91,6 +107,7 @@ namespace QuickLook.DicomRT
             if(cells>MaxCells)return Fail(result,DvhStatus.BudgetExceeded,"Volume exceeds the preview budget.");
             result.SamplingStepMm=step;
             double dx=extentX/nx,dy=extentY/ny;var histogram=new double[Bins+1];
+            double weightedDose=0,minSample=double.PositiveInfinity,maxSample=double.NegativeInfinity;
             double total=0,covered=0,maxDose=Math.Max(1e-9,dose.Maximum);
             for(int k=0;k<planes.Count;k++)
             {
@@ -111,7 +128,7 @@ namespace QuickLook.DicomRT
                             total+=weight;float value=dose.Sample(roiToDose.Transform(world));
                             if(float.IsNaN(value)||float.IsInfinity(value))continue;
                             if(value<0)return Fail(result,DvhStatus.Unsupported,"Negative dose values are not supported.");
-                            covered+=weight;int bin=(int)Math.Min(Bins,Math.Floor(value/maxDose*Bins));histogram[bin]+=weight;
+                            covered+=weight;weightedDose+=value*weight;minSample=Math.Min(minSample,value);maxSample=Math.Max(maxSample,value);int bin=(int)Math.Min(Bins,Math.Floor(value/maxDose*Bins));histogram[bin]+=weight;
                         }
                     }
                 }
@@ -123,6 +140,7 @@ namespace QuickLook.DicomRT
             for(int i=Bins;i>=0;i--){cumulative+=histogram[i];result.DoseValues[i]=maxDose*i/Bins;result.CumulativeVolumePercent[i]=Math.Min(100*covered/total,100*cumulative/total);}
             result.DoseValues[Bins+1]=maxDose*(Bins+1)/Bins;
             result.Status=covered/total<.999999?DvhStatus.PartialCoverage:DvhStatus.Complete;
+            if(result.Status==DvhStatus.Complete){result.Dmean=weightedDose/covered;result.Dmin=minSample;result.Dmax=maxSample;}
             result.Message=result.Status==DvhStatus.PartialCoverage?"Partial coverage: the curve is a lower bound; missing dose remains unknown.":"Approximate preview · contour slabs with half-spacing end caps · 2048 dose intervals; linear display interpolation.";
             return result;
         }

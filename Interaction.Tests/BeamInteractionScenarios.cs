@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -21,9 +21,10 @@ internal static class BeamInteractionScenarios
             check(Get<CheckBox>(mlc,"showDrr").IsChecked==false,"DRR defaults off for immediate MLC interaction");
             var slider=Get<Slider>(mlc,"cursor");slider.Value=1.95;var aperture=Get<FrameworkElement>(mlc,"aperture");
             var wheel=new MouseWheelEventArgs(Mouse.PrimaryDevice,0,-120){RoutedEvent=Mouse.PreviewMouseWheelEvent};aperture.RaiseEvent(wheel);
-            check(wheel.Handled&&Math.Abs(slider.Value-2.05)<1e-8&&Get<ComboBox>(mlc,"beams").SelectedIndex==1,"wheel over MLC crosses field boundary");
-            slider.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice,0,120){RoutedEvent=Mouse.PreviewMouseWheelEvent});check(Math.Abs(slider.Value-1.95)<1e-8,"wheel over timeline navigates same CP sequence");
+            check(wheel.Handled&&Math.Abs(slider.Value-2.0)<1e-8&&Get<ComboBox>(mlc,"beams").SelectedIndex==1,"wheel over MLC crosses field boundary");
+            slider.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice,0,120){RoutedEvent=Mouse.PreviewMouseWheelEvent});check(Math.Abs(slider.Value-1.0)<1e-8,"wheel over timeline navigates same CP sequence");
         }
+        int rem=0;check(MlcTimeline.RecordedWheelStep(2,10,-60,ref rem)==2&&MlcTimeline.RecordedWheelStep(2,10,-60,ref rem)==3,"high resolution deltas accumulate to a cached recorded control point");
         using(var pane=new SlicePane()){
             var volume=new VolumeData{Width=11,Height=11,Depth=11,SpacingX=1,SpacingY=1,SpacingZ=1,AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1)};
             var geometry=SliceGeometry.Create(new RenderScene{Volume=volume,Plane="Axial",Focus=new Vec3(5,5,5)});

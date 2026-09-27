@@ -8,6 +8,12 @@ internal static class FieldApertureTests
 {
     public static void Run(Action<bool,string> check)
     {
+        var motion=new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};motion.ControlPoints.Add(new ControlPoint{Gantry=350,GantryRotationDirection="CW",DoseRateSet=600});motion.ControlPoints.Add(new ControlPoint{Gantry=10});
+        check(BeamMotion.IsArc(motion)&&Math.Abs(BeamMotion.Travel(motion.ControlPoints[0],motion.ControlPoints[1])-20)<1e-8,"arc uses directed wraparound");
+        var path=BeamMotion.Path(motion,Matrix4.Identity);check(path.Length==11&&path.All(p=>p.Rate==600),"arc source track carries segment rate");
+        motion.ControlPoints[1].Gantry=350;check(BeamMotion.IsArc(motion)&&BeamMotion.Path(motion,Matrix4.Identity).Length==181,"full rotation with identical endpoints retained");
+        motion.ControlPoints[0].GantryRotationDirection="NONE";check(!BeamMotion.IsArc(motion),"fixed gantry beam has aperture instead of ring");
+        check(BeamMotion.IsImaging(new PlanBeam{TreatmentDeliveryType="SETUP"})&&BeamMotion.IsImaging(new PlanBeam{Name="CBCT"}),"setup and CBCT recognized for explicit selection only");
         var cp=new ControlPoint{XJaws=new[]{-30d,30d},YJaws=new[]{-20d,20d}};
         cp.MlcLayers.Add(new MlcLayer{Type="MLCX",Boundaries=new[]{-20d,0d,20d},Positions=new[]{-20d,-10d,10d,20d}});
         var rectangles=BeamAperture.Rectangles(cp);check(rectangles.Count==2,"two distinct leaf openings retained");

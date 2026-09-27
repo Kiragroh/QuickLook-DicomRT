@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -26,8 +26,8 @@ internal static class PrivateBeamAcceptance
                     choices.SelectedItem=choice;Call(viewer,"SetWorkspace","MLC");Get<CheckBox>(Get<MlcPlaybackControl>(viewer,"centralPlayback"),"showDrr").IsChecked=true;
                     var start=DateTime.UtcNow;object frame=null;
                     while(true){await Task.Delay(25);var mlc=Get<MlcPlaybackControl>(viewer,"centralPlayback");frame=Get<object>(Get<object>(mlc,"aperture"),"projection");
-                        if(!Get<bool>(mlc,"projectionBusy")&&!Get<DispatcherTimer>(mlc,"projectionDelay").IsEnabled&&frame!=null)break;
-                        if((DateTime.UtcNow-start).TotalSeconds>120)throw new TimeoutException();
+                        if(!Get<bool>(mlc,"projectionBusy")&&!Get<DispatcherTimer>(mlc,"projectionDelay").IsEnabled&&frame!=null&&frame.GetType().GetField("Drr").GetValue(frame)!=null)break;
+                        if((DateTime.UtcNow-start).TotalSeconds>60){Console.WriteLine("DIAGNOSTIC busy="+Get<bool>(mlc,"projectionBusy")+" suspended="+Get<bool>(mlc,"projectionSuspended")+" delayed="+Get<DispatcherTimer>(mlc,"projectionDelay").IsEnabled+" status="+Get<TextBlock>(mlc,"projectionStatus").Text);throw new TimeoutException();}
                     }
                     if(frame.GetType().GetField("Drr").GetValue(frame)==null)throw new InvalidOperationException("No DRR");
                     if(Get<TextBlock>(viewer,"patientIdentity").Text.Contains("unavailable"))throw new InvalidOperationException("Missing identity");tested++;

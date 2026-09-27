@@ -43,6 +43,11 @@ internal static partial class Program
         if(Get<object>(three,"prepared")==null)throw new Exception("3D disappeared on additive selection");
         await Settle();Console.WriteLine("ADDITIVE_ORGANS retained_scene=True ready_ms="+watch.ElapsedMilliseconds);await Save("three-d-additive.png","Existing targets retained while selected organs are added.");
         Mode("Bild");Get<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";await Save("mpr-interactive.png","Linked orthogonal views, draggable crosshair and patient identity.");
+        Get<ComboBox>(viewer,"fieldPicker").SelectedIndex=0;Get<CheckBox>(viewer,"showFields").IsChecked=true;await Save("fields-neutral.png","All treatment fields equally weighted; arcs show source paths.");
+        Invoke(viewer,"ApplyWindowPreset","Custom");await Save("window-histogram.png","Custom window limits and sampled histogram.");
+        Mode("DVH");await Settle();var dvh=Get<DvhControl>(viewer,"dvhView");await dvh.Completion;await Save("dvh-compact.png","Compact structure names and volumes; metric details in info hover.");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(output,"dvh.csv"),dvh.ExportCsv());
+        foreach(var name in new[]{"MLC","3D"}){Mode(name);await Settle();var view=name=="MLC"?(System.Windows.FrameworkElement)playback:Get<ThreeDControl>(viewer,"threeDView");var capture=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.ViewerSnapshot").GetMethod("Capture").Invoke(null,new object[]{view});var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create((System.Windows.Media.Imaging.BitmapSource)capture));using(var file=System.IO.File.Create(System.IO.Path.Combine(output,name+"-single-export.png")))encoder.Save(file);if(view.ContextMenu==null)throw new Exception("View export context menu missing");}
         Console.WriteLine("BEAM_REVIEW_PASS");
     }
 }

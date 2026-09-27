@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -42,20 +42,9 @@ namespace QuickLook.DicomRT
         private ImageStack currentStack;
         private VolumeData volume;
         private PixelPlane native;
-        private Vec3 focus;
+        private Vec3 focus;private Vec3? viewportCenter;
         private double windowCenter = 40, windowWidth = 400, zoom = 1;
         private Slider miniWidth,miniLevel;private bool updatingWindowControls;
-        private UIElement BuildWindowControls()
-        {
-            var panel=new StackPanel();
-            miniWidth=new Slider {Minimum=1,Maximum=Math.Max(5000,windowWidth),Value=windowWidth,Width=130,ToolTip="Window width (contrast)"};
-            miniLevel=new Slider {Minimum=Math.Min(-1500,windowCenter),Maximum=Math.Max(3500,windowCenter),Value=windowCenter,Width=130,ToolTip="Window level (brightness)"};
-            foreach(var item in new[]{Tuple.Create("W",miniWidth),Tuple.Create("L",miniLevel)})
-            {var row=new StackPanel {Orientation=Orientation.Horizontal};var label=Theme.Text(item.Item1,10,Theme.Muted);label.Width=20;label.VerticalAlignment=VerticalAlignment.Center;row.Children.Add(label);row.Children.Add(item.Item2);panel.Children.Add(row);}
-            miniWidth.ValueChanged+=(s,e)=>{if(!updatingWindowControls)SetWindow(windowCenter,e.NewValue);};
-            miniLevel.ValueChanged+=(s,e)=>{if(!updatingWindowControls)SetWindow(e.NewValue,windowWidth);};
-            return new Border {Child=panel,Padding=new Thickness(8,3,8,3),CornerRadius=new CornerRadius(5),Background=new SolidColorBrush(Color.FromArgb(220,15,20,22)),HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(0,0,12,28)};
-        }
         private int sliceIndex, pixelGeneration, seriesGeneration;
         private bool changing, disposed;
         private List<TagRow> tags = new List<TagRow>();
@@ -87,6 +76,7 @@ namespace QuickLook.DicomRT
             var heading = new DockPanel { Margin = new Thickness(10, 4, 10, 4), LastChildFill=false };
             var logo = new Image { Source = AppIcon.Image, Width = 26, Height = 26, Margin = new Thickness(0, 0, 7, 0) }; DockPanel.SetDock(logo, Dock.Left); heading.Children.Add(logo);
             var title = Theme.Text("DICOM RT", 12); title.FontWeight = FontWeights.SemiBold; title.VerticalAlignment=VerticalAlignment.Center;title.Margin=new Thickness(0,0,16,0); DockPanel.SetDock(title, Dock.Left); heading.Children.Add(title);
+            var screenshot=BuildScreenshotButton();DockPanel.SetDock(screenshot,Dock.Right);heading.Children.Add(screenshot);
             var tagsButton=Theme.Button("Tags");tagsButton.ToolTip="Right sidebar with searchable DICOM tags";tagsButton.Click+=(s,e)=>{tagsVisible=!tagsVisible;UpdatePanels();if(tagsVisible)UpdateTags();};DockPanel.SetDock(tagsButton,Dock.Right);heading.Children.Add(tagsButton);
             var layersButton=Theme.Button("RT");layersButton.ToolTip="Plans, structures, dose, MLC, DVH and 3D";layersButton.Click+=(s,e)=>{layersVisible=!layersVisible;UpdatePanels();};DockPanel.SetDock(layersButton,Dock.Right);heading.Children.Add(layersButton);root.Children.Add(heading);
             var body = new Grid();leftColumn=new ColumnDefinition {Width=new GridLength(0)};body.ColumnDefinitions.Add(leftColumn);body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(4)});body.ColumnDefinitions.Add(new ColumnDefinition {MinWidth=280});body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(4)});rightColumn=new ColumnDefinition {Width=new GridLength(0)};body.ColumnDefinitions.Add(rightColumn);Grid.SetRow(body,1);root.Children.Add(body);
@@ -106,7 +96,7 @@ namespace QuickLook.DicomRT
             IsVisibleChanged+=(s,e)=>{if(!IsVisible){if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();}};
             Unloaded+=(s,e)=>{if(fusionPopup!=null)fusionPopup.IsOpen=false;CloseDosePopups();};
             focusTimer.Tick+=(s,e)=>{if(!focusDirty)return;focusDirty=false;Redraw();};
-            RebuildPanes();
+            InitializeShortcuts();RebuildPanes();
         }
 
         private UIElement BuildRtPanel()
@@ -126,12 +116,15 @@ namespace QuickLook.DicomRT
         private UIElement BuildMiddle()
         {
             var dock = new DockPanel { Margin = new Thickness(8, 0, 8, 0) };
-            var top = new StackPanel();var images=new StackPanel();imageHeader=images;top.Children.Add(images);
-            var sourceRow=new DockPanel();var fusion=BuildFusionButton();DockPanel.SetDock(fusion,Dock.Right);sourceRow.Children.Add(fusion);var isoJump=BuildIsocenterButton();DockPanel.SetDock(isoJump,Dock.Right);sourceRow.Children.Add(isoJump);series.ToolTip="Change the base image · RT follows when a matching registration is available";sourceRow.Children.Add(series);images.Children.Add(sourceRow);
-            var tools = new WrapPanel(); planes.ItemsSource = new[] { "Native", "Axial", "Coronal", "Sagittal", "MPR + 3D" }; planes.SelectedIndex = 0; tools.Children.Add(planes);tools.Children.Add(showFields);showFields.Checked+=(s,e)=>Redraw();showFields.Unchecked+=(s,e)=>Redraw();
-            Button soft = Theme.Button("Soft tissue"), bone = Theme.Button("Bone"), auto = Theme.Button("Auto"), fit = Theme.Button("Fit"), zin = Theme.Button("＋"), zout = Theme.Button("−");
-            soft.Click += (s, e) => SetWindow(40, 400); bone.Click += (s, e) => SetWindow(400, 1800); auto.Click += (s, e) => AutoWindow(); fit.Click += (s, e) => { zoom = 1; Redraw(); }; zin.Click += (s, e) => { zoom = Math.Min(8, zoom * 1.25); Redraw(); }; zout.Click += (s, e) => { zoom = Math.Max(.25, zoom / 1.25); Redraw(); };
-            foreach (var b in new[] { soft, bone, auto, fit, zin, zout }) tools.Children.Add(b); images.Children.Add(tools);images.Children.Add(BuildFieldControls());
+            var top=new StackPanel();var toolbar=new StackPanel{Orientation=Orientation.Horizontal};
+            top.Children.Add(new ScrollViewer{Content=toolbar,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});
+            planes.ItemsSource=new[]{"Native","Axial","Coronal","Sagittal","MPR + 3D"};planes.SelectedIndex=0;
+            toolbar.Children.Add(BuildImageModes());
+            var images=new StackPanel{Orientation=Orientation.Horizontal};imageHeader=images;toolbar.Children.Add(images);
+            series.Width=150;series.ToolTip="Base image series; RT follows a matching registration";images.Children.Add(series);
+            images.Children.Add(BuildFusionButton());images.Children.Add(BuildIsocenterButton());images.Children.Add(BuildInfoButton());
+            images.Children.Add(showFields);showFields.Checked+=(s,e)=>Redraw();showFields.Unchecked+=(s,e)=>Redraw();
+            var fit=Theme.Button("Fit");fit.ToolTip="Reset zoom and fit image (Home)";fit.Click+=(s,e)=>{zoom=1;viewportCenter=null;Redraw();};images.Children.Add(fit);images.Children.Add(BuildFieldControls());
             DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
             patientIdentity.HorizontalAlignment=HorizontalAlignment.Right;patientIdentity.TextAlignment=TextAlignment.Right;patientIdentity.TextTrimming=TextTrimming.CharacterEllipsis;patientIdentity.Margin=new Thickness(8,4,8,2);DockPanel.SetDock(patientIdentity,Dock.Bottom);dock.Children.Add(patientIdentity);
             var bottom = new StackPanel(); imageFooter=bottom; bottom.Children.Add(sliceSlider); bottom.Children.Add(position); DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom); workspace.Children.Add(imageGrid); dock.Children.Add(workspace); return dock;
@@ -143,11 +136,12 @@ namespace QuickLook.DicomRT
             dock.Children.Add(tagTree);return Theme.Box(dock);
         }
 
-        private void SetWindow(double center, double width) { windowCenter = center; windowWidth = Math.Max(1, width);if(miniWidth!=null){updatingWindowControls=true;miniWidth.Maximum=Math.Max(5000,windowWidth);miniLevel.Minimum=Math.Min(-1500,windowCenter);miniLevel.Maximum=Math.Max(3500,windowCenter);miniWidth.Value=windowWidth;miniLevel.Value=windowCenter;miniWidth.ToolTip=$"Window width {windowWidth:0}";miniLevel.ToolTip=$"Window level {windowCenter:0}";updatingWindowControls=false;} Redraw(); }
+        private void SetWindow(double center, double width) { MarkWindowCustom();windowCenter = center; windowWidth = Math.Max(1, width);windowRange?.SetWindow(windowCenter,windowWidth);if(miniWidth!=null){updatingWindowControls=true;miniWidth.Maximum=Math.Max(5000,windowWidth);miniLevel.Minimum=Math.Min(-1500,windowCenter);miniLevel.Maximum=Math.Max(3500,windowCenter);miniWidth.Value=windowWidth;miniLevel.Value=windowCenter;miniWidth.ToolTip=$"Window width {windowWidth:0}";miniLevel.ToolTip=$"Window level {windowCenter:0}";updatingWindowControls=false;} Redraw(); }
         private void UpdatePanels(){if(rightColumn==null||leftColumn==null)return;leftColumn.Width=new GridLength(layersVisible?290:0);rightColumn.Width=new GridLength(tagsVisible?345:0);if(leftPanel!=null)leftPanel.Visibility=layersVisible?Visibility.Visible:Visibility.Collapsed;if(rightPanel!=null)rightPanel.Visibility=tagsVisible?Visibility.Visible:Visibility.Collapsed;}
         private void AutoWindow() { float min = native?.Min ?? volume?.Min ?? 0, max = native?.Max ?? volume?.Max ?? 1000; SetWindow((min + max) / 2.0, Math.Max(1, max - min)); }
         private void RebuildPanes()
         {
+            viewportCenter=focus;
             foreach (var pane in panes) pane.Dispose(); panes.Clear();orientationBadges.Clear(); imageGrid.Children.Clear(); imageGrid.ColumnDefinitions.Clear(); imageGrid.RowDefinitions.Clear();
             string selected = (string)planes.SelectedItem ?? "Native"; var views = selected == "MPR + 3D" ? new[] { "Axial", "Coronal", "Sagittal" } : new[] { selected };
             bool quad=views.Length==3;
@@ -158,9 +152,9 @@ namespace QuickLook.DicomRT
             {
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
-                pane.PickInteraction+=active=>{movingCrosshair=active;if(active)focusTimer.Start();else{focusTimer.Stop();focusDirty=false;Redraw();}};
-                pane.Picked += (p, point) => { focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
-                var cell=new Grid();cell.Children.Add(pane);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
+                pane.PickInteraction+=active=>{movingCrosshair=active;if(active){if(!viewportCenter.HasValue)viewportCenter=focus;focusTimer.Start();}else{focusTimer.Stop();focusDirty=false;Redraw();}};
+                pane.Picked += (p, point) => { focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
+                var cell=new Grid();cell.Children.Add(pane);ViewerSnapshot.AttachMenu(pane,()=>cell,views[i]);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }
             if(quad)AttachThreeD(true);
@@ -173,7 +167,7 @@ namespace QuickLook.DicomRT
         public void Dispose()
         {
             isodosePreferences.Changed -= GlobalIsodosesChanged;
-            if (disposed) return; CloseDosePopups(); if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
+            if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Close(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }

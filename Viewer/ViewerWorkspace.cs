@@ -118,7 +118,7 @@ namespace QuickLook.DicomRT
         }
         private void SetWorkspace(string mode)
         {
-            if(disposed)return;CloseDosePopups();if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
+            if(disposed)return;CloseDosePopups();if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
             foreach(var pair in viewButtons)pair.Value.Foreground=pair.Key==mode?Theme.Accent:Theme.Foreground;
             foreach(UIElement child in workspace.Children)child.Visibility=Visibility.Collapsed;
             if(imageHeader!=null)imageHeader.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;

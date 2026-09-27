@@ -30,15 +30,15 @@ namespace QuickLook.DicomRT
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}
         public MlcPlaybackControl()
         {
-            var top=new StackPanel();var quad=Theme.Button("▦ MPR + 3D");quad.HorizontalAlignment=HorizontalAlignment.Right;quad.ToolTip="Open the linked 2 × 2 overview";quad.Click+=(s,e)=>MprRequested?.Invoke();top.Children.Add(quad); top.Children.Add(Theme.Text("BEAM / ARC",11,Theme.Accent));top.Children.Add(beams);SetDock(top,Dock.Top);Children.Add(top);
-            layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};top.Children.Add(layerView);
+            Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};var quad=ViewButtons.Create("MPR + 3D");quad.HorizontalAlignment=HorizontalAlignment.Right;quad.ToolTip="Open the linked 2 × 2 overview";quad.Click+=(s,e)=>MprRequested?.Invoke();settings.Children.Add(quad);beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
+            layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};layerView.Width=100;layerView.ToolTip="Choose MLC layer";settings.Children.Add(layerView);
             var bottom=new StackPanel();bottom.Children.Add(details);
             var controls=new WrapPanel();controls.Children.Add(play);var restart=Theme.Button("↺");restart.ToolTip="Go to plan start";restart.Click+=(s,e)=>cursor.Value=0;controls.Children.Add(restart);
             controls.Children.Add(Theme.Text("CP/s",11,Theme.Muted));speed.ItemsSource=new[]{1,2,5,10,20};speed.SelectedItem=5;controls.Children.Add(speed);bottom.Children.Add(controls);
             bottom.Children.Add(Theme.Text("PLAN TIMELINE · markers indicate beam ends",10,Theme.Muted));bottom.Children.Add(cursor);bottom.Children.Add(markers);
-            bottom.Children.Add(Theme.Text("Mouse wheel: 0.1 CP · Shift: 1 CP · MLC first · imaging last · preview, not delivery time",10,Theme.Muted));
+            bottom.Children.Add(Theme.Text("Mouse wheel: 1 CP · Shift: 0.1 CP · MLC first · imaging last · preview, not delivery time",10,Theme.Muted));
             var jump=Theme.Button("Go to isocenter");jump.Click+=(s,e)=>{if(beam?.ControlPoints.Count>0){int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);IsocenterSelected?.Invoke(beam.ControlPoints[(int)local].Isocenter);}};bottom.Children.Add(jump);
-            SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);apertureArea.Children.Add(orientation);Children.Add(apertureArea);InitializeAnatomy(top,apertureArea);
+            SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);apertureArea.Children.Add(orientation);Children.Add(apertureArea);InitializeAnatomy(settings,apertureArea);
             beams.SelectionChanged+=(s,e)=>{if(selecting)return;Pause();int index=beams.SelectedIndex;if(index>=0)cursor.Value=counts.Take(index).Sum();UpdateFrame();};
             cursor.ValueChanged+=(s,e)=>UpdateFrame();markers.SizeChanged+=(s,e)=>DrawMarkers();
             play.Click+=(s,e)=>{if(timer.IsEnabled)Pause();else if(cursor.Maximum>0){if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";}};
@@ -71,6 +71,8 @@ namespace QuickLook.DicomRT
         private ControlPoint first,second;private double fraction;private int layerIndex=-1;
         private MlcProjectionFrame projection;
         public MlcProjectionFrame Projection {get=>projection;set{projection=value;InvalidateVisual();}}
+        double drrLeafOpacity=.75;
+        public double DrrLeafOpacity {get=>drrLeafOpacity;set{drrLeafOpacity=Math.Max(.1,Math.Min(1,value));InvalidateVisual();}}
         public double Extent {get;set;}=100;
         public int LayerIndex {get=>layerIndex;set {layerIndex=value;InvalidateVisual();}}
         public void Set(ControlPoint a,ControlPoint b,double t){first=a;second=b;fraction=t;Extent=100;
@@ -96,7 +98,7 @@ namespace QuickLook.DicomRT
                 if(layerIndex>=0&&index!=layerIndex)continue;
                 var layer=layers[index];var positions=layer.Positions;var bounds=layer.Boundaries;int n=bounds.Length-1;bool mlcY=layer.IsY;
                 if(n<1||positions.Length!=n*2){Label(dc,"Missing layer geometry",5,8);return;}
-                var leaf=Theme.Brush(projection?.Drr!=null?(index%2==0?"#30416178":"#30876C43"):(index%2==0?"#BF416178":"#BF876C43"));var edge=new Pen(Theme.Brush(index%2==0?"#A9C6D6":"#EAC28A"),.6);
+                var leaf=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),18,25,32)):Theme.Brush(index%2==0?"#BF416178":"#BF876C43");var edge=new Pen(Theme.Brush(index%2==0?"#A9C6D6":"#EAC28A"),.6);
                 for(int k=0;k<n;k++)
                 {
                     if(projection?.Drr!=null){var bankPen=new Pen(Theme.Brush(index%2==0?"#703599EF":"#70EAC28A"),.6);if(mlcY){dc.DrawLine(bankPen,point(bounds[k],-extent),point(bounds[k],positions[k]));dc.DrawLine(bankPen,point(bounds[k],positions[k+n]),point(bounds[k],extent));}else{dc.DrawLine(bankPen,point(-extent,bounds[k]),point(positions[k],bounds[k]));dc.DrawLine(bankPen,point(positions[k+n],bounds[k]),point(extent,bounds[k]));}}
@@ -110,7 +112,7 @@ namespace QuickLook.DicomRT
             }
             Label(dc,layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
             Label(dc,"IEC beam limiting device plane · isocenter projection",6,18);
-            var jaw=Theme.Brush(projection?.Drr!=null?"#3827313E":"#D927313E");
+            var jaw=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),20,25,30)):Theme.Brush("#D927313E");
             if(xj.Length==2){rect(-extent,-extent,xj[0],extent,jaw);rect(xj[1],-extent,extent,extent,jaw);}
             if(yj.Length==2){rect(-extent,-extent,extent,yj[0],jaw);rect(-extent,yj[1],extent,extent,jaw);}
             if(projection!=null){dc.PushClip(new RectangleGeometry(imageRect));dc.PushTransform(new MatrixTransform(imageRect.Width,0,0,imageRect.Height,imageRect.Left,imageRect.Top));foreach(var outline in projection.Outlines){dc.DrawGeometry(null,new Pen(Brushes.Black,3.5/imageRect.Width),outline.Boundary);dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromRgb(outline.Roi.Red,outline.Roi.Green,outline.Roi.Blue)),1.7/imageRect.Width),outline.Boundary);}dc.Pop();dc.Pop();}

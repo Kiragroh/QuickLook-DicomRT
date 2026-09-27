@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -16,15 +16,18 @@ namespace QuickLook.DicomRT
   sealed class OverlayLines {public Pen Pen;public List<WorldLine> Lines;}
   sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public bool InterpolatedContours,ContourFallback;public List<OverlayLines> Lines=new List<OverlayLines>();}
   RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
-  public RenderScene Scene {get=>scene;set{scene=value;Refresh();}}
+  public RenderScene Scene {get=>scene;set{scene=value;if(picking&&value?.InteractionPreview==true){UpdateCrosshair(value.Focus);return;}Refresh();}}
   internal void CancelPending(){pending?.Cancel();}
   internal void UpdateFields(RenderScene value){if(scene!=null)CopyFields(scene,value);if(frame!=null)CopyFields(frame.Scene,value);InvalidateVisual();}
   static void CopyFields(RenderScene target,RenderScene value){target.Plan=value.Plan;target.PlanToImage=value.PlanToImage;target.ActiveBeam=value.ActiveBeam;target.ActiveControlPoint=value.ActiveControlPoint;target.ShowFields=value.ShowFields;}
   public event Action<bool> PickInteraction;
-  bool picking;Vec3? immediateFocus;SliceGeometry pickGeometry;Rect pickRect;
-  public void UpdateCrosshair(Vec3 focus){immediateFocus=focus;InvalidateVisual();}
+  readonly DrawingVisual crosshairVisual=new DrawingVisual();
+  protected override int VisualChildrenCount=>1;
+  protected override Visual GetVisualChild(int index){if(index!=0)throw new ArgumentOutOfRangeException(nameof(index));return crosshairVisual;}
+  bool rightMoved;bool picking;Vec3? immediateFocus;SliceGeometry pickGeometry;Rect pickRect;
+  public void UpdateCrosshair(Vec3 focus){immediateFocus=focus;DrawCrosshair();}
   public event Action<SlicePane,int> Scrolled; public event Action<SlicePane,Vec3> Picked;public event Action<double,double> WindowChanged;public event Action<double> ZoomChanged;
-  public SlicePane(){Focusable=true;ClipToBounds=true;SizeChanged+=(s,e)=>Refresh();MouseWheel+=OnWheel;MouseLeftButtonDown+=OnPick;MouseLeftButtonUp+=(s,e)=>{if(!picking)return;PickAt(e.GetPosition(this));picking=false;ReleaseMouseCapture();PickInteraction?.Invoke(false);e.Handled=true;};LostMouseCapture+=(s,e)=>{if(picking){picking=false;PickInteraction?.Invoke(false);}};MouseRightButtonDown+=OnDragStart;MouseMove+=OnDrag;MouseRightButtonUp+=(s,e)=>{ReleaseMouseCapture();e.Handled=true;};}
+  public SlicePane(){AddVisualChild(crosshairVisual);Focusable=true;ClipToBounds=true;SizeChanged+=(s,e)=>Refresh();MouseWheel+=OnWheel;MouseLeftButtonDown+=OnPick;MouseLeftButtonUp+=(s,e)=>{if(!picking)return;PickAt(e.GetPosition(this));picking=false;ReleaseMouseCapture();PickInteraction?.Invoke(false);e.Handled=true;};LostMouseCapture+=(s,e)=>{if(picking){picking=false;PickInteraction?.Invoke(false);}};MouseRightButtonDown+=OnDragStart;MouseMove+=OnDrag;MouseRightButtonUp+=(s,e)=>{ReleaseMouseCapture();if(!rightMoved&&ContextMenu!=null){ContextMenu.PlacementTarget=this;ContextMenu.IsOpen=true;}e.Handled=true;};}
   public async void Refresh()
   {
    if(disposed)return;
@@ -70,6 +73,7 @@ namespace QuickLook.DicomRT
   protected override void OnRender(DrawingContext dc)
   {
    base.OnRender(dc);dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(8,12,17)),null,new Rect(0,0,ActualWidth,ActualHeight));
+   DrawCrosshair();
    if(frame==null){Text(dc,status??"Rendering…",new Point(12,12),Brushes.LightSlateGray);return;}
    var f=frame;var g=f.Raster.Geometry;var rect=ImageRect(g);
    dc.DrawImage(f.Bitmap,rect);dc.PushClip(new RectangleGeometry(rect));
@@ -79,12 +83,6 @@ namespace QuickLook.DicomRT
     Pen pen;if(!isoPens.TryGetValue(line.DosePercent,out pen))
     {double red,green,blue;SliceRaster.IsodoseColor(f.Scene,line.DosePercent,out red,out green,out blue);pen=new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),.9);isoPens.Add(line.DosePercent,pen);}
     dc.DrawLine(pen,Project(line.A,g,rect),Project(line.B,g,rect));
-   }
-   if(f.Scene.Crosshair&&f.Scene.Entry?.HasGeometry!=false)
-   {
-    var p=Project(immediateFocus??f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,181,246)),.8);
-    dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));
-    dc.DrawLine(pen,new Point(p.X,rect.Top),new Point(p.X,p.Y-5));dc.DrawLine(pen,new Point(p.X,p.Y+5),new Point(p.X,rect.Bottom));
    }
    foreach(var iso in f.Scene.Isocenters??new Vec3[0])
    {
@@ -123,6 +121,19 @@ namespace QuickLook.DicomRT
    }
    if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
   }
+  void DrawCrosshair()
+  {
+   using(var dc=crosshairVisual.RenderOpen()){
+    if(frame==null)return;var f=frame;var g=f.Raster.Geometry;var rect=ImageRect(g);dc.PushClip(new RectangleGeometry(rect));
+   if(f.Scene.Crosshair&&f.Scene.Entry?.HasGeometry!=false)
+   {
+    var p=Project(immediateFocus??f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,181,246)),.8);
+    dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));
+    dc.DrawLine(pen,new Point(p.X,rect.Top),new Point(p.X,p.Y-5));dc.DrawLine(pen,new Point(p.X,p.Y+5),new Point(p.X,rect.Bottom));
+   }
+    dc.Pop();
+   }
+  }
   void Text(DrawingContext dc,string text,Point p,Brush brush,double size=11)
   {dc.DrawText(new FormattedText(text??"",CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),size,brush,VisualTreeHelper.GetDpi(this).PixelsPerDip),p);}
   void OnWheel(object sender,MouseWheelEventArgs e){if(e.Delta==0)return;if((Keyboard.Modifiers&ModifierKeys.Control)!=0){ZoomChanged?.Invoke(e.Delta>0?1.15:1/1.15);e.Handled=true;return;}Scrolled?.Invoke(this,e.Delta>0?1:-1);e.Handled=true;}
@@ -136,11 +147,11 @@ namespace QuickLook.DicomRT
    if(pickGeometry==null)return;double u=Math.Max(0,Math.Min(1,(p.X-pickRect.X)/pickRect.Width)),v=Math.Max(0,Math.Min(1,(p.Y-pickRect.Y)/pickRect.Height));
    var point=pickGeometry.WorldAt(u,v);UpdateCrosshair(point);Picked?.Invoke(this,point);
   }
-  void OnDragStart(object sender,MouseButtonEventArgs e){if(scene==null||picking)return;dragStart=e.GetPosition(this);dragCenter=scene.WindowCenter;dragWidth=scene.WindowWidth;CaptureMouse();e.Handled=true;}
+  void OnDragStart(object sender,MouseButtonEventArgs e){if(scene==null||picking)return;rightMoved=false;dragStart=e.GetPosition(this);dragCenter=scene.WindowCenter;dragWidth=scene.WindowWidth;CaptureMouse();e.Handled=true;}
   void OnDrag(object sender,MouseEventArgs e)
   {
    if(picking&&IsMouseCaptured&&e.LeftButton==MouseButtonState.Pressed){PickAt(e.GetPosition(this));e.Handled=true;return;}
-   if(!IsMouseCaptured||e.RightButton!=MouseButtonState.Pressed)return;var p=e.GetPosition(this);double speed=Math.Max(1,dragWidth)/300;
+   if(!IsMouseCaptured||e.RightButton!=MouseButtonState.Pressed)return;var p=e.GetPosition(this);if(!rightMoved&&(p-dragStart).Length<3)return;rightMoved=true;double speed=Math.Max(1,dragWidth)/300;
    WindowChanged?.Invoke(dragCenter+(p.Y-dragStart.Y)*speed,Math.Max(1,dragWidth+(p.X-dragStart.X)*speed));e.Handled=true;
   }
   public void Dispose(){if(disposed)return;disposed=true;++generation;pending?.Cancel();pending=null;frame=null;scene=null;ReleaseMouseCapture();}

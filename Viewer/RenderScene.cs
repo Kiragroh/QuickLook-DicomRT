@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,7 +11,7 @@ namespace QuickLook.DicomRT
  {
   public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;
   public VolumeData Volume {get;set;} public PixelPlane Native {get;set;} public DicomEntry Entry {get;set;}
-  public string Plane {get;set;} = "Native"; public Vec3 Focus {get;set;}
+  public string Plane {get;set;} = "Native"; public Vec3 Focus {get;set;} public Vec3? ViewCenter {get;set;}
   public double WindowCenter {get;set;} public double WindowWidth {get;set;} = 400; public double Zoom {get;set;} = 1;
   public VolumeData OverlayVolume {get;set;} public Matrix4 ImageToOverlay {get;set;} = Matrix4.Identity;
   public double OverlayOpacity {get;set;} = .5; public double OverlayWindowCenter {get;set;} public double OverlayWindowWidth {get;set;} = 400;
@@ -63,6 +63,7 @@ namespace QuickLook.DicomRT
     g.WidthMm=Math.Max(.01,maxU-minU)/zoom;g.HeightMm=Math.Max(.01,maxV-minV)/zoom;
    }
    else {g.Center=s.Focus;g.Right=new Vec3(1,0,0);g.Down=new Vec3(0,1,0);g.WidthMm=g.HeightMm=1;}
+   if(s.ViewCenter.HasValue&&(s.Plane!="Native"||zoom>1)){var delta=s.ViewCenter.Value-g.Center;g.Center=g.Center+g.Right*delta.Dot(g.Right)+g.Down*delta.Dot(g.Down);}
    return g;
   }
   public static string Direction(Vec3 v)

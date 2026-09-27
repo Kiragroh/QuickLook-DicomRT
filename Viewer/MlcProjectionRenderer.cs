@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,7 +11,7 @@ namespace QuickLook.DicomRT
     internal sealed class ProjectedOutline {public StructureRoi Roi;public Geometry Boundary;}
     internal sealed class MlcProjectionFrame
     {
-        public BitmapSource Drr;public double Extent;public string Note;
+        public int EstimatedBytes;public BitmapSource Drr;public double Extent;public string Note;
         public readonly List<ProjectedOutline> Outlines=new List<ProjectedOutline>();
     }
     // Accessed by a single background worker. Original ROI-space meshes survive CP changes.
@@ -37,7 +37,7 @@ namespace QuickLook.DicomRT
                 if(!meshes.TryGetValue(overlay.Roi,out mesh))
                 {
                     string reason;mesh=ThreeDGeometry.BuildRoiSurface(overlay.Roi,Matrix4.Identity,token,out reason);
-                    if(mesh!=null){while(order.Count>0&&(meshes.Count>=48||vertices+mesh.Points.Count>3000000)){var old=order.Dequeue();vertices-=meshes[old].Points.Count;meshes.Remove(old);}meshes[overlay.Roi]=mesh;vertices+=mesh.Points.Count;order.Enqueue(overlay.Roi);}
+                    if(mesh!=null){while(order.Count>0&&(meshes.Count>=256||vertices+mesh.Points.Count>8000000)){var old=order.Dequeue();vertices-=meshes[old].Points.Count;meshes.Remove(old);}meshes[overlay.Roi]=mesh;vertices+=mesh.Points.Count;order.Enqueue(overlay.Roi);}
                 }
                 if(mesh==null){skipped++;continue;}
                 var boundary=Silhouette(mesh,overlay.RoiToImage,projection,extent,512,token);

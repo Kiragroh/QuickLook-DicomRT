@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,12 +13,15 @@ internal static class ProjectionCacheScenarios
         var cache=Activator.CreateInstance(type);var beam=new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};
         var cp=new ControlPoint();beam.ControlPoints.Add(cp);var plan=new PlanData();plan.Beams.Add(beam);
         var ct=new VolumeData{Width=11,Height=11,Depth=11,Values=new float[1331],Origin=new Vec3(-5,-5,-5),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1),SpacingX=1,SpacingY=1,SpacingZ=1};
-        var scene=new RenderScene{Entry=new DicomEntry{Modality="CT"},Volume=ct};string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why);
+        var scene=new RenderScene{Entry=new DicomEntry{Modality="CT"},Volume=ct};
+        foreach(var kind in new[]{"PTV","ORGAN","GTV"}){var roi=new StructureRoi{Name="Fixture "+kind,InterpretedType=kind};foreach(double z in new[]{-2d,0d,2d})roi.Contours.Add(new Contour{GeometricType="CLOSED_PLANAR",Points=new System.Collections.Generic.List<Vec3>{new Vec3(-2,-2,z),new Vec3(2,-2,z),new Vec3(2,2,z),new Vec3(-2,2,z)}});scene.Structures.Add(new RoiOverlay{Roi=roi});}
+string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why);
         try{
             type.GetMethod("Configure").Invoke(cache,new object[]{plan,scene,Matrix4.Identity});
             ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();
             var args=new object[]{projection,ct,new RoiOverlay[0],100d,true,null};
             check((bool)type.GetMethod("TryGet").Invoke(cache,args),"DRR prepared globally before opening MLC");
+            foreach(var roi in scene.Structures){var subset=new object[]{projection,ct,new[]{roi},100d,false,null};check((bool)type.GetMethod("TryGet").Invoke(cache,subset),"PTV/ORGAN/Other projection ready without enabling its checkbox");var ready=subset[5];check(((System.Collections.ICollection)ready.GetType().GetField("Outlines").GetValue(ready)).Count==1,"independently cached ROI has actual silhouette");}
             var frame=args[5];var image=(BitmapSource)frame.GetType().GetField("Drr").GetValue(frame);
             check(image.IsFrozen&&image.PixelWidth==384,"cached DRR is immutable and full 384 resolution");
             type.GetMethod("Configure").Invoke(cache,new object[]{new PlanData(),scene,Matrix4.Identity});

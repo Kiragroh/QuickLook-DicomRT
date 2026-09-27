@@ -19,7 +19,7 @@ namespace QuickLook.DicomRT
   sealed class Part {public MeshGeometry3D Mesh,InteractionMesh;public StructureRoi Roi;public string Kind,RoiType;public Color Color;public Vec3 Center;public bool Fallback,Reduced;}
   sealed class Prepared {public List<Part> Parts=new List<Part>();public int Fallbacks,Skipped,Reduced,CacheHits;}
   readonly Viewport3D viewport=new Viewport3D();readonly ModelVisual3D visual=new ModelVisual3D();readonly PerspectiveCamera camera=new PerspectiveCamera();
-  Direct3DSurface gpu;
+  Direct3DSurface gpu;internal Direct3DSurface CaptureSurface=>gpu;
   readonly PatientOrientationBadge orientationBadge=new PatientOrientationBadge();
   readonly IsocenterOverlay isocenterOverlay=new IsocenterOverlay();
   readonly ModelVisual3D sliceVisual=new ModelVisual3D();bool compact;VolumeData sliceVolume;Vec3 sliceFocus;bool cameraAdjusted;
@@ -48,6 +48,7 @@ namespace QuickLook.DicomRT
   public event Action MprRequested;
   public ThreeDControl(bool compact=false)
   {
+   ViewerSnapshot.AttachMenu(this,null,"3D");
    this.compact=compact;
    Background=Theme.Background;var root=new Grid();root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});root.RowDefinitions.Add(new RowDefinition{Height=new GridLength(1,GridUnitType.Star)});root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
    var controls=new WrapPanel{Margin=new Thickness(8,4,8,4)};
@@ -57,7 +58,7 @@ namespace QuickLook.DicomRT
    controls.Children.Add(Theme.Text("ROI opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="ROI opacity; large enclosing organs are automatically more transparent. Skin has its own control."};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
    var skinOpacityLabel=Theme.Text("Skin opacity",11);controls.Children.Add(skinOpacityLabel);skinOpacity=new Slider{Minimum=.01,Maximum=.25,Value=.06,Width=80,Margin=new Thickness(6),ToolTip="CT skin opacity (1–25%), independent of ROI opacity; 6% by default"};controls.Children.Add(skinOpacity);skinOpacity.ValueChanged+=(s,e)=>ApplyModels();
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose surface"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{if(!updatingDoseChoices)StartBuild();};
-   var quad=Theme.Button("▦ MPR + 3D");quad.Click+=(s,e)=>MprRequested?.Invoke();controls.Children.Add(quad);
+   var quad=ViewButtons.Create("MPR + 3D");quad.Click+=(s,e)=>MprRequested?.Invoke();controls.Children.Add(quad);
    var reset=Theme.Button("Reset view");reset.Click+=(s,e)=>{cameraAdjusted=false;ResetCamera();};controls.Children.Add(reset);
    root.Children.Add(controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);

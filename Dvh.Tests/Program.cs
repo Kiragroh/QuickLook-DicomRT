@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading;
 using System.IO;
@@ -35,6 +35,7 @@ internal static class Program
         SumTests();
         var dose=Dose();var result=Calc(Roi(),dose);
         Assert(result.Status==DvhStatus.Complete,"constant full coverage");Near(result.EstimatedVolumeCc,.4,"half-spacing slab volume");Near(result.SampledVolumeCc,.4,"covered cc");Near(result.CoverageFraction,1,"coverage");
+        foreach(var metric in new[]{result.Dmean,result.Dmedian,result.Dmin,result.Dmax,result.D98,result.D2})Near(metric,2,"constant dose summary metric");
         Near(result.CumulativeVolumePercent[0],100,"V0");Near(result.CumulativeVolumePercent[result.DoseValues.Length-2],100,"inclusive threshold at constant max");Near(result.CumulativeVolumePercent.Last(),0,"tail zero");
         Assert(result.CumulativeVolumePercent.Zip(result.CumulativeVolumePercent.Skip(1),(a,b)=>a>=b).All(x=>x),"monotone cumulative");
         var holes=Roi(type:"CLOSEDPLANAR_XOR");holes.Contours.Add(Rectangle(3,3,4,4,2,"CLOSEDPLANAR_XOR"));holes.Contours.Add(Rectangle(3,3,4,4,4,"CLOSEDPLANAR_XOR"));
@@ -48,6 +49,7 @@ internal static class Program
         var keyhole=Roi();foreach(var c in keyhole.Contours){double z=c.Points[0].Z;c.Points.Add(c.Points[0]);c.Points.AddRange(new[]{new Vec3(3,3,z),new Vec3(3,7,z),new Vec3(7,7,z),new Vec3(7,3,z),new Vec3(3,3,z),c.Points[0]});}
         Near(Calc(keyhole,dose).EstimatedVolumeCc,.336,"keyhole excludes inner ring");
         var partial=Calc(Roi(15),dose);Assert(partial.Status==DvhStatus.PartialCoverage,"partial explicit");Near(partial.CoverageFraction,.5,"partial coverage fraction");Near(partial.CumulativeVolumePercent[0],50,"uncovered not normalized away or counted as zero");
+        Assert(new[]{partial.Dmean,partial.Dmedian,partial.Dmin,partial.Dmax,partial.D98,partial.D2}.All(double.IsNaN),"partial coverage does not invent whole-structure metrics");
         var outside=Calc(Roi(30),dose);Assert(outside.DoseValues.Length==0 && outside.Status==DvhStatus.PartialCoverage,"no invented dose outside");
         var mapped=Calc(Roi(30),dose,new Matrix4(new double[]{1,0,0,-30,0,1,0,0,0,0,1,0,0,0,0,1}));Near(mapped.CoverageFraction,1,"roi to dose transform");
         Assert(Calc(Roi(),dose,new Matrix4(new double[]{2,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1})).Status==DvhStatus.Unsupported,"nonrigid rejected");
@@ -55,7 +57,7 @@ internal static class Program
         var invalid=Roi();invalid.Contours[1].GeometricType="CLOSEDPLANAR_XOR";Assert(Calc(invalid,dose).Status==DvhStatus.Unsupported,"mixed types rejected");
         invalid=Roi();invalid.Contours[1].Points[0]=new Vec3(0,0,5);Assert(Calc(invalid,dose).Status==DvhStatus.Unsupported,"nonparallel rejected");
         Assert(Calc(Roi(),Dose(units:"RELATIVE")).DoseUnits=="RELATIVE","relative units retained");
-        var gradient=Calc(Roi(),Dose(true));int threshold=Array.FindIndex(gradient.DoseValues,x=>x>=5);Near(gradient.CumulativeVolumePercent[threshold],50,"linear gradient V5");
+        var gradient=Calc(Roi(),Dose(true));Near(gradient.Dmean,5,"gradient mean uses weighted samples");Near(gradient.Dmin,.25,"sample minimum");Near(gradient.Dmax,9.75,"sample maximum");Assert(gradient.D98<=gradient.Dmedian&&gradient.Dmedian<=gradient.D2,"quantiles ordered by cumulative volume");int threshold=Array.FindIndex(gradient.DoseValues,x=>x>=5);Near(gradient.CumulativeVolumePercent[threshold],50,"linear gradient V5");
         var cancelled=new CancellationTokenSource();cancelled.Cancel();bool threw=false;try{DvhCalculator.Calculate(Roi(),dose,Matrix4.Identity,cancelled.Token);}catch(OperationCanceledException){threw=true;}Assert(threw,"cancellation observed");
         var large=Calc(Roi(0,200000),dose);Assert(large.SamplingStepMm>1,"adaptive bounded grid");
         Assert(result.DoseValues.Length==2050,"2048 dose intervals plus inclusive maximum and zero tail");
@@ -110,7 +112,7 @@ internal static class Program
             var contents=(System.Windows.Controls.StackPanel)row.Child;
             var heading=(System.Windows.Controls.DockPanel)contents.Children[0];
             var box=(System.Windows.Controls.CheckBox)heading.Children[0];
-            var name=(System.Windows.Controls.Button)heading.Children[1];
+            var name=heading.Children.OfType<System.Windows.Controls.Button>().Single(b=>(string)b.Content==a.Name);
             name.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
             Assert(ReferenceEquals(view.FocusedStructure,a)&&box.IsChecked==true,"structure name focuses without toggling visibility");
             VerifyFocusDrawing(view);
