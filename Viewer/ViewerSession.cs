@@ -88,7 +88,7 @@ namespace QuickLook.DicomRT
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
                 RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
-                searchSubfolders.Visibility=structures.Count+doses.Count+planData.Count==0?System.Windows.Visibility.Visible:System.Windows.Visibility.Collapsed;
+                searchSubfolders.Visibility=System.Windows.Visibility.Visible;
             }
             catch (OperationCanceledException) { }
             catch (Exception) { if (!disposed) status.Text = "Unable to load the complete DICOM preview. Check the file, read permissions or encoding."; }

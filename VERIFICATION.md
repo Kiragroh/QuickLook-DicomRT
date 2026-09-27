@@ -1,4 +1,10 @@
-﻿# 0.2.17 verification
+﻿# 0.2.18 verification
+
+281 WPF interaction checks passed, including visibility of subfolder search after RTPLAN-only loading and recursive discovery that preserves the current image, finds matching RT and excludes another patient's plan. The underlying sum, Dmax and electron-cutout checks are retained from 0.2.17.
+
+---
+
+# 0.2.17 verification
 
 280 WPF interaction checks passed. New coverage includes compatible sum grouping, explicit member exclusion, maximum-voxel navigation, concave block area, shielding subtraction, prepared block-geometry reuse, and recursive UI discovery while retaining the displayed image and rejecting another patient's RT.
 

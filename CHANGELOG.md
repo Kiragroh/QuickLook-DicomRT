@@ -2,6 +2,11 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.18 — 27 September 2026
+
+- **Search subfolders remains available after every initial scan**, including when plans, structures or doses have already been found. Search a common parent to add more matching RT objects from sibling directories without closing the current case.
+- Existing source-instance identities prevent repeated discovery from loading the same RT object twice. The current image and patient filtering are retained.
+
 ## 0.2.17 — 27 September 2026
 
 ### Selectable plan sums

@@ -81,6 +81,7 @@ internal static class RtOnlyScenarios
             using(var viewer=Open(Path.Combine(root,"plan","RTPLAN.dcm")))
             {
                 check(!viewer.HasImage && viewer.StackCount==0,"RTPLAN-only opens without an image");
+                check(Field<Button>(viewer,"searchSubfolders").Visibility==Visibility.Visible,"subfolder search stays available after RT data is already found");
                 check(Field<string>(viewer,"workspaceMode")=="MLC","RTPLAN-only opens directly in MLC workspace");
                 var plan=Field<PlanData>(viewer,"centralPlan");check(plan!=null && plan.Beams.Any(b=>b.ControlPoints.Any(c=>c.MlcLayers.Count>0)),"RTPLAN-only populates MLC layers");
                 check(Field<MlcPlaybackControl>(viewer,"centralPlayback")?.Visibility==Visibility.Visible,"RTPLAN-only MLC control visible");
