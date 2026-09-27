@@ -48,9 +48,9 @@ namespace QuickLook.DicomRT
         }
         void SaveScreenshot()
         {
-            var dialog=new Microsoft.Win32.SaveFileDialog{Filter="PNG image|*.png",FileName="DICOM-RT-view.png",Title="Save current view (including displayed identifiers)"};
+            var identity=CurrentExportIdentity(workspaceMode=="DVH");var dialog=new Microsoft.Win32.SaveFileDialog{Filter="PNG image|*.png",FileName=identity.FileName(workspaceMode=="Bild"?(string)planes.SelectedItem:workspaceMode,".png"),Title="Save current view (including displayed identifiers)"};
             if(dialog.ShowDialog(Window.GetWindow(this))!=true)return;
-            try{ViewerSnapshot.Save(ViewerSnapshot.Capture(workspace),dialog.FileName);status.Text="Screenshot saved.";}catch(Exception){status.Text="Unable to save screenshot.";}
+            try{ViewerSnapshot.Save(identity.Stamp(ViewerSnapshot.Capture(workspace)),dialog.FileName);status.Text="Screenshot saved.";}catch(Exception){status.Text="Unable to save screenshot.";}
         }
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -25,7 +25,7 @@ namespace QuickLook.DicomRT
             bool available=scene?.Volume!=null&&map!=null&&cp!=null;
             if(!available){if(valid){slice.Scene=null;valid=false;volume=null;}note.Text="Matching volume required";return;}
             var center=map.Transform(cp.Isocenter);if(!BeamProjection.Finite(center.X)||!BeamProjection.Finite(center.Y)||!BeamProjection.Finite(center.Z))return;
-            var next=new RenderScene{Volume=scene.Volume,Entry=scene.Entry,Plane="Axial",Focus=center,WindowCenter=scene.WindowCenter,WindowWidth=scene.WindowWidth,Crosshair=false,Plan=plan,PlanToImage=map,ActiveBeam=active,ActiveControlPoint=cp,ShowFields=true,Isocenters=new[]{center}};
+            var next=new RenderScene{Volume=scene.Volume,Entry=scene.Entry,Plane="Axial",Focus=center,WindowCenter=scene.WindowCenter,WindowWidth=scene.WindowWidth,Crosshair=false,Plan=plan,PlanToImage=map,ActiveBeam=active,ActiveControlPoint=cp,ShowFields=true,FieldModulation=scene.FieldModulation,Isocenters=new[]{center}};
             if(!valid||volume!=scene.Volume||(iso-center).Length>1e-5||width!=scene.WindowWidth||level!=scene.WindowCenter){slice.Scene=next;volume=scene.Volume;iso=center;width=scene.WindowWidth;level=scene.WindowCenter;valid=true;}
             else slice.UpdateFields(next);
             note.Text=$"Beam {active?.Number} · G {cp.Gantry:0.#}° · T {cp.Couch:0.#}° · C {cp.Collimator:0.#}°";

@@ -105,13 +105,13 @@ internal static class Program
             .Add(new DicomSequence(DicomTag.BeamLimitingDevicePositionSequence,Device("ASYMX",-50,50),Device("ASYMY",-40,40),Device("MLCX",-10,-20,10,20)));
         var cp1=new DicomDataset().Add(DicomTag.ControlPointIndex,1).Add(DicomTag.GantryAngle,15d).Add(DicomTag.CumulativeMetersetWeight,1d)
             .Add(new DicomSequence(DicomTag.BeamLimitingDevicePositionSequence,Device("MLCX",-15,-25,15,25)));
-        var beam=new DicomDataset().Add(DicomTag.BeamNumber,1).Add(DicomTag.BeamName,"Synthetic").Add(DicomTag.TreatmentDeliveryType,"TREATMENT")
+        var beam=new DicomDataset().Add(DicomTag.BeamNumber,1).Add(DicomTag.BeamName,"Synthetic").Add(DicomTag.PrimaryDosimeterUnit,"MU").Add(DicomTag.TreatmentDeliveryType,"TREATMENT")
             .Add(new DicomSequence(DicomTag.BeamLimitingDeviceSequence,new DicomDataset().Add(DicomTag.RTBeamLimitingDeviceType,"MLCX").Add(DicomTag.NumberOfLeafJawPairs,2).Add(DicomTag.LeafPositionBoundaries,-20d,0d,20d)))
             .Add(new DicomSequence(DicomTag.ControlPointSequence,cp0,cp1));
         var d=new DicomDataset().Add(DicomTag.FrameOfReferenceUID,"1.1").Add(new DicomSequence(DicomTag.BeamSequence,beam))
             .Add(new DicomSequence(DicomTag.FractionGroupSequence,new DicomDataset().Add(new DicomSequence(DicomTag.ReferencedBeamSequence,new DicomDataset().Add(DicomTag.ReferencedBeamNumber,1).Add(DicomTag.BeamMeterset,200d)))));
         var plan=PlanData.Load(new DicomEntry {Dataset=d}); Assert(plan.Beams.Count==1,"beam parsed"); var b=plan.Beams[0]; Assert(b.ControlPoints.Count==2,"control points retained");Assert(b.TreatmentDeliveryType=="TREATMENT","beam delivery type retained for preview ordering");
-        var c=b.ControlPoints[1]; Near(c.DoseRateSet,600,"planned rate inherited");Near(c.Gantry,15,"updated gantry"); Near(c.Collimator,20,"inherited collimator"); Near(c.Couch,30,"inherited couch"); Near(c.Isocenter.Z,3,"inherited isocenter");
+        Assert(b.PrimaryDosimeterUnit=="MU","declared primary dosimeter unit retained");var c=b.ControlPoints[1]; Near(c.DoseRateSet,600,"planned rate inherited");Near(c.Gantry,15,"updated gantry"); Near(c.Collimator,20,"inherited collimator"); Near(c.Couch,30,"inherited couch"); Near(c.Isocenter.Z,3,"inherited isocenter");
         Near(c.XJaws[0],-50,"inherited X jaws"); Near(c.YJaws[1],40,"inherited Y jaws"); Near(c.MlcPositions[0],-15,"updated MLC"); Near(c.MlcBoundaries[2],20,"leaf boundaries"); Near(c.MetersetWeight,1,"control point cumulative weight"); Near(b.Meterset,200,"beam meterset");
         c.MlcPositions[0]=999; Near(b.ControlPoints[0].MlcPositions[0],-10,"control point arrays independent");
         cp1.AddOrUpdate(new DicomSequence(DicomTag.BeamLimitingDevicePositionSequence,Device("MLCX",-15,15)));

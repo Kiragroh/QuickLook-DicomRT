@@ -38,13 +38,18 @@ internal static class NavigationExportScenarios
         using(var dvh=new DvhControl()){
             var a=new StructureRoi{Name="Enabled, \"one\"",InterpretedType="PTV"};var b=new StructureRoi{Name="Disabled",InterpretedType="ORGAN"};var pending=new StructureRoi{Name="Pending",InterpretedType="GTV"};
             Set(dvh,"exportRois",new[]{a,b,pending});Get<Dictionary<StructureRoi,bool>>(dvh,"visibility")[b]=false;
+            ExportIdentity.SetContext(dvh,new ExportIdentity{PatientId="DEMO/ID",PlanId="Plan:One"});
+            var file=ExportIdentity.GetContext(dvh).FileName("DVH",".csv");
+            check(file.StartsWith("Patient_DEMO_ID_Plan_Plan_One_DVH_")&&file.EndsWith(".csv"),"identifiers included and filesystem-safe in export filenames");
             var plot=Get<object>(dvh,"plot");var curves=(IList)Get<object>(plot,"Curves");var curveType=curves.GetType().GetGenericArguments()[0];
-            foreach(var roi in new[]{a,b}){var result=new DvhResult();foreach(var property in new[]{Tuple.Create("DoseValues",(object)new[]{0d,10d}),Tuple.Create("CumulativeVolumePercent",(object)new[]{100d,50d}),Tuple.Create("DoseUnits",(object)"GY")})typeof(DvhResult).GetProperty(property.Item1).SetValue(result,property.Item2);var curve=Activator.CreateInstance(curveType);Set(curve,"Roi",roi);Set(curve,"Result",result);Set(curve,"Color",Brushes.Red);Set(curve,"Visible",roi==a);curves.Add(curve);}
-            Set(plot,"FocusedStructure",b);var csv=dvh.ExportCsv();check(csv.Contains("\"Enabled, \"\"one\"\"\"")&&!csv.Contains("Disabled"),"DVH CSV escapes names and exports enabled structures regardless of focus");
+            foreach(var roi in new[]{a,b}){var result=new DvhResult();foreach(var property in new[]{Tuple.Create("DoseValues",(object)new[]{0d,10.12345678d}),Tuple.Create("CumulativeVolumePercent",(object)new[]{100d,50d}),Tuple.Create("DoseUnits",(object)"GY")})typeof(DvhResult).GetProperty(property.Item1).SetValue(result,property.Item2);var curve=Activator.CreateInstance(curveType);Set(curve,"Roi",roi);Set(curve,"Result",result);Set(curve,"Color",Brushes.Red);Set(curve,"Visible",roi==a);curves.Add(curve);}
+            Set(plot,"FocusedStructure",b);var csv=dvh.ExportCsv();
+            check(csv.StartsWith("PatientID,PlanID,")&&csv.Contains("\"DEMO/ID\",\"Plan:One\"")&&csv.Contains("10.1235")&&!csv.Contains("10.123456"),"detailed CSV carries IDs and rounds to at most four decimals");
+            var simple=dvh.ExportCsv(true);check(simple.StartsWith("Structure,Dose,DoseUnit,VolumePercent\r\n")&&!simple.Contains("Dmean")&&!simple.Contains("PatientID")&&!simple.Contains("Pending")&&!simple.Contains("Disabled")&&simple.Contains("10.1235"),"simple CSV has only four importable columns and enabled calculated curves");check(csv.Contains("\"Enabled, \"\"one\"\"\"")&&!csv.Contains("Disabled"),"DVH CSV escapes names and exports enabled structures regardless of focus");
             check(csv.Contains("Pending")&&csv.Contains("NotCalculated"),"DVH export identifies unavailable active curves instead of silently omitting them");
             check(csv.Contains("Dmean,Dmedian,Dmax,Dmin,D98,D2"),"CSV includes all requested summary metrics");
             var image=dvh.ExportChart();check(image.PixelWidth==1500&&image.PixelHeight>=900,"DVH chart exports a full chart with legend");
-            check(dvh.ContextMenu.Items.Count==3,"DVH right-click offers CSV and PNG");
+            check(dvh.ContextMenu.Items.Count==4,"DVH right-click offers CSV and PNG");
         }
     }
 }

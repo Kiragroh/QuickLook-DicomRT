@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType><UseWPF>true</UseWPF>
-    <AssemblyName>QuickLook-DicomRT-Setup</AssemblyName><Version>0.2.9</Version>
+    <AssemblyName>QuickLook-DicomRT-Setup</AssemblyName><Version>0.2.10</Version>
     <ApplicationIcon>..\assets\dicom-rt.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>

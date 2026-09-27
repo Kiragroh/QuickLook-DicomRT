@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
@@ -14,7 +14,7 @@ namespace QuickLook.DicomRT
   IReadOnlyList<Vec3> points;PerspectiveCamera camera;
   internal IsocenterOverlay(){IsHitTestVisible=false;ClipToBounds=true;}
   internal void Set(IReadOnlyList<Vec3> value,PerspectiveCamera view){points=value;camera=view;InvalidateVisual();}
-  internal static bool Project(Vec3 world,PerspectiveCamera camera,Size size,out Point point)
+  internal static bool Project(Vec3 world,PerspectiveCamera camera,Size size,out Point point,bool allowOutside=false)
   {
    point=new Point();if(camera==null||size.Width<=0||size.Height<=0)return false;
    var forward=camera.LookDirection;forward.Normalize();var right=Vector3D.CrossProduct(forward,camera.UpDirection);right.Normalize();var up=Vector3D.CrossProduct(right,forward);
@@ -22,7 +22,7 @@ namespace QuickLook.DicomRT
    if(double.IsNaN(depth)||double.IsInfinity(depth)||depth<camera.NearPlaneDistance||depth>camera.FarPlaneDistance)return false;
    double scale=size.Width/(2*depth*Math.Tan(camera.FieldOfView*Math.PI/360));
    double x=size.Width*.5+Vector3D.DotProduct(delta,right)*scale,y=size.Height*.5-Vector3D.DotProduct(delta,up)*scale;
-   if(double.IsNaN(x)||double.IsNaN(y)||x<0||x>size.Width||y<0||y>size.Height)return false;point=new Point(x,y);return true;
+   if(double.IsNaN(x)||double.IsNaN(y)||(!allowOutside&&(x<0||x>size.Width||y<0||y>size.Height)))return false;point=new Point(x,y);return true;
   }
   protected override void OnRender(DrawingContext dc)
   {

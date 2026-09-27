@@ -20,10 +20,19 @@ namespace QuickLook.DicomRT
         readonly object gate=new object();
         readonly Dictionary<string,BitmapSource> drrs=new Dictionary<string,BitmapSource>();
         readonly Queue<string> drrOrder=new Queue<string>();
-        readonly Dictionary<string,MlcProjectionFrame> outlines=new Dictionary<string,MlcProjectionFrame>();
-        readonly Queue<string> outlineOrder=new Queue<string>();
+        sealed class OutlineStore
+        {
+            readonly int budget;int bytes;readonly Dictionary<string,MlcProjectionFrame> items=new Dictionary<string,MlcProjectionFrame>();
+            readonly LinkedList<string> order=new LinkedList<string>();readonly Dictionary<string,LinkedListNode<string>> nodes=new Dictionary<string,LinkedListNode<string>>();
+            public OutlineStore(int megabytes){budget=megabytes*1024*1024;}
+            public MlcProjectionFrame Get(string key,bool touch){MlcProjectionFrame value;if(!items.TryGetValue(key,out value))return null;if(touch){order.Remove(nodes[key]);order.AddLast(nodes[key]);}return value;}
+            public void Put(string key,MlcProjectionFrame value){if(items.ContainsKey(key)||value.EstimatedBytes>budget)return;while((bytes+value.EstimatedBytes>budget||items.Count>=24000)&&order.Count>0){string old=order.First.Value;order.RemoveFirst();nodes.Remove(old);bytes-=items[old].EstimatedBytes;items.Remove(old);}items[key]=value;nodes[key]=order.AddLast(key);bytes+=value.EstimatedBytes;}
+            public void Clear(){items.Clear();order.Clear();nodes.Clear();bytes=0;}
+        }
+        readonly OutlineStore targets=new OutlineStore(96),others=new OutlineStore(128);
+        OutlineStore Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
         readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer();
-        long drrBytes;int outlineWeight;
+        long drrBytes;
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
         string context;bool disposed;
         Action<CancellationToken> nearby;int nearbyVersion;RoiOverlay[] allRois=new RoiOverlay[0];
@@ -38,7 +47,7 @@ namespace QuickLook.DicomRT
         {
             string geometry=GeometryKey(p,extent);BitmapSource image=null;var shapes=new MlcProjectionFrame();bool complete=true;
             lock(gate){if(drr&&ct!=null&&!drrs.TryGetValue(Id(ct)+":"+geometry,out image))complete=false;
-                foreach(var roi in rois){MlcProjectionFrame item;if(outlines.TryGetValue(OutlineKey(geometry,new[]{roi}),out item))shapes.Outlines.AddRange(item.Outlines);else complete=false;}}
+                foreach(var roi in rois){var item=Store(roi).Get(OutlineKey(geometry,new[]{roi}),true);if(item!=null)shapes.Outlines.AddRange(item.Outlines);else complete=false;}}
             frame=Join(image,shapes,extent,drr&&ct!=null);if(!complete)frame.Note+=" - preparing remaining overlays";return complete;
         }
         static MlcProjectionFrame Join(BitmapSource image,MlcProjectionFrame shapes,double extent,bool wanted)
@@ -52,15 +61,15 @@ namespace QuickLook.DicomRT
             var renderer=warming?background:foreground;string geometry=GeometryKey(p,extent),dkey=Id(ct)+":"+geometry;
             BitmapSource image=null;var shapes=new MlcProjectionFrame();
             lock(gate){if(drr&&ct!=null)drrs.TryGetValue(dkey,out image);}
-            if(drr&&ct!=null&&image==null){image=renderer.Render(p,ct,new RoiOverlay[0],extent,384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
-                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){while(drrBytes+147456>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrs.Remove(old);drrBytes-=147456;}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=147456;}}FrameReady?.Invoke();}
             foreach(var roi in rois){token.ThrowIfCancellationRequested();var okey=OutlineKey(geometry,new[]{roi});MlcProjectionFrame item;
-                lock(gate)outlines.TryGetValue(okey,out item);
+                lock(gate)item=Store(roi).Get(okey,!warming);
                 if(item==null){item=renderer.Render(p,null,new[]{roi},extent,256,false,token);token.ThrowIfCancellationRequested();
-                    item.EstimatedBytes=512+item.Outlines.Sum(o=>o.Boundary.GetFlattenedPathGeometry().Figures.Sum(f=>128+f.Segments.Sum(segment=>segment is PolyLineSegment line?128+line.Points.Count*16:128)));
-                    lock(gate){if(!disposed&&!outlines.ContainsKey(okey)){while((outlineWeight+item.EstimatedBytes>128*1024*1024||outlines.Count>=20000)&&outlineOrder.Count>0){var old=outlineOrder.Dequeue();outlineWeight-=outlines[old].EstimatedBytes;outlines.Remove(old);}outlines[okey]=item;outlineOrder.Enqueue(okey);outlineWeight+=item.EstimatedBytes;}}FrameReady?.Invoke();}
+                    item.EstimatedBytes=Math.Max(512,item.EstimatedBytes);
+                    lock(gate){if(!disposed)Store(roi).Put(okey,item);}FrameReady?.Invoke();}
                 shapes.Outlines.AddRange(item.Outlines);
             }
+            if(drr&&ct!=null&&image==null){image=renderer.Render(p,ct,new RoiOverlay[0],extent,384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
+                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){while(drrBytes+147456>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrs.Remove(old);drrBytes-=147456;}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=147456;}}FrameReady?.Invoke();}
             return Join(image,shapes,extent,drr&&ct!=null);
         }
         public void Configure(PlanData plan,RenderScene scene,Matrix4 map)
@@ -72,14 +81,14 @@ namespace QuickLook.DicomRT
             lock(gate)nearby=null;
             if(plan==null||map==null||ct==null&&warmRois.Length==0)return;
             var jobs=MlcTimeline.PlaybackOrder(plan).SelectMany(b=>{var extent=MlcPlaybackControl.BeamExtent(b);return b.ControlPoints.Select(cp=>Tuple.Create(b,cp,extent));}).ToArray();
-            Total=jobs.Length;
+            Total=jobs.Length*3;
             // A dedicated low-priority worker and one ray thread leave CPU capacity for interaction.
             var previous=WarmCompletion;
             WarmCompletion=Task.Run(async()=>{try{await previous.ConfigureAwait(false);}catch(OperationCanceledException){}catch(Exception){}token.ThrowIfCancellationRequested();
                 await Task.Factory.StartNew(()=>{
                     var thread=Thread.CurrentThread;var priority=thread.Priority;thread.Priority=ThreadPriority.BelowNormal;
-                    try{foreach(var job in jobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearby;nearby=null;}local?.Invoke(token);
-                        string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);if(p!=null)Render(p,ct,warmRois,job.Item3,true,token,true);
+                    try{foreach(var pass in new[]{0,1,2})foreach(var job in jobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearby;nearby=null;}local?.Invoke(token);
+                        string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);if(p!=null){var subset=warmRois.Where(r=>pass==0?string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):pass==1?!string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):false).ToArray();Render(p,ct,subset,job.Item3,pass==2,token,true);}
                         Prepared++;FrameReady?.Invoke();}
                     }finally{thread.Priority=priority;}
                 },token,TaskCreationOptions.LongRunning,TaskScheduler.Default).ConfigureAwait(false);
@@ -90,21 +99,21 @@ namespace QuickLook.DicomRT
         public void PrepareNearby(PlanBeam beam,double local,Matrix4 map,VolumeData ct,RoiOverlay[] rois)
         {
             if(disposed||beam==null||map==null||beam.ControlPoints.Count==0)return;
-            var requested=rois.Concat(allRois).GroupBy(r=>r.Roi).Select(g=>g.First()).ToArray();
+            var requested=rois.Concat(allRois).GroupBy(r=>r.Roi).Select(g=>g.First()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:1).ToArray();
             int mine=Interlocked.Increment(ref nearbyVersion);double anchor=Math.Round(local);var token=warmLifetime.Token;
             Action<CancellationToken> work=t=>{
                 double extent=MlcPlaybackControl.BeamExtent(beam);
-                for(int n=0;n<=2;n++)foreach(int direction in n==0?new[]{1}:new[]{1,-1}){
+                foreach(int pass in new[]{0,1,2})for(int n=0;n<=3;n++)foreach(int direction in n==0?new[]{1}:new[]{1,-1}){
                     t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
                     double at=anchor+n*direction;if(at<0||at>beam.ControlPoints.Count-1)continue;
                     int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);ControlPoint cp;
                     try{cp=MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i);}catch(ArgumentException){continue;}
-                    string reason;var p=BeamProjection.Create(beam,cp,map,out reason);if(p!=null)Render(p,ct,requested,extent,ct!=null,t,true);FrameReady?.Invoke();
+                    string reason;var p=BeamProjection.Create(beam,cp,map,out reason);if(p!=null)Render(p,ct,requested.Where(r=>pass==0?string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):pass==1?!string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):false).ToArray(),extent,pass==2&&ct!=null,t,true);FrameReady?.Invoke();
                 }
             };
             lock(gate){nearby=work;}
             if(WarmCompletion.IsCompleted){var previous=WarmCompletion;WarmCompletion=Task.Run(()=>{Action<CancellationToken> job;lock(gate){job=nearby;nearby=null;}try{job?.Invoke(token);}catch(OperationCanceledException){}catch(Exception){}});}
         }
-        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;drrs.Clear();drrOrder.Clear();outlines.Clear();outlineOrder.Clear();drrBytes=outlineWeight=0;}}
+        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;drrs.Clear();drrOrder.Clear();targets.Clear();others.Clear();drrBytes=0;}}
     }
 }

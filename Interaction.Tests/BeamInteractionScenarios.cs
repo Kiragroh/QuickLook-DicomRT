@@ -35,13 +35,22 @@ internal static class BeamInteractionScenarios
         using(var viewer=new ViewerControl()){
             var data=new DicomDataset();data.Add(DicomTag.PatientName,"Example^One");data.Add(DicomTag.PatientID,"DEMO-ONE");Set(viewer,"currentEntry",new DicomEntry{Dataset=data});Call(viewer,"Redraw");
             check(Get<TextBlock>(viewer,"patientIdentity").Text=="Example One  ·  ID: DEMO-ONE","patient name and ID from current dataset");
-            Set(viewer,"currentEntry",null);Call(viewer,"Redraw");check(!Get<TextBlock>(viewer,"patientIdentity").Text.Contains("DEMO-ONE"),"old identity clears when source unavailable");
+            check(ExportIdentity.GetContext(viewer).PatientId=="DEMO-ONE","export identity follows active image patient");
+            var referenced=new PlanData{Label="DOSE-PLAN",Entry=new DicomEntry{SopUid="2.3.4"}};Get<System.Collections.Generic.List<PlanData>>(viewer,"planData").Add(referenced);
+            Set(viewer,"selectedPlan",new PlanData{Label="OTHER-PLAN"});var doseData=new DicomDataset().Add(DicomTag.PatientID,"DEMO-DOSE");
+            var choice=Activator.CreateInstance(typeof(ViewerControl).GetNestedType("DoseChoice",BindingFlags.NonPublic));Set(choice,"Dose",new DoseGrid{PlanUid="2.3.4",Entry=new DicomEntry{Dataset=doseData}});var chooser=Get<ComboBox>(viewer,"dvhDose");chooser.ItemsSource=new[]{choice};chooser.SelectedIndex=0;
+            var export=(ExportIdentity)Call(viewer,"CurrentExportIdentity",true);check(export.PatientId=="DEMO-DOSE"&&export.PlanId=="DOSE-PLAN","DVH export uses selected dose patient and referenced plan, not unrelated active plan");Set(viewer,"selectedPlan",null);
+
+            Set(viewer,"currentEntry",null);Call(viewer,"Redraw");check(!Get<TextBlock>(viewer,"patientIdentity").Text.Contains("DEMO-ONE"),"old identity clears when source unavailable");check(ExportIdentity.GetContext(viewer).PatientId=="","export identity clears with source");
         }
         // The projected mesh is an L, not its convex hull; internal triangle edges must disappear.
         var mesh=new ThreeDMeshData();mesh.Points.AddRange(new[]{new Vec3(-20,0,-20),new Vec3(20,0,-20),new Vec3(20,0,0),new Vec3(0,0,0),new Vec3(0,0,20),new Vec3(-20,0,20)});
         mesh.Indices.AddRange(new[]{0,1,2,0,2,3,0,3,4,0,4,5});string reason;var projection=BeamProjection.Create(new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000},new ControlPoint(),Matrix4.Identity,out reason);
         var renderer=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.MlcProjectionRenderer");
         var outline=(Geometry)renderer.GetMethod("Silhouette",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{mesh,Matrix4.Identity,projection,50d,500,System.Threading.CancellationToken.None});
+        var compactArgs=new object[]{mesh,Matrix4.Identity,projection,50d,500,System.Threading.CancellationToken.None,0};
+        renderer.GetMethod("CompactSilhouette",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,compactArgs);
+        check((int)compactArgs[6]>512&&(int)compactArgs[6]<4096,"connected L boundary has a bounded compact representation and nonzero cache accounting");
         check(outline.StrokeContains(new Pen(Brushes.White,.005),new Point(.5,.4),.0001,ToleranceType.Absolute),"concave projected boundary retained");
         check(!outline.StrokeContains(new Pen(Brushes.White,.005),new Point(.4,.6),.0001,ToleranceType.Absolute),"internal mesh diagonals absent from silhouette");
         check(!outline.StrokeContains(new Pen(Brushes.White,.005),new Point(.6,.4),.0001,ToleranceType.Absolute),"convex hull shortcut not used");

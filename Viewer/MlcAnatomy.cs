@@ -27,7 +27,7 @@ namespace QuickLook.DicomRT
         RenderScene anatomy;Matrix4 planMap;ControlPoint interpolated;
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
-        string projectionKey;
+        string projectionKey,displayedProjectionKey;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
         long lastCacheNotification;
@@ -54,7 +54,9 @@ namespace QuickLook.DicomRT
             bool changed=anatomy?.Volume!=scene?.Volume||anatomy?.Entry?.SeriesUid!=scene?.Entry?.SeriesUid||!SameMap(planMap,map)||
                 !(anatomy?.Structures.Select(r=>r.Roi)??Enumerable.Empty<StructureRoi>()).SequenceEqual(scene?.Structures.Select(r=>r.Roi)??Enumerable.Empty<StructureRoi>())||
                 anatomy!=null&&scene!=null&&!anatomy.Structures.Select(r=>MapKey(r.RoiToImage)).SequenceEqual(scene.Structures.Select(r=>MapKey(r.RoiToImage)));
-            anatomy=scene;planMap=map;if(IsVisible)UpdateArrangement();if(changed){projectionVersion++;RequestProjection(true);}
+            bool geometryChanged=anatomy?.Volume!=scene?.Volume||anatomy?.Entry?.SeriesUid!=scene?.Entry?.SeriesUid||!SameMap(planMap,map)||
+                anatomy!=null&&scene!=null&&anatomy.Structures.Any(old=>scene.Structures.Any(next=>next.Roi==old.Roi&&!SameMap(old.RoiToImage,next.RoiToImage)));
+            anatomy=scene;planMap=map;if(IsVisible)UpdateArrangement();if(changed){projectionVersion++;if(geometryChanged){displayedProjectionKey=null;aperture.Projection=null;}RequestProjection(true);}
         }
         static string MapKey(Matrix4 map)=>map==null?"none":string.Join(",",map.Values.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)));
         static bool SameMap(Matrix4 a,Matrix4 b)=>MapKey(a)==MapKey(b);
@@ -67,18 +69,28 @@ namespace QuickLook.DicomRT
             if(projectionSuspended||beam==null||interpolated==null)return;
             var p=interpolated;
             string key=beam.Number+":"+string.Join(",",new[]{p.Gantry,p.Couch,p.Collimator,p.Isocenter.X,p.Isocenter.Y,p.Isocenter.Z,p.GantryPitch,p.TablePitch,p.TableRoll,p.TableEccentric,aperture.Extent}.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)))+":"+timer.IsEnabled;
-            if(!force&&key==projectionKey)return;projectionKey=key;projectionVersion++;projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();aperture.Projection=null;
+            if(!force&&key==projectionKey)return;bool geometryChanged=projectionKey!=key;projectionKey=key;projectionVersion++;projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();if(geometryChanged){aperture.Projection=null;displayedProjectionKey=null;}
             if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());return;}
             projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());
             projectionStatus.Text="Preparing overlays in background …";
             projectionDelay.Stop();projectionDelay.Start();
         }
+        void ApplyProjection(MlcProjectionFrame frame)
+        {
+            var previous=aperture.Projection;
+            if(previous!=null&&displayedProjectionKey==projectionKey){
+                var wanted=SelectedOutlines().Select(r=>r.Roi).ToArray();
+                foreach(var outline in previous.Outlines)if(wanted.Contains(outline.Roi)&&!frame.Outlines.Any(o=>o.Roi==outline.Roi))frame.Outlines.Add(outline);
+                if(showDrr.IsChecked==true&&frame.Drr==null)frame.Drr=previous.Drr;
+            }
+            displayedProjectionKey=projectionKey;aperture.Projection=frame;
+        }
         bool TryCached()
         {
             if(beam==null||interpolated==null)return false;string reason;var p=BeamProjection.Create(beam,interpolated,planMap,out reason);if(p==null)return false;
             MlcProjectionFrame frame;var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;
-            if(!projectionCache.TryGet(p,ct,SelectedOutlines(),aperture.Extent,showDrr.IsChecked==true,out frame)){aperture.Projection=frame;projectionStatus.Text=frame.Note;return false;}
-            projectionDelay.Stop();aperture.Projection=frame;projectionStatus.Text=frame.Note+(projectionCache.Total>0?$" · Views prepared {projectionCache.Prepared}/{projectionCache.Total}":"");return true;
+            if(!projectionCache.TryGet(p,ct,SelectedOutlines(),aperture.Extent,showDrr.IsChecked==true,out frame)){ApplyProjection(frame);projectionStatus.Text=frame.Note;return false;}
+            projectionDelay.Stop();ApplyProjection(frame);projectionStatus.Text=frame.Note+(projectionCache.Total>0?$" · Views prepared {projectionCache.Prepared}/{projectionCache.Total}":"");return true;
         }
         async Task RenderProjectionAsync()
         {
@@ -91,7 +103,7 @@ namespace QuickLook.DicomRT
             var token=projectionLifetime.Token;projectionBusy=true;
             try{
                 var frame=await Task.Run(()=>projectionCache.Render(projection,ct,rois,extent,drr,token),token);
-                if(version==projectionVersion&&!projectionSuspended){aperture.Projection=frame;projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,ct,rois);}
+                if(version==projectionVersion&&!projectionSuspended){ApplyProjection(frame);projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,ct,rois);}
             }catch(OperationCanceledException){}catch(Exception){if(version==projectionVersion){projectionStatus.Text="DRR / contour projection unavailable for this geometry";aperture.Projection=null;}}
             finally{projectionBusy=false;if(!projectionSuspended&&version!=projectionVersion){projectionDelay.Stop();projectionDelay.Start();}}
         }

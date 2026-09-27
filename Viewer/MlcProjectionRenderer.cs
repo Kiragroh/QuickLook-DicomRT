@@ -40,7 +40,7 @@ namespace QuickLook.DicomRT
                     if(mesh!=null){while(order.Count>0&&(meshes.Count>=256||vertices+mesh.Points.Count>8000000)){var old=order.Dequeue();vertices-=meshes[old].Points.Count;meshes.Remove(old);}meshes[overlay.Roi]=mesh;vertices+=mesh.Points.Count;order.Enqueue(overlay.Roi);}
                 }
                 if(mesh==null){skipped++;continue;}
-                var boundary=Silhouette(mesh,overlay.RoiToImage,projection,extent,512,token);
+                int bytes;var boundary=CompactSilhouette(mesh,overlay.RoiToImage,projection,extent,512,token,out bytes);result.EstimatedBytes+=bytes;
                 result.Outlines.Add(new ProjectedOutline{Roi=overlay.Roi,Boundary=boundary});
             }
             result.Note=(result.Drr!=null?"CT-derived DRR · perspective at ISO":"DRR off / matching CT unavailable")+" · "+result.Outlines.Count+" outlines"+(skipped>0?" · "+skipped+" unsupported contours":"");
@@ -49,7 +49,10 @@ namespace QuickLook.DicomRT
         // Union of projected surface triangles, not a convex hull and not individual contour slices.
         // The boundary is normalized to [0,1], retaining separate targets and concave silhouettes.
         internal static Geometry Silhouette(ThreeDMeshData mesh,Matrix4 transform,BeamProjection projection,double extent,int size,CancellationToken token)
+        {int bytes;return CompactSilhouette(mesh,transform,projection,extent,size,token,out bytes);}
+        internal static Geometry CompactSilhouette(ThreeDMeshData mesh,Matrix4 transform,BeamProjection projection,double extent,int size,CancellationToken token,out int bytes)
         {
+            bytes=512;
             var px=new double[mesh.Points.Count];var py=new double[px.Length];
             for(int i=0;i<px.Length;i++){
                 if((i&4095)==0)token.ThrowIfCancellationRequested();double x,y;
@@ -73,13 +76,21 @@ namespace QuickLook.DicomRT
                     if(u>=-1e-8&&v>=-1e-8&&u+v<=1+1e-8)mask[y*size+x]=true;
                 }
             }
-            var geometry=new StreamGeometry();using(var context=geometry.Open())
-            {
-                Action<int,int,int,int> edge=(x,y,xx,yy)=>{context.BeginFigure(new Point(x/(double)size,y/(double)size),false,false);context.LineTo(new Point(xx/(double)size,yy/(double)size),true,false);};
-                for(int y=0;y<size;y++){token.ThrowIfCancellationRequested();for(int x=0;x<size;x++)if(mask[y*size+x]){
-                    if(x==0||!mask[y*size+x-1])edge(x,y,x,y+1);if(x==size-1||!mask[y*size+x+1])edge(x+1,y,x+1,y+1);
-                    if(y==0||!mask[(y-1)*size+x])edge(x,y,x+1,y);if(y==size-1||!mask[(y+1)*size+x])edge(x,y+1,x+1,y+1);
-                }}
+            // Trace the same raster edges into polylines. One figure per pixel edge
+            // wasted most of the contour cache on WPF objects, particularly for organs.
+            // Vertices stay on the exact same pixel boundaries; no hull or smoothing.
+            var edges=new Dictionary<int,List<int>>();int stride=size+1;
+            Action<int,int,int,int> edge=(x,y,xx,yy)=>{int start=y*stride+x;List<int> ends;if(!edges.TryGetValue(start,out ends))edges[start]=ends=new List<int>(1);ends.Add(yy*stride+xx);};
+            for(int y=0;y<size;y++){token.ThrowIfCancellationRequested();for(int x=0;x<size;x++)if(mask[y*size+x]){
+                if(x==0||!mask[y*size+x-1])edge(x,y,x,y+1);if(x==size-1||!mask[y*size+x+1])edge(x+1,y+1,x+1,y);
+                if(y==0||!mask[(y-1)*size+x])edge(x+1,y,x,y);if(y==size-1||!mask[(y+1)*size+x])edge(x,y+1,x+1,y+1);
+            }}
+            var geometry=new StreamGeometry();using(var context=geometry.Open())foreach(int start in edges.Keys.ToArray())while(edges[start].Count>0){
+                token.ThrowIfCancellationRequested();var points=new List<Point>();int at=start;
+                do{points.Add(new Point(at%stride/(double)size,at/stride/(double)size));var ends=edges[at];if(ends.Count==0)break;int next=ends[ends.Count-1];ends.RemoveAt(ends.Count-1);at=next;}while(at!=start);
+                bool closed=at==start;var simplified=new List<Point>();
+                for(int i=0;i<points.Count;i++){if(!closed&&(i==0||i==points.Count-1)){simplified.Add(points[i]);continue;}var u=points[i]-points[(i+points.Count-1)%points.Count];var v=points[(i+1)%points.Count]-points[i];if(Math.Abs(u.X*v.Y-u.Y*v.X)>1e-15)simplified.Add(points[i]);}
+                if(simplified.Count<2)continue;bytes+=256+simplified.Count*32;context.BeginFigure(simplified[0],false,closed);context.PolyLineTo(simplified.Skip(1).ToArray(),true,false);
             }geometry.Freeze();return geometry;
         }
     }

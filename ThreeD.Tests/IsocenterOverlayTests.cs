@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -13,7 +13,7 @@ internal static class IsocenterOverlayTests
  {
   var type=typeof(ThreeDControl).Assembly.GetType("QuickLook.DicomRT.IsocenterOverlay");var project=type.GetMethod("Project",BindingFlags.Static|BindingFlags.NonPublic);
   var camera=new PerspectiveCamera(new Point3D(0,-100,0),new Vector3D(0,1,0),new Vector3D(0,0,1),90){NearPlaneDistance=.1,FarPlaneDistance=1000};
-  object[] args={new Vec3(10,0,10),camera,new Size(800,400),new Point()};Check((bool)project.Invoke(null,args),"visible isocenter projected");var point=(Point)args[3];Check(Math.Abs(point.X-440)<1e-8&&Math.Abs(point.Y-160)<1e-8,"horizontal FOV projection respects non-square viewport");
+  object[] args={new Vec3(10,0,10),camera,new Size(800,400),new Point(),false};Check((bool)project.Invoke(null,args),"visible isocenter projected");var point=(Point)args[3];Check(Math.Abs(point.X-440)<1e-8&&Math.Abs(point.Y-160)<1e-8,"horizontal FOV projection respects non-square viewport");
   args[0]=new Vec3(0,-101,0);Check(!(bool)project.Invoke(null,args),"behind-camera isocenter not drawn");
   camera.Position=new Point3D(100,0,0);camera.LookDirection=new Vector3D(-1,0,0);args[0]=new Vec3(0,10,0);Check((bool)project.Invoke(null,args)&&Math.Abs(((Point)args[3]).X-440)<1e-8,"isocenter follows camera orbit");
   using(var control=new ThreeDControl())

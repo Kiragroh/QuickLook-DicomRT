@@ -19,7 +19,7 @@ namespace QuickLook.DicomRT
   public RenderScene Scene {get=>scene;set{scene=value;if(picking&&value?.InteractionPreview==true){UpdateCrosshair(value.Focus);return;}Refresh();}}
   internal void CancelPending(){pending?.Cancel();}
   internal void UpdateFields(RenderScene value){if(scene!=null)CopyFields(scene,value);if(frame!=null)CopyFields(frame.Scene,value);InvalidateVisual();}
-  static void CopyFields(RenderScene target,RenderScene value){target.Plan=value.Plan;target.PlanToImage=value.PlanToImage;target.ActiveBeam=value.ActiveBeam;target.ActiveControlPoint=value.ActiveControlPoint;target.ShowFields=value.ShowFields;}
+  static void CopyFields(RenderScene target,RenderScene value){target.Plan=value.Plan;target.PlanToImage=value.PlanToImage;target.ActiveBeam=value.ActiveBeam;target.ActiveControlPoint=value.ActiveControlPoint;target.ShowFields=value.ShowFields;target.FieldModulation=value.FieldModulation;}
   public event Action<bool> PickInteraction;
   readonly DrawingVisual crosshairVisual=new DrawingVisual();
   protected override int VisualChildrenCount=>1;

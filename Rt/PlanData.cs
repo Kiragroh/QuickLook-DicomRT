@@ -27,6 +27,7 @@ namespace QuickLook.DicomRT
         public string PatientPosition="",TreatmentDeliveryType="";
         public List<ControlPoint> ControlPoints=new List<ControlPoint>();
         public double SourceAxisDistance=double.NaN;
+        public string PrimaryDosimeterUnit;
         public double FinalCumulativeMetersetWeight;
         public override string ToString()=>Name;
     }
@@ -45,7 +46,7 @@ namespace QuickLook.DicomRT
             {
                 if(RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES")throw new NotSupportedException("Enhanced beam limiting device geometry is not supported.");
                 int number=RtDicom.Int(item,DicomTag.BeamNumber,-1);
-                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),SourceAxisDistance=RtDicom.Number(item,DicomTag.SourceAxisDistance),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item),TreatmentDeliveryType=RtDicom.Text(item,DicomTag.TreatmentDeliveryType)};
+                var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),PrimaryDosimeterUnit=RtDicom.Text(item,DicomTag.PrimaryDosimeterUnit),SourceAxisDistance=RtDicom.Number(item,DicomTag.SourceAxisDistance),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item),TreatmentDeliveryType=RtDicom.Text(item,DicomTag.TreatmentDeliveryType)};
                 List<double> mu; if(metersets.TryGetValue(number,out mu) && mu.Count>0 && mu.All(v=>RtDicom.Finite(v) && Math.Abs(v-mu[0])<1e-6))beam.Meterset=mu[0];
                 var leafDefinitions=new List<MlcLayer>();
                 foreach(var device in RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))

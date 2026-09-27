@@ -189,3 +189,13 @@ The strict installer passed 32 archive/path/checksum checks and verified its emb
 The approved public capture reported prepared geometry before the first 3D activation. Activation plus the capture harness settle delay took 1,041 ms, including first visible GPU setup/upload; this is not a desktop frame-time measurement. Full and compact screenshots were visually inspected. No private anatomy was exported.
 
 The 0.2.5 installer passed all 32 archive/path/checksum checks and verified its embedded 32-file payload. Local installation matched every staged file hash and QuickLook was restarted. Live Explorer Space-key interaction was not re-tested in this run.
+
+## 0.2.10 — 27 September 2026
+
+- Builds completed with zero warnings/errors. Interaction suite: 212 checks, including selected-dose identity, safe filenames, four-decimal exports, curves-only schema, contour retention at unchanged geometry, stale-angle rejection, LRU pressure and isolated PTV budget.
+- RT: 133 assertions plus analytic DRR/geometry scenarios. Render: 368 coordinate/render checks and 48 contour-boundary checks. DVH: 82 checks. Directed-angle/full-turn/MLC playback checks passed.
+- 3D suite: 44 core assertions plus surface, context, focus, slice guides, preload, camera retention and field-overlay scenarios. Field toggle preserves meshes; paths are reused during camera movement and cleared on context changes.
+- The user-approved public benchmark was opened through the actual WPF viewer: CT-derived DRR, 24 PTV outlines, 25 outlines after adding an organ, noncoplanar field, linked MPR, full 3D fields, DVH and image exports. PTVs remained present at the category toggle.
+- Local 60-sample MLC interaction test with DRR/PTV/organs enabled: input dispatch median 0.57 ms, p95 3.02 ms; frame loop including a requested 16 ms delay p95 61.44 ms. Complete uncached DRR scrub settled median 293 ms; cached revisit 48 ms. These are local engineering measurements, not universal frame-rate or clinical-performance claims. Pending anatomy remains asynchronous.
+- Public benchmark CSV readback: 51,250 rows each; exactly 18 detailed or 4 simple columns, no numeric field with more than four decimal places. Patient and plan labels were verified in the generated filenames. PNG/3D captures were visually inspected.
+- All projection and dose calculations remain inspection previews. Angular meterset density is not temporal or measured delivered dose rate. No clinical approval is implied by these tests.

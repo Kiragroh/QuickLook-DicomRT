@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace QuickLook.DicomRT
 {
+    public enum BeamModulationMode { AngularMeterset, PlannedRate }
     public static class BeamMotion
     {
         public static bool IsImaging(PlanBeam b)=>b.TreatmentDeliveryType=="SETUP"||b.TreatmentDeliveryType=="PORTFILM"||b.TreatmentDeliveryType=="OPEN_PORTFILM"||string.Equals(b.Name,"CBCT",StringComparison.OrdinalIgnoreCase)||string.Equals(b.Name,"BCT",StringComparison.OrdinalIgnoreCase);
@@ -17,7 +18,22 @@ namespace QuickLook.DicomRT
             return Math.Abs(shortest)<1e-6?0:double.NaN;
         }
         public static bool IsArc(PlanBeam b)=>b.ControlPoints.Zip(b.ControlPoints.Skip(1),(a,c)=>Math.Abs(Travel(a,c))>1e-5||Math.Abs(a.Gantry-c.Gantry)>1e-5).Any(x=>x);
-        public sealed class Sample {public Vec3 Iso,SourceDirection;public double Rate;public bool Tick,Break;}
+        // Angular meterset density is not a time-resolved delivered dose rate.
+        public static double AngularMeterset(PlanBeam beam,ControlPoint a,ControlPoint b)
+        {
+            double travel=Math.Abs(Travel(a,b)),delta=b.MetersetWeight-a.MetersetWeight;
+            if(!BeamProjection.Finite(travel)||travel<1e-6||!BeamProjection.Finite(beam.Meterset)||beam.Meterset<0||
+               !BeamProjection.Finite(beam.FinalCumulativeMetersetWeight)||beam.FinalCumulativeMetersetWeight<=0||
+               !BeamProjection.Finite(delta)||delta<0||a.MetersetWeight<0||b.MetersetWeight>beam.FinalCumulativeMetersetWeight+1e-6)return double.NaN;
+            return beam.Meterset*delta/beam.FinalCumulativeMetersetWeight/travel;
+        }
+        public static string Unit(PlanBeam beam,BeamModulationMode mode)
+        {
+            string unit=beam.PrimaryDosimeterUnit=="MU"?"MU":beam.PrimaryDosimeterUnit=="CGY"?"cGy":"meterset";
+            return unit+(mode==BeamModulationMode.PlannedRate?"/min":"/°");
+        }
+        public static double Value(Sample sample,BeamModulationMode mode)=>mode==BeamModulationMode.PlannedRate?sample.Rate:sample.Angular;
+        public sealed class Sample {public Vec3 Iso,SourceDirection;public double Rate,Angular;public bool Tick,Break;}
         // Projected schematic source track. Radius is chosen by the view, never a fabricated SAD.
         public static Sample[] Path(PlanBeam beam,Matrix4 map)
         {
@@ -31,7 +47,7 @@ namespace QuickLook.DicomRT
                     if(Math.Abs(a.Couch-b.Couch)>1e-6)continue;
                     var cp=new ControlPoint{Gantry=a.Gantry+travel*t,Couch=a.Couch,Collimator=a.Collimator,Isocenter=a.Isocenter+(b.Isocenter-a.Isocenter)*t,GantryPitch=a.GantryPitch,TablePitch=a.TablePitch,TableRoll=a.TableRoll,TableEccentric=a.TableEccentric};
                     string reason;var p=BeamProjection.Create(beam,cp,map,out reason);if(p==null)continue;
-                    points.Add(new Sample{Iso=p.Iso,SourceDirection=(p.Source-p.Iso).Normalized(),Rate=a.DoseRateSet,Tick=k==0,Break=k==0});
+                    points.Add(new Sample{Iso=p.Iso,SourceDirection=(p.Source-p.Iso).Normalized(),Rate=a.DoseRateSet,Angular=AngularMeterset(beam,a,b),Tick=k==0,Break=k==0});
                 }
             }
             return points.ToArray();

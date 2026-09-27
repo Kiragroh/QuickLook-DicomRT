@@ -11,8 +11,14 @@ internal static class FieldApertureTests
         var motion=new PlanBeam{PatientPosition="HFS",SourceAxisDistance=1000};motion.ControlPoints.Add(new ControlPoint{Gantry=350,GantryRotationDirection="CW",DoseRateSet=600});motion.ControlPoints.Add(new ControlPoint{Gantry=10});
         check(BeamMotion.IsArc(motion)&&Math.Abs(BeamMotion.Travel(motion.ControlPoints[0],motion.ControlPoints[1])-20)<1e-8,"arc uses directed wraparound");
         var path=BeamMotion.Path(motion,Matrix4.Identity);check(path.Length==11&&path.All(p=>p.Rate==600),"arc source track carries segment rate");
+        motion.Meterset=200;motion.FinalCumulativeMetersetWeight=100;motion.PrimaryDosimeterUnit="MU";motion.ControlPoints[1].MetersetWeight=10;
+        check(Math.Abs(BeamMotion.AngularMeterset(motion,motion.ControlPoints[0],motion.ControlPoints[1])-1)<1e-8,"angular modulation normalizes final weight and directed degrees");
+        check(BeamMotion.Unit(motion,BeamModulationMode.AngularMeterset)=="MU/°"&&BeamMotion.Unit(motion,BeamModulationMode.PlannedRate)=="MU/min","rate and angular units explicitly distinct");
+        motion.ControlPoints[1].MetersetWeight=20;check(BeamMotion.Path(motion,Matrix4.Identity).All(s=>s.Angular==2&&s.Rate==600),"variable meterset density independent of constant rate setting");
+        motion.Meterset=double.NaN;check(double.IsNaN(BeamMotion.AngularMeterset(motion,motion.ControlPoints[0],motion.ControlPoints[1])),"missing meterset does not invent modulation");motion.Meterset=200;
+        motion.ControlPoints[1].MetersetWeight=-1;check(double.IsNaN(BeamMotion.AngularMeterset(motion,motion.ControlPoints[0],motion.ControlPoints[1])),"decreasing weights rejected");motion.ControlPoints[1].MetersetWeight=20;
         motion.ControlPoints[1].Gantry=350;check(BeamMotion.IsArc(motion)&&BeamMotion.Path(motion,Matrix4.Identity).Length==181,"full rotation with identical endpoints retained");
-        motion.ControlPoints[0].GantryRotationDirection="NONE";check(!BeamMotion.IsArc(motion),"fixed gantry beam has aperture instead of ring");
+        motion.ControlPoints[0].GantryRotationDirection="NONE";check(double.IsNaN(BeamMotion.AngularMeterset(motion,motion.ControlPoints[0],motion.ControlPoints[1])),"stationary gantry has no angular density");check(!BeamMotion.IsArc(motion),"fixed gantry beam has aperture instead of ring");
         check(BeamMotion.IsImaging(new PlanBeam{TreatmentDeliveryType="SETUP"})&&BeamMotion.IsImaging(new PlanBeam{Name="CBCT"}),"setup and CBCT recognized for explicit selection only");
         var cp=new ControlPoint{XJaws=new[]{-30d,30d},YJaws=new[]{-20d,20d}};
         cp.MlcLayers.Add(new MlcLayer{Type="MLCX",Boundaries=new[]{-20d,0d,20d},Positions=new[]{-20d,-10d,10d,20d}});

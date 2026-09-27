@@ -151,7 +151,7 @@ namespace QuickLook.DicomRT
         private void UpdateDvh()
         {
             if(workspaceMode!="DVH"||dvhView==null)return;var dose=(dvhDose.SelectedItem as DoseChoice)?.Dose;
-            dvhView.SetData(SelectedStructures.SelectMany(s=>s.Rois).Where(r=>r.Visible).ToList(),dose,r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose?.FrameUid));
+            ExportIdentity.SetContext(dvhView,CurrentExportIdentity(true));dvhView.SetData(SelectedStructures.SelectMany(s=>s.Rois).Where(r=>r.Visible).ToList(),dose,r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose?.FrameUid));
         }
     }
 }

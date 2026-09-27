@@ -38,7 +38,7 @@ namespace QuickLook.DicomRT
                 bool active=beam==scene.ActiveBeam;var cp=active?scene.ActiveControlPoint:beam.ControlPoints.FirstOrDefault();
                 string reason;var projection=BeamProjection.Create(beam,cp,scene.PlanToImage,out reason);if(projection==null){missing++;continue;}
                 var color=active?Color.FromRgb(255,215,82):Color.FromArgb(125,170,177,187);var brush=new SolidColorBrush(color);var pen=new Pen(brush,active?1.7:.65);
-                if(BeamMotion.IsArc(beam)){DrawArc(dc,beam,scene.PlanToImage,g,rect,brush,active,projection,invalidate);continue;}
+                if(BeamMotion.IsArc(beam)){DrawArc(dc,beam,scene.PlanToImage,g,rect,brush,active,projection,scene.FieldModulation,invalidate);continue;}
                 Geometry shape=null;ready?.TryGetValue(beam,out shape);
                 if(shape!=null){var display=shape.Clone();display.Transform=new MatrixTransform(rect.Width,0,0,rect.Height,rect.Left,rect.Top);dc.DrawGeometry(null,pen,display);}
                 // One-way source arrow makes the incoming side unambiguous.
@@ -52,21 +52,21 @@ namespace QuickLook.DicomRT
         }
         sealed class Track {public string Key;public Task<BeamMotion.Sample[]> Work;}
         static readonly ConditionalWeakTable<PlanBeam,Track> tracks=new ConditionalWeakTable<PlanBeam,Track>();
-        static void DrawArc(DrawingContext dc,PlanBeam beam,Matrix4 map,SliceGeometry g,Rect rect,Brush brush,bool active,BeamProjection current,Action invalidate)
+        static void DrawArc(DrawingContext dc,PlanBeam beam,Matrix4 map,SliceGeometry g,Rect rect,Brush brush,bool active,BeamProjection current,BeamModulationMode mode,Action invalidate)
         {
             var track=tracks.GetValue(beam,_=>new Track());string key=string.Join(",",map.Values.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)));
             if(track.Work==null||track.Key!=key){track.Key=key;var dispatcher=Dispatcher.CurrentDispatcher;track.Work=Task.Run(()=>BeamMotion.Path(beam,map));track.Work.ContinueWith(t=>{if(t.IsFaulted){var ignored=t.Exception;}if(invalidate!=null&&!dispatcher.HasShutdownStarted)dispatcher.BeginInvoke(invalidate,DispatcherPriority.Background);},TaskScheduler.Default);}
             if(track.Work.Status!=TaskStatus.RanToCompletion)return;
             var samples=track.Work.Result;if(samples.Length==0)return;
-            double radius=Math.Min(g.WidthMm,g.HeightMm)*.36,maxRate=samples.Where(x=>BeamProjection.Finite(x.Rate)&&x.Rate>=0).Select(x=>x.Rate).DefaultIfEmpty(0).Max();
+            double radius=Math.Min(g.WidthMm,g.HeightMm)*.36,maxRate=samples.Select(x=>BeamMotion.Value(x,mode)).Where(x=>BeamProjection.Finite(x)&&x>=0).DefaultIfEmpty(0).Max();
             Func<Vec3,Point> screen=p=>new Point(rect.Left+g.U(p)*rect.Width,rect.Top+g.V(p)*rect.Height);
             var pen=new Pen(brush,active?1.8:.8);Point? previous=null;
             foreach(var sample in samples){var at=screen(sample.Iso+sample.SourceDirection*radius);if(previous.HasValue&&!sample.Break)dc.DrawLine(pen,previous.Value,at);previous=at;
-                if(sample.Tick&&active){bool known=BeamProjection.Finite(sample.Rate)&&sample.Rate>=0;double length=known&&maxRate>0?sample.Rate/maxRate*radius*.16:radius*.025;var tickPen=new Pen(known?brush:Brushes.SlateGray,active?2:1);dc.DrawLine(tickPen,at,screen(sample.Iso+sample.SourceDirection*(radius+length)));}}
+                if(sample.Tick){double value=BeamMotion.Value(sample,mode);bool known=BeamProjection.Finite(value)&&value>=0;double length=known&&maxRate>0?value/maxRate*radius*.16:radius*.025;var tickPen=new Pen(known?brush:Brushes.SlateGray,active?2:1);dc.DrawLine(tickPen,at,screen(sample.Iso+sample.SourceDirection*(radius+length)));}}
             var source=screen(current.Iso-current.Forward*radius);var iso=screen(current.Iso);
             if(active){dc.DrawEllipse(brush,null,source,4,4);Arrow(dc,source,iso,brush,1.4);dc.DrawEllipse(null,pen,iso,4,4);}
             var first=samples[0];if(active)Label(dc,"B"+beam.Number,screen(first.Iso+first.SourceDirection*(radius*1.2)),brush);
-            if(active)Label(dc,(rect.Width<300?"Arc / rate":"Projected arc / planned rate")+(maxRate>0?" (max "+maxRate.ToString("0.##",CultureInfo.InvariantCulture)+" meterset/min)":" unavailable"),new Point(rect.Left+5,rect.Top+5),brush);
+            if(active)Label(dc,(mode==BeamModulationMode.PlannedRate?"Planned rate setting":"Angular modulation")+(maxRate>0?" (max "+maxRate.ToString("0.##",CultureInfo.InvariantCulture)+" "+BeamMotion.Unit(beam,mode)+")":" unavailable"),new Point(rect.Left+5,rect.Top+5),brush);
         }
         static void Arrow(DrawingContext dc,Point from,Point to,Brush brush,double width)
         {

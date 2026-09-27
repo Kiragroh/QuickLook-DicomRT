@@ -21,6 +21,9 @@ namespace QuickLook.DicomRT
   readonly Viewport3D viewport=new Viewport3D();readonly ModelVisual3D visual=new ModelVisual3D();readonly PerspectiveCamera camera=new PerspectiveCamera();
   Direct3DSurface gpu;internal Direct3DSurface CaptureSurface=>gpu;
   readonly PatientOrientationBadge orientationBadge=new PatientOrientationBadge();
+  readonly BeamFieldOverlay beamFields=new BeamFieldOverlay();
+  readonly CheckBox showBeamFields=new CheckBox{Content="Fields",IsChecked=false,Foreground=Theme.Foreground,Margin=new Thickness(5,7,12,7),ToolTip="All treatment fields, with arc modulation bars. Setup and imaging only appear when explicitly selected."};
+  readonly ComboBox beamModulation=new ComboBox{Width=145,Margin=new Thickness(4),ItemsSource=new[]{"Angular modulation","Planned rate setting"},SelectedIndex=0,ToolTip="Meterset per degree or planned rate setting; not measured delivered dose rate"};
   readonly IsocenterOverlay isocenterOverlay=new IsocenterOverlay();
   readonly ModelVisual3D sliceVisual=new ModelVisual3D();bool compact;VolumeData sliceVolume;Vec3 sliceFocus;bool cameraAdjusted;
   readonly CheckBox bone,skin,structures,organs,support,external,dose,allRois;readonly Slider opacity,skinOpacity;readonly ComboBox doseLevel;readonly TextBlock status;
@@ -54,7 +57,9 @@ namespace QuickLook.DicomRT
    var controls=new WrapPanel{Margin=new Thickness(8,4,8,4)};
    bone=Toggle("Bone",false);skin=Toggle("Skin",true);structures=Toggle("PTV",true);organs=Toggle("Organs",false);support=Toggle("Support",false);external=Toggle("External",false);dose=Toggle("Dose",false);allRois=Toggle("Other",false);allRois.ToolTip="Additional ROI types, such as CTV or AVOIDANCE; excludes SUPPORT and EXTERNAL";
    support.Visibility=external.Visibility=Visibility.Collapsed;support.IsEnabled=external.IsEnabled=false;
-   controls.Children.Add(structures);controls.Children.Add(organs);controls.Children.Add(allRois);controls.Children.Add(bone);controls.Children.Add(skin);controls.Children.Add(dose);
+   controls.Children.Add(structures);controls.Children.Add(organs);controls.Children.Add(allRois);controls.Children.Add(bone);controls.Children.Add(skin);controls.Children.Add(dose);controls.Children.Add(showBeamFields);controls.Children.Add(beamModulation);beamModulation.Visibility=Visibility.Collapsed;
+   beamFields.PathsReady+=()=>{if(showBeamFields.IsChecked==true)FitFieldGuides();};
+   showBeamFields.Checked+=(s,e)=>{UpdateBeamFields();FitFieldGuides();};showBeamFields.Unchecked+=(s,e)=>UpdateBeamFields();beamModulation.SelectionChanged+=(s,e)=>UpdateBeamFields();
    controls.Children.Add(Theme.Text("ROI opacity",11));opacity=new Slider{Minimum=.1,Maximum=1,Value=.7,Width=95,Margin=new Thickness(6),ToolTip="ROI opacity; large enclosing organs are automatically more transparent. Skin has its own control."};controls.Children.Add(opacity);opacity.ValueChanged+=(s,e)=>ApplyModels();
    var skinOpacityLabel=Theme.Text("Skin opacity",11);controls.Children.Add(skinOpacityLabel);skinOpacity=new Slider{Minimum=.01,Maximum=.25,Value=.06,Width=80,Margin=new Thickness(6),ToolTip="CT skin opacity (1–25%), independent of ROI opacity; 6% by default"};controls.Children.Add(skinOpacity);skinOpacity.ValueChanged+=(s,e)=>ApplyModels();
    doseLevel=new ComboBox{Width=100,Margin=new Thickness(5),ItemsSource=new[]{"20 % max.","50 % max.","80 % max.","95 % max."},SelectedIndex=1,ToolTip="Isodose surface"};controls.Children.Add(doseLevel);doseLevel.SelectionChanged+=(s,e)=>{if(!updatingDoseChoices)StartBuild();};
@@ -63,7 +68,7 @@ namespace QuickLook.DicomRT
    root.Children.Add(controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);
    try{gpu=new Direct3DSurface();viewportHost.Children.Add(gpu.View);viewport.Visibility=Visibility.Hidden;gpu.View.RenderExceptionOccurred+=(s,e)=>{e.Handled=true;var failed=gpu;gpu=null;failed.View.Visibility=Visibility.Collapsed;Dispatcher.BeginInvoke(new Action(()=>failed.Dispose()));viewport.Visibility=Visibility.Visible;interactionHint.Text="Direct3D unavailable · WPF fallback";interactionHint.Visibility=Visibility.Visible;};}catch(Exception){gpu?.Dispose();gpu=null;interactionHint.Text="Direct3D unavailable · WPF fallback";}
-   viewportHost.Children.Add(isocenterOverlay);
+   viewportHost.Children.Add(beamFields);viewportHost.Children.Add(isocenterOverlay);
    orientationBadge.HorizontalAlignment=HorizontalAlignment.Left;orientationBadge.VerticalAlignment=VerticalAlignment.Bottom;orientationBadge.Margin=new Thickness(5);viewportHost.Children.Add(orientationBadge);
    interactionHint.HorizontalAlignment=HorizontalAlignment.Right;interactionHint.VerticalAlignment=VerticalAlignment.Top;interactionHint.Margin=new Thickness(8);interactionHint.Visibility=gpu==null?Visibility.Visible:Visibility.Collapsed;interactionHint.IsHitTestVisible=false;viewportHost.Children.Add(interactionHint);
    var host=new Border{Background=Theme.Background,Child=viewportHost,ClipToBounds=true};Grid.SetRow(host,1);root.Children.Add(host);host.SizeChanged+=(s,e)=>{if(!cameraAdjusted)ResetCamera();};
@@ -84,9 +89,18 @@ namespace QuickLook.DicomRT
   {
    var box=new CheckBox{Content=label,IsChecked=initial,Foreground=Theme.Foreground,Margin=new Thickness(5,7,12,7),VerticalAlignment=VerticalAlignment.Center};box.Checked+=(s,e)=>{ApplyModels();StartBuild();};box.Unchecked+=(s,e)=>{ApplyModels();StartBuild();};return box;
   }
+  void FitFieldGuides()
+  {
+   if(viewport.ActualWidth<=0||viewport.ActualHeight<=0)return;
+   double aspect=viewport.ActualWidth/viewport.ActualHeight,tangent=Math.Tan(camera.FieldOfView*Math.PI/360)*.88;
+   var forward=camera.LookDirection;forward.Normalize();var right=Vector3D.CrossProduct(forward,camera.UpDirection);right.Normalize();var up=Vector3D.CrossProduct(right,forward);
+   foreach(var point in beamFields.Bounds()){var delta=new Vector3D(point.X-target.X,point.Y-target.Y,point.Z-target.Z);distance=Math.Max(distance,Math.Max(Math.Abs(Vector3D.DotProduct(delta,right))/tangent,Math.Abs(Vector3D.DotProduct(delta,up))*aspect/tangent)-Vector3D.DotProduct(delta,forward));}
+   UpdateCamera();
+  }
+  void UpdateBeamFields(){beamModulation.Visibility=showBeamFields.IsChecked==true?Visibility.Visible:Visibility.Collapsed;beamFields.ShowFields=showBeamFields.IsChecked==true;beamFields.Mode=(BeamModulationMode)Math.Max(0,beamModulation.SelectedIndex);beamFields.Set(scene,camera,radius);}
   public void SetScene(RenderScene value)
   {
-   if(disposed)return;bool changed=scene==null||scene.Volume!=value?.Volume||(scene.Volume==null&&scene.Entry!=value?.Entry&&scene.Entry?.SeriesUid!=value?.Entry?.SeriesUid);bool remapped=scene!=null&&value!=null&&(scene.Structures??new List<RoiOverlay>()).Any(old=>(value.Structures??new List<RoiOverlay>()).Any(next=>next.Roi==old.Roi&&TransformKey(next.RoiToImage)!=TransformKey(old.RoiToImage)));changed|=remapped;bool paletteChanged=scene!=null&&value!=null&&!scene.IsoColors.OrderBy(x=>x.Key).SequenceEqual(value.IsoColors.OrderBy(x=>x.Key));scene=value;isocenterOverlay.Set(scene?.Isocenters,camera);if(scene!=null)ConfigureDoseChoices();if(paletteChanged)ApplyModels();
+   if(disposed)return;bool changed=scene==null||scene.Volume!=value?.Volume||(scene.Volume==null&&scene.Entry!=value?.Entry&&scene.Entry?.SeriesUid!=value?.Entry?.SeriesUid);bool remapped=scene!=null&&value!=null&&(scene.Structures??new List<RoiOverlay>()).Any(old=>(value.Structures??new List<RoiOverlay>()).Any(next=>next.Roi==old.Roi&&TransformKey(next.RoiToImage)!=TransformKey(old.RoiToImage)));changed|=remapped;bool paletteChanged=scene!=null&&value!=null&&!scene.IsoColors.OrderBy(x=>x.Key).SequenceEqual(value.IsoColors.OrderBy(x=>x.Key));scene=value;isocenterOverlay.Set(scene?.Isocenters,camera);UpdateBeamFields();if(scene!=null)ConfigureDoseChoices();if(paletteChanged)ApplyModels();
    if(changed){EndInteraction();key=null;prepared=null;focusedRoi=null;cameraAdjusted=false;ResetCamera();ApplyModels();}
    if(focusedRoi!=null&&!(scene?.Structures?.Any(r=>r?.Roi==focusedRoi)??false))focusedRoi=null;
    if(!doseDefaultInitialized&&scene!=null)
@@ -385,7 +399,7 @@ namespace QuickLook.DicomRT
   {
    var offset=new Vec3(Math.Cos(pitch)*Math.Cos(yaw),Math.Cos(pitch)*Math.Sin(yaw),Math.Sin(pitch))*distance;var p=target+offset;
    camera.Position=new Point3D(p.X,p.Y,p.Z);camera.LookDirection=new Vector3D(-offset.X,-offset.Y,-offset.Z);camera.UpDirection=new Vector3D(0,0,1);camera.NearPlaneDistance=Math.Max(.1,radius*.002);camera.FarPlaneDistance=radius*100;
-   orientationBadge.SetDirection(camera.LookDirection,camera.UpDirection);gpu?.SetCamera(camera);isocenterOverlay.Set(scene?.Isocenters,camera);
+   orientationBadge.SetDirection(camera.LookDirection,camera.UpDirection);gpu?.SetCamera(camera);isocenterOverlay.Set(scene?.Isocenters,camera);UpdateBeamFields();
   }
   public void Dispose(){if(disposed)return;gpu?.Dispose();gpu=null;EndInteraction();disposed=true;++generation;pending?.Cancel();pending=null;prepared=null;scene=null;focusedRoi=null;qualityModels=interactionModels=null;lock(cache)cache.Clear();visual.Content=null;sliceVisual.Content=null;sliceVolume=null;}
  }

@@ -2,6 +2,30 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.10 — 27 September 2026
+
+### Exports with useful identifiers
+
+- Image and DVH export filenames include **Patient ID**, the relevant **Plan ID (RT Plan Label)** when available, the view and a timestamp. Invalid filename characters are replaced automatically.
+- PNG exports include a small Patient ID / Plan ID footer. Detailed DVH CSV files also carry these identifiers in their rows. The DVH uses the plan referenced by its selected dose.
+- Dose, volume and metric values in CSV use **at most four decimal places**, with a dot as the decimal separator.
+- **Export curves only (CSV)** provides just `Structure,Dose,DoseUnit,VolumePercent` for straightforward import. IDs remain in the filename; there are no metric columns or metadata rows. Only enabled, calculated curves are included. Detailed export continues to report unavailable curves and all metrics.
+
+### VMAT modulation in images and 3D
+
+- Arc bars default to **angular meterset modulation**: segment meterset divided by directed gantry travel. Their lengths show variation even when a plan records a constant dose-rate setting.
+- Switch to **Planned rate setting** to see the recorded Dose Rate Set instead. Units distinguish **MU/°** from **MU/min** where the plan declares MU. Missing or invalid values remain unknown.
+- Angular modulation is derived from cumulative meterset weights and the beam meterset. It is **not a reconstructed or measured delivery dose rate**; no delivery time is inferred. See the [DICOM RT Beams module](https://dicom.nema.org/medical/dicom/current/output/chtml/part03/sect_c.8.8.14.html).
+- **Fields** in 3D shows all treatment tracks and their modulation bars, with an incoming-direction arrow and highlighted active field. The guides rotate with the patient and do not rebuild ROI surfaces. Track radii are schematic orientation aids.
+- Field settings are retained between standalone 3D and the linked 2 × 2 view. Setup and imaging fields remain hidden unless explicitly selected.
+
+### More prepared contours, responsive navigation
+
+- Connected silhouette edges now use compact polylines, preserving the original raster boundary and concavities while reducing cache memory.
+- PTV projections have a separate cache budget. Background preparation prioritizes targets across control points, then other structures, then DRRs; nearby positions take priority.
+- Adding a category retains already available contours at the **same projection geometry**. A new angle, image or registration cannot display contours from an older geometry.
+- Caches remain bounded. Missing anatomy is prepared asynchronously, keeping leaf navigation available throughout.
+
 ## 0.2.9 — 27 September 2026
 
 ### More image, fewer controls
