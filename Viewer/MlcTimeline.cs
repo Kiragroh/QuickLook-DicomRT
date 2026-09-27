@@ -4,6 +4,21 @@ namespace QuickLook.DicomRT
 {
     public static class MlcTimeline
     {
+        // Anchor preview samples to each beam, not to the last mouse/slider position
+        // or the number of CPs in preceding beams. Preload and playback share this grid.
+        public static double NextLocal(double local,double last,double step)
+        {
+            if(step<=0||double.IsNaN(step)||double.IsInfinity(step))throw new ArgumentOutOfRangeException(nameof(step));
+            return Math.Min(last,Math.Round((Math.Floor(Math.Round(local/step,8))+1)*step,8));
+        }
+        public static double NextPlayback(int[] counts,double cursor,double step)
+        {
+            int beam;double local;Locate(counts,cursor,out beam,out local);if(beam<0)return 0;
+            int offset=counts.Take(beam).Sum();
+            if(local<counts[beam]-1)return offset+NextLocal(local,counts[beam]-1,step);
+            offset+=counts[beam];for(int next=beam+1;next<counts.Length;next++){if(counts[next]>0)return offset;offset+=counts[next];}
+            return 0;
+        }
         public static double WheelStep(double cursor,double maximum,int delta,ref int remainder)
         {
             // Preserve high-resolution wheel deltas. One detent is one tenth CP.
@@ -45,7 +60,7 @@ namespace QuickLook.DicomRT
             beam=-1;local=0;int offset=0;
             for(int i=0;i<counts.Length;i++)
             {
-                int n=Math.Max(0,counts[i]);if(n>0){beam=i;local=Math.Max(0,Math.Min(n-1,cursor-offset));if(cursor<offset+n)return;}offset+=n;
+                int n=Math.Max(0,counts[i]);if(n>0){beam=i;local=Math.Max(0,Math.Min(n-1,Math.Round(cursor-offset,8)));if(cursor<offset+n)return;}offset+=n;
             }
         }
         public static double Angle(double a, double b, double fraction, string direction, bool clockwiseIncreases)

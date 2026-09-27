@@ -1,4 +1,11 @@
-﻿## 0.2.30 — Image toolbar playback
+﻿## 0.2.31 — Playback cache reuse
+
+- Reproduced two failures before the changes: a speculative background scan evicted a previously used outline; entering a beam from a preceding field requested different fractional positions from restarting that beam directly.
+- Release build has zero warnings/errors. 599 WPF checks, the dedicated playback interpolation suite and 32 installer archive checks pass. The standalone installer also verifies its embedded 32-file payload. Tests cover all five offered speeds, arbitrary scrub/resume, empty field ranges, beam starts/endpoints, repeated-plan sample identity, and DRR/outline eviction under bounded memory pressure.
+- Three repetitions of the prepared synthetic beam with DRR and PTV/ORGAN/other contours are complete cache hits with zero new projection-generation notifications. CT/ROI identity and changed-angle rejection remain covered. DRR refinement memory accounting and cache disposal are also checked.
+- Cache budgets remain 160 MiB DRR, 96 MiB target contours and 128 MiB other contours. An active working set exceeding these limits can still require preparation; changing speed or anatomy can request previously unseen views. This is synthetic engineering validation, not a claim of zero buffering on every dataset.
+
+## 0.2.30 — Image toolbar playback
 
 - Release build without warnings/errors; 439 WPF checks and all 11 Core synthetic test groups pass. Added checks verify button placement before the CP slider, start/pause through the shared timeline, immediate state synchronization from MLC and 3D, and disabled state for the neutral all-fields selection.
 - Crosshair preview tests cover axial, coronal and sagittal frames: prior complete frame retained while pending, current image/contours in the same plane, and identical boundary counts before and after release. The test host now installs a WPF dispatcher synchronization context before starting asynchronous UI work.

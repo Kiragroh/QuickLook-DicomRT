@@ -18,21 +18,10 @@ namespace QuickLook.DicomRT
         static readonly ConditionalWeakTable<object,Identity> ids=new ConditionalWeakTable<object,Identity>();
         static int Id(object o)=>o==null?0:ids.GetValue(o,k=>new Identity()).Value;
         readonly object gate=new object();
-        readonly Dictionary<string,BitmapSource> drrs=new Dictionary<string,BitmapSource>();
-        readonly Queue<string> drrOrder=new Queue<string>();
-        sealed class OutlineStore
-        {
-            readonly int budget;int bytes;readonly Dictionary<string,MlcProjectionFrame> items=new Dictionary<string,MlcProjectionFrame>();
-            readonly LinkedList<string> order=new LinkedList<string>();readonly Dictionary<string,LinkedListNode<string>> nodes=new Dictionary<string,LinkedListNode<string>>();
-            public OutlineStore(int megabytes){budget=megabytes*1024*1024;}
-            public MlcProjectionFrame Get(string key,bool touch){MlcProjectionFrame value;if(!items.TryGetValue(key,out value))return null;if(touch){order.Remove(nodes[key]);order.AddLast(nodes[key]);}return value;}
-            public void Put(string key,MlcProjectionFrame value){if(items.ContainsKey(key)||value.EstimatedBytes>budget)return;while((bytes+value.EstimatedBytes>budget||items.Count>=24000)&&order.Count>0){string old=order.First.Value;order.RemoveFirst();nodes.Remove(old);bytes-=items[old].EstimatedBytes;items.Remove(old);}items[key]=value;nodes[key]=order.AddLast(key);bytes+=value.EstimatedBytes;}
-            public void Clear(){items.Clear();order.Clear();nodes.Clear();bytes=0;}
-        }
-        readonly OutlineStore targets=new OutlineStore(96),others=new OutlineStore(128);
-        OutlineStore Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
+        readonly ProjectionMemoryCache<BitmapSource> drrs=new ProjectionMemoryCache<BitmapSource>(160,image=>image.PixelWidth*image.PixelHeight*2);
+        readonly ProjectionMemoryCache<MlcProjectionFrame> targets=new ProjectionMemoryCache<MlcProjectionFrame>(96,f=>f.EstimatedBytes),others=new ProjectionMemoryCache<MlcProjectionFrame>(128,f=>f.EstimatedBytes);
+        ProjectionMemoryCache<MlcProjectionFrame> Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
         readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer(),drrBackground=new MlcProjectionRenderer();
-        long drrBytes;
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
         string context,nearbyKey;bool disposed;
         Action<CancellationToken> nearby,nearbyDrr;int nearbyVersion;
@@ -48,7 +37,7 @@ namespace QuickLook.DicomRT
         public bool TryGet(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,bool drr,out MlcProjectionFrame frame)
         {
             string geometry=GeometryKey(p,extent);BitmapSource image=null;var shapes=new MlcProjectionFrame();bool complete=true;
-            lock(gate){if(drr&&ct!=null&&!drrs.TryGetValue(Id(ct)+":"+geometry,out image))complete=false;
+            lock(gate){if(drr&&ct!=null&&(image=drrs.Get(Id(ct)+":"+geometry,true))==null)complete=false;
                 foreach(var roi in rois){var item=Store(roi).Get(OutlineKey(geometry,new[]{roi}),true);if(item!=null)shapes.Outlines.AddRange(item.Outlines);else complete=false;}}
             frame=Join(image,shapes,extent,drr&&ct!=null);if(!complete)frame.Note+=" - preparing remaining overlays";return complete;
         }
@@ -58,20 +47,20 @@ namespace QuickLook.DicomRT
             frame.Note=(image!=null?"CT-derived DRR \u00b7 cached":wanted?"Preparing CT-derived DRR":"DRR off / matching CT unavailable")+" \u00b7 "+frame.Outlines.Count+" outlines";
             return frame;
         }
-        public MlcProjectionFrame Render(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,bool drr,CancellationToken token,bool warming=false)
+        public MlcProjectionFrame Render(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,bool drr,CancellationToken token,bool warming=false,bool requested=false)
         {
             var renderer=warming?background:foreground;string geometry=GeometryKey(p,extent),dkey=Id(ct)+":"+geometry;
             BitmapSource image=null;var shapes=new MlcProjectionFrame();
-            lock(gate){if(drr&&ct!=null)drrs.TryGetValue(dkey,out image);}
+            lock(gate){if(drr&&ct!=null)image=drrs.Get(dkey,!warming||requested);}
             foreach(var roi in rois){token.ThrowIfCancellationRequested();var okey=OutlineKey(geometry,new[]{roi});MlcProjectionFrame item;
-                lock(gate)item=Store(roi).Get(okey,!warming);
+                lock(gate)item=Store(roi).Get(okey,!warming||requested);
                 if(item==null){item=renderer.Render(p,null,new[]{roi},extent,256,false,token);token.ThrowIfCancellationRequested();
                     item.EstimatedBytes=Math.Max(512,item.EstimatedBytes);
-                    lock(gate){if(!disposed)Store(roi).Put(okey,item);}FrameReady?.Invoke();}
+                    lock(gate){if(!disposed){if(!warming||requested)Store(roi).PutActive(okey,item);else Store(roi).Put(okey,item);}}FrameReady?.Invoke();}
                 shapes.Outlines.AddRange(item.Outlines);
             }
             if(drr&&ct!=null&&image==null){image=(warming?drrBackground:renderer).Render(p,ct,new RoiOverlay[0],extent,warming?192:384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
-                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){int bytes=image.PixelWidth*image.PixelHeight*2;while(drrBytes+bytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight*2;drrs.Remove(old);}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=bytes;}}FrameReady?.Invoke();}
+                lock(gate){if(!disposed){var existing=drrs.Get(dkey,!warming||requested);if(existing!=null)image=existing;else if(!warming||requested)drrs.PutActive(dkey,image);else drrs.Put(dkey,image);}}FrameReady?.Invoke();}
             return Join(image,shapes,extent,drr&&ct!=null);
         }
         public MlcProjectionFrame Refine(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,CancellationToken token)
@@ -80,7 +69,7 @@ namespace QuickLook.DicomRT
             if(frame.Drr!=null&&frame.Drr.PixelWidth<384){
                 var image=foreground.Render(p,ct,new RoiOverlay[0],extent,384,true,token,2).Drr;token.ThrowIfCancellationRequested();
                 string key=Id(ct)+":"+GeometryKey(p,extent);
-                lock(gate){BitmapSource previous;if(!disposed&&drrs.TryGetValue(key,out previous)){drrBytes+=image.PixelWidth*image.PixelHeight*2-previous.PixelWidth*previous.PixelHeight*2;drrs[key]=image;while(drrBytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight*2;drrs.Remove(old);}}}
+                lock(gate){if(!disposed)drrs.PutActive(key,image);}
                 frame.Drr=image;FrameReady?.Invoke();
             }
             return frame;
@@ -148,19 +137,19 @@ namespace QuickLook.DicomRT
             if(key==nearbyKey){ResumeNearby(warmLifetime.Token);return;}nearbyKey=key;
             int mine=Interlocked.Increment(ref nearbyVersion);var token=warmLifetime.Token;double extent=MlcPlaybackControl.BeamExtent(beam);
             var positions=new List<double>{local};
-            if(playing){for(int n=1;n<=24;n++)positions.Add(Math.Round(local+n*step,8));}
-            else {for(int n=1;n<=4;n++){positions.Add(Math.Round(local)+n);positions.Add(Math.Round(local)-n);}for(int n=1;n<=12;n++)positions.Add(Math.Round(local+n*step,8));}
+            if(!playing)for(int n=1;n<=4;n++){positions.Add(Math.Round(local)+n);positions.Add(Math.Round(local)-n);}
+            double upcoming=local;for(int n=0;n<(playing?24:12)&&upcoming<beam.ControlPoints.Count-1;n++){upcoming=MlcTimeline.NextLocal(upcoming,beam.ControlPoints.Count-1,step);positions.Add(upcoming);}
             var views=positions.Where(at=>at>=0&&at<=beam.ControlPoints.Count-1).Distinct().Select(at=>{
                 int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
                 try{return BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i),map,out reason);}catch(ArgumentException){return null;}
             }).Where(p=>p!=null).GroupBy(p=>GeometryKey(p,extent)).Select(g=>g.First()).ToArray();
             Action<CancellationToken> outlines=t=>{
                 foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
-                    Render(p,null,rois,extent,false,t,true);}
+                    Render(p,null,rois,extent,false,t,true,true);}
             };
             Action<CancellationToken> images=t=>{
                 if(ct==null)return;foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
-                    Render(p,ct,new RoiOverlay[0],extent,true,t,true);}
+                    Render(p,ct,new RoiOverlay[0],extent,true,t,true,true);}
             };
             lock(gate){nearby=outlines;nearbyDrr=images;}
             ResumeNearby(token);
@@ -172,6 +161,6 @@ namespace QuickLook.DicomRT
             ObserveWarm();
         }
         void DrainNearby(bool image,CancellationToken token){while(true){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}if(job==null)return;token.ThrowIfCancellationRequested();job(token);}}
-        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;nearbyDrr=null;drrs.Clear();drrOrder.Clear();targets.Clear();others.Clear();drrBytes=0;}}
+        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;nearbyDrr=null;drrs.Clear();targets.Clear();others.Clear();}}
     }
 }

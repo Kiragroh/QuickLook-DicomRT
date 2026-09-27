@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.31 — Repeatable MLC previews
+
+- DRRs and projected contours used by playback are protected from unrelated background preloading. The cache keeps its existing memory limits and reuses recently requested views across beam repeats.
+- Playback and lookahead use the same beam-local intermediate positions at each speed, including after scrubbing or entering from another field. Beam starts and final control points remain visible.
+- Changed CT, registration or projection geometry still requires matching overlays; the viewer never substitutes an old-angle DRR or outline to hide a preparation delay.
+
 ## 0.2.30 — 27 September 2026
 
 - Volume loading reuses decoded preview slices and uses at most two decoding workers. Avoids the redundant refresh immediately after final isocenter positioning.

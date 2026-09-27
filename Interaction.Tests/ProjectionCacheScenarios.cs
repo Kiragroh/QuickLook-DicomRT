@@ -40,6 +40,13 @@ string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why
                 var fractionalArgs=new object[]{fractional,ct,scene.Structures.ToArray(),100d,true,null};
                 check((bool)type.GetMethod("TryGet").Invoke(cache,fractionalArgs),"active-field lookahead prepares all selected exact-angle fractional overlays");
             }
+            // Repeated complete previews must be pure hits, even after a speculative scan.
+            int generated=0;Action notification=()=>Interlocked.Increment(ref generated);type.GetEvent("FrameReady").AddEventHandler(cache,notification);
+            for(int repeat=0;repeat<3;repeat++)for(int n=0;n<=5;n++){
+                var same=BeamProjection.Create(beam,MlcTimeline.Interpolate(cp,beam.ControlPoints[1],n*.2),Matrix4.Identity,out why);
+                check((bool)type.GetMethod("TryGet").Invoke(cache,new object[]{same,ct,scene.Structures.ToArray(),100d,true,null}),"repeated beam retains matching DRR and all three ROI categories");
+            }
+            check(generated==0,"three repeated prepared beams require zero projection generation");type.GetEvent("FrameReady").RemoveEventHandler(cache,notification);
             type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,.08,Matrix4.Identity,ct,scene.Structures.ToArray(),.08,true});
             ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();
             var slowProjection=BeamProjection.Create(beam,MlcTimeline.Interpolate(cp,beam.ControlPoints[1],.16),Matrix4.Identity,out why);
