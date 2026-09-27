@@ -130,7 +130,7 @@ namespace QuickLook.DicomRT
             var fit=Theme.Button("Fit");fit.ToolTip="Reset zoom and fit image (Home)";fit.Click+=(s,e)=>{zoom=1;viewportCenter=null;Redraw();};images.Children.Add(fit);images.Children.Add(BuildFieldControls());
             DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
             patientIdentity.HorizontalAlignment=HorizontalAlignment.Right;patientIdentity.TextAlignment=TextAlignment.Right;patientIdentity.TextTrimming=TextTrimming.CharacterEllipsis;patientIdentity.Margin=new Thickness(8,4,8,2);DockPanel.SetDock(patientIdentity,Dock.Bottom);dock.Children.Add(patientIdentity);
-            var bottom = new StackPanel(); imageFooter=bottom; bottom.Children.Add(sliceSlider); bottom.Children.Add(position); DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom); workspace.Children.Add(imageGrid); dock.Children.Add(workspace); return dock;
+            var bottom = new StackPanel(); imageFooter=bottom; bottom.Children.Add(sliceSlider); bottom.Children.Add(position); DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom); workspace.Children.Add(imageGrid); var center=new Grid();center.Children.Add(workspace);center.Children.Add(BuildBackgroundIndicator());dock.Children.Add(center); return dock;
         }
 
         private UIElement BuildRight()
@@ -158,7 +158,7 @@ namespace QuickLook.DicomRT
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
                 pane.PickInteraction+=active=>{movingCrosshair=active;if(active){if(!viewportCenter.HasValue)viewportCenter=focus;focusTimer.Start();}else{focusTimer.Stop();focusDirty=false;Redraw();}};
-                pane.Picked += (p, point) => { userNavigatedImage=true;focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{userNavigatedImage=true;viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
+                pane.Picked += (p, point) => { userNavigatedImage=true;focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
                 var cell=new Grid();cell.Children.Add(pane);ViewerSnapshot.AttachMenu(pane,()=>cell,views[i]);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }
@@ -172,7 +172,7 @@ namespace QuickLook.DicomRT
         public void Dispose()
         {
             isodosePreferences.Changed -= GlobalIsodosesChanged;
-            if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true;suspendedImage=null; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
+            if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true;backgroundIndicatorTimer.Stop();suspendedImage=null; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Close(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }

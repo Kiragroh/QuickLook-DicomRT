@@ -85,7 +85,7 @@ namespace QuickLook.DicomRT
         {
             overlayLoad?.Cancel();overlayLoad?.Dispose();overlayLoad=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);var token=overlayLoad.Token;int generation=++overlayGeneration;
             overlayVolume=null;overlayStack=stack;Redraw();if(stack==null){fusionStatus.Text="Overlay off";return;}
-            fusionStatus.Text="Loading overlay …";
+            fusionStatus.Text="Loading overlay …";backgroundOverlayLoads++;UpdateBackgroundIndicator();
             try
             {
                 var loaded=await Task.Run(()=>VolumeData.Load(stack,token),token);
@@ -94,6 +94,7 @@ namespace QuickLook.DicomRT
             }
             catch(OperationCanceledException){}
             catch(Exception){if(!token.IsCancellationRequested)fusionStatus.Text="This image series cannot be overlaid as a volume.";}
+            finally{backgroundOverlayLoads--;UpdateBackgroundIndicator();}
         }
         private readonly Button doseMaximumButton=Theme.Button("↗ Dose maximum");
         private UIElement BuildDoseTools()

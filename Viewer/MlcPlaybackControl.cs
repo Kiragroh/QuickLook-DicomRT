@@ -78,6 +78,12 @@ namespace QuickLook.DicomRT
         private Geometry blockAperture;private ControlPoint first,second;private double fraction;private int layerIndex=-1;
         private MlcProjectionFrame projection;
         public MlcProjectionFrame Projection {get=>projection;set{projection=value;InvalidateVisual();}}
+        readonly System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource> drrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>();
+        System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource> customDrrDisplays;
+        string drrPreset="Auto";double drrCenter=.5,drrWidth=1;
+        public void SetDrrWindow(string preset,double center,double width){drrPreset=preset;drrCenter=center;drrWidth=width;customDrrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>();InvalidateVisual();}
+        System.Windows.Media.Imaging.BitmapSource DisplayDrr(System.Windows.Media.Imaging.BitmapSource source)=>
+            (drrPreset=="Auto"?drrDisplays:customDrrDisplays??(customDrrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>())).GetValue(source,s=>DrrWindow.Apply(s,drrPreset,drrCenter,drrWidth));
         double drrLeafOpacity=.75;
         public double DrrLeafOpacity {get=>drrLeafOpacity;set{drrLeafOpacity=Math.Max(.1,Math.Min(1,value));InvalidateVisual();}}
         public bool Compact {get;set;}
@@ -100,7 +106,7 @@ namespace QuickLook.DicomRT
             Action<double,double,double,double,Brush> rect=(x1,y1,x2,y2,brush)=>dc.DrawRectangle(brush,null,new Rect(point(Math.Min(x1,x2),Math.Max(y1,y2)),point(Math.Max(x1,x2),Math.Min(y1,y2))));
             var imageRect=new Rect(point(-extent,extent),point(extent,-extent));
             rect(-extent,-extent,extent,extent,Theme.Brush("#172430"));
-            if(projection?.Drr!=null)dc.DrawImage(projection.Drr,imageRect);
+            if(projection?.Drr!=null)dc.DrawImage(DisplayDrr(projection.Drr),imageRect);
             for(int index=0;index<layers.Length;index++)
             {
                 if(layerIndex>=0&&index!=layerIndex)continue;

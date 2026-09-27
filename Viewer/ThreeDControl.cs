@@ -47,6 +47,7 @@ namespace QuickLook.DicomRT
   static int identitySequence;static readonly ConditionalWeakTable<object,Identity> identities=new ConditionalWeakTable<object,Identity>();
   static int Id(object value)=>value==null?0:identities.GetValue(value,x=>new Identity()).Value;
   static string TransformKey(Matrix4 transform)=>string.Join(",",transform.Values.Select(x=>x.ToString("R",CultureInfo.InvariantCulture)));
+  internal bool IsPreparing=>pending!=null||!gpuInitialization.IsCompleted;
   RenderScene scene;Prepared prepared;CancellationTokenSource pending;int generation;bool disposed,doseDefaultInitialized;string key,preparedDoseKey;double yaw=-1.7,pitch=.25,distance=500,radius=250;Vec3 target;Point mouse;bool dragging;
   public event Action MprRequested;
   public ThreeDControl(bool compact=false)

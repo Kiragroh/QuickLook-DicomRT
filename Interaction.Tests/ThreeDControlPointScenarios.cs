@@ -28,6 +28,9 @@ internal static class ThreeDControlPointScenarios
    Get<CheckBox>(playback,"showFieldArrangement").IsChecked=false;check(Get<CheckBox>(three,"showBeamFields").IsChecked==false&&Get<CheckBox>(viewer,"showFields").IsChecked==false,"MLC fields toggle synchronizes all views");
    Get<CheckBox>(viewer,"showFields").IsChecked=true;check(Get<CheckBox>(three,"showBeamFields").IsChecked==true,"image fields toggle synchronizes 3D");
    check(picker.SelectedItem==plan.Beams[0]&&slider.Maximum==2,"standalone 3D exposes active field and complete CP range without CT");
+   var label=Get<TextBlock>(three,"beamPosition");label.Text="CP 1 / 73 · Coll 0° · 0 MU/°";viewer.UpdateLayout();double beforeLabel=label.ActualWidth,beforeDistance=Get<double>(three,"distance");var beforeView=Get<FrameworkElement>(three,"viewport").RenderSize;
+   label.Text="CP 100.9 / 101 · Coll 359.9° · 14.1234 MU/°";viewer.UpdateLayout();
+   check(label.ActualWidth==beforeLabel&&Get<FrameworkElement>(three,"viewport").RenderSize==beforeView&&Get<double>(three,"distance")==beforeDistance,"changing CP and angular MU text retains toolbar, viewport and camera dimensions");
    var prepared=Get<object>(three,"prepared");int generation=Get<int>(three,"generation");var guide=Get<FrameworkElement>(three,"beamFields");
    Pixels(guide);var anchor0=Get<Point?>(guide,"MiniatureAnchor");check(Get<bool>(guide,"MiniatureVisible"),"active 3D field has a mini MLC even before tracks finish preparing");
    slider.Value=1;Pixels(guide);check(playback.LocalPosition==1&&Get<RenderScene>(viewer,"latestScene").ActiveControlPoint.Gantry==45,"3D CP slider drives shared interpolation");

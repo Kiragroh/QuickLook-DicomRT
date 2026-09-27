@@ -13,7 +13,7 @@ namespace QuickLook.DicomRT
         {
             if (disposed) return;
             if (elapsed.IsRunning) throw new InvalidOperationException("Create a fresh viewer for another file.");
-            elapsed.Start(); LoadCompletion = LoadAsync(path);
+            elapsed.Start(); backgroundIndicatorTimer.Start(); LoadCompletion = LoadAsync(path); UpdateBackgroundIndicator();
         }
 
         private async Task LoadAsync(string path)
@@ -87,11 +87,15 @@ namespace QuickLook.DicomRT
         }
 
         private bool initialIsocenterApplied,userNavigatedImage;
+        private PlanData initialIsocenterPlan;
         private async Task TryInitialIsocenterAsync()
         {
-            if(disposed||initialIsocenterApplied||userNavigatedImage||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true)return;
-            if(!SelectedDoses.Any(d=>TransformToImage(d.FrameUid)!=null))return;
-            if(await JumpToPlanDoseAsync())initialIsocenterApplied=true;
+            if(disposed||(initialIsocenterApplied&&initialIsocenterPlan==selectedPlan)||userNavigatedImage||!HasImage||currentStack==null||currentEntry?.HasGeometry!=true)return;
+            if(await JumpToPlanDoseAsync()){
+                // An early preview is provisional until the final image context is ready.
+                initialIsocenterApplied=scanComplete&&(volume!=null||!currentStack.CanMpr);
+                initialIsocenterPlan=selectedPlan;
+            }
         }
         private async Task<bool> JumpToPlanDoseAsync(bool maximumOnly=false)
         {
@@ -121,6 +125,7 @@ namespace QuickLook.DicomRT
             sliceIndex = preservedFocus.HasValue ? Enumerable.Range(0,stack.Entries.Count).OrderBy(i=>Math.Abs((stack.Entries[i].Origin-preservedFocus.Value).Dot(stack.Entries[i].AxisX.Cross(stack.Entries[i].AxisY)))).First() : selected >= 0 ? selected : stack.Entries.Count / 2; requestedSliceIndex = sliceIndex; sliceSlider.Value = sliceIndex; changing = false;
             currentEntry = stack.Entries[sliceIndex]; SetEntryFocus(currentEntry); if(preservedFocus.HasValue)focus=preservedFocus.Value; UpdateTags();
             if(!sameImageSeries)RebuildPanes();
+            backgroundImageLoads++;UpdateBackgroundIndicator();
             try
             {
                 await ShowSliceAsync(sliceIndex, preservedFocus.HasValue);
@@ -131,11 +136,12 @@ namespace QuickLook.DicomRT
                 status.Text = $"{stack.Entries.Count} slices · loading volume in the background …";
                 var loaded = await Task.Run(() => VolumeData.Load(stack, token), token);
                 if (token.IsCancellationRequested || generation != seriesGeneration) return;
-                volume = loaded; pixelCache.Clear(); pixelOrder.Clear(); if(native==null)await ShowSliceAsync(requestedSliceIndex,true); Redraw();
+                volume = loaded; pixelCache.Clear(); pixelOrder.Clear(); if(native==null)await ShowSliceAsync(requestedSliceIndex,true); await TryInitialIsocenterAsync(); Redraw();
                 status.Text = $"{catalog?.Files.Count ?? stack.Entries.Count} files · {catalog?.Stacks.Count ?? 1} image groups · MPR ready" + ((catalog?.SkippedFiles ?? 0) > 0 ? $" · {catalog.SkippedFiles} files skipped" : "");
             }
             catch (OperationCanceledException) { }
             catch (Exception) { if (!token.IsCancellationRequested) status.Text = "Native image stack available. MPR is unavailable for this geometry, encoding or memory size."; }
+            finally {backgroundImageLoads--;UpdateBackgroundIndicator();}
         }
 
         private async Task ShowSliceAsync(int index, bool preserveInPlaneFocus)

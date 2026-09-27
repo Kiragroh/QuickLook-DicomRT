@@ -26,9 +26,7 @@ namespace QuickLook.DicomRT
             if(drr&&ct!=null)
             {
                 var values=projection.Integrate(ct,extent,size,size<300?2:1,token,parallelism);
-                var sorted=values.Where(v=>v>0).OrderBy(v=>v).ToArray();double high=sorted.Length==0?1:Math.Max(1,sorted[(int)((sorted.Length-1)*.99)]);
-                var pixels=new byte[size*size];for(int i=0;i<values.Length;i++)pixels[i]=(byte)(255*Math.Pow(Math.Min(1,values[i]/high),.8));
-                result.Drr=BitmapSource.Create(size,size,96,96,PixelFormats.Gray8,null,pixels,size);result.Drr.Freeze();
+                result.Drr=DrrWindow.Encode(values,size);
             }
             int skipped=0;
             foreach(var overlay in rois)

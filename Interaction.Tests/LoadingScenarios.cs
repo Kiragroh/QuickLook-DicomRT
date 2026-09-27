@@ -13,6 +13,9 @@ internal static class LoadingScenarios
  public static void Run(Action<bool,string> check)
  {
   using(var viewer=new ViewerControl()){
+   Set(viewer,"backgroundImageLoads",1);Call(viewer,"UpdateBackgroundIndicator");
+   var indicator=Get<Border>(viewer,"backgroundIndicator");check(indicator.Visibility==Visibility.Visible&&!indicator.IsHitTestVisible&&indicator.HorizontalAlignment==HorizontalAlignment.Right,"image load indicator appears at upper right without blocking interaction");
+   Set(viewer,"backgroundImageLoads",0);Call(viewer,"UpdateBackgroundIndicator");check(indicator.Visibility==Visibility.Collapsed,"load indicator disappears when tracked work finishes");
    var rt=Get<Button>(viewer,"layersButton");var tags=Get<Button>(viewer,"tagsButton");
    check(!Get<bool>(viewer,"layersVisible")&&!Get<bool>(viewer,"tagsVisible"),"sidebars stay closed without discovered RT");
    Call(viewer,"AutoOpenRtPanel");check(Get<bool>(viewer,"layersVisible")&&((SolidColorBrush)rt.Foreground).Color.B>200&&rt.ToolTip.ToString().StartsWith("Close"),"first RT automatically opens panel with blue close state");

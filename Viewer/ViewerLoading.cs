@@ -77,7 +77,7 @@ namespace QuickLook.DicomRT
             if(summedRevision==loadRevision&&summedSelection==selection&&sumResult!=null){int request=planSelectionRevision;await ApplySelectedImagesAsync();if(disposed||!sumMode||request!=planSelectionRevision)return;RefreshRt();if(!HasImage)SetWorkspace("3D");await JumpToPlanDoseAsync();return;}
             sumLoad?.Cancel();sumLoad?.Dispose();sumLoad=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);var token=sumLoad.Token;int revision=loadRevision;
             activity.Visibility=Visibility.Visible;activity.Text="● Adding dose grids in physical space …";sumResult=null;Redraw();
-            var links=registrations.ToList();
+            var links=registrations.ToList();backgroundDoseSums++;UpdateBackgroundIndicator();
             try
             {
                 var result=await Task.Run(()=>DoseSum.Calculate(sources,links,token),token);
@@ -92,6 +92,7 @@ namespace QuickLook.DicomRT
             }
             catch(OperationCanceledException){}
             catch(Exception){if(!token.IsCancellationRequested)activity.Text="Plan sum unavailable; check dose associations and units.";}
+            finally{backgroundDoseSums--;UpdateBackgroundIndicator();}
         }
         private string DosePlanLabel(DoseGrid dose)=>planData.FirstOrDefault(p=>p.Entry.SopUid==dose.PlanUid)?.Label??dose.Label;
         private UIElement BuildSumMembers()

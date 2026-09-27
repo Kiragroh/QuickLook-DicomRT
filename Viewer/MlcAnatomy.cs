@@ -39,6 +39,7 @@ namespace QuickLook.DicomRT
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
         string projectionKey,displayedProjectionKey;
+        internal bool IsPreparing=>!projectionCache.WarmCompletion.IsCompleted||projectionBusy;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
         long lastCacheNotification;
@@ -48,6 +49,7 @@ namespace QuickLook.DicomRT
             var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};check.Unchecked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};}
             mlcOpacity=new Slider{Minimum=.1,Maximum=1,Value=.75,Width=70,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4),ToolTip="MLC opacity over DRR: transparent to dark"};
             mlcOpacity.ValueChanged+=(s,e)=>aperture.DrrLeafOpacity=e.NewValue;row.Children.Add(Theme.Text("MLC",10,Theme.Muted));row.Children.Add(mlcOpacity);
+            row.Children.Add(BuildDrrSettings());
             var info=Theme.Button("i");info.ToolTip=projectionStatus;row.Children.Add(info);
             showOther.ToolTip="Other selected ROIs, including CTV/GTV. Use the left structure list for individual visibility.";
             showPtv.ToolTip=showOrgans.ToolTip="Projected outer boundary of selected structures; visible above the leaf banks.";

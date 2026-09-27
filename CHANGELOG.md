@@ -2,6 +2,13 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.26 — DRR contrast and visible background preparation
+
+- **Automatic DRR contrast** spreads the useful anatomy range across the grayscale display. A compact DRR menu adds Soft, High contrast, Original and Custom window settings; brightness and contrast reuse the cached projection without ray tracing again.
+- **Background work at a glance:** a discreet top-right indicator identifies RT/image discovery, CT/MR slices, image fusion, dose summation, 3D surfaces and DRR/outline preparation. It does not intercept image interaction.
+- **Final-load isocenter positioning:** the early preview remains provisional until the image context is ready. Zooming no longer cancels the automatic jump; deliberate slice/crosshair navigation still takes priority. An associated plan isocenter also works without an RTDOSE.
+- CP/MU text has a stable layout in 3D so changing values cannot wrap the toolbar and trigger camera refitting during playback.
+
 ## 0.2.25 — 27 September 2026
 
 - Image, MLC and 3D control-point readouts now show the planned interval MU/degree. Hover to inspect the CP range, interval MU and angular span.

@@ -4,6 +4,13 @@
 - Read-only inspection of the user-specified private case found two treatment arcs, each with 40 control points and no zero angular-meterset intervals. Identifiers and source metadata were not copied into repository files or screenshots.
 - Readout reports the planned interval average, not measured dose rate. Delivery timing and source DICOM files are unchanged.
 
+## 0.2.26 — DRR window, loading context and playback layout
+
+- Release build: zero warnings/errors; 353 WPF interaction checks passed, including 16-bit DRR retention, low-contrast percentile expansion, empty/constant images, monotonic tone mapping, preset/manual display changes, nonblocking busy indication, early zoom and stable 3D CP label/viewport/camera dimensions.
+- Private read-only loading checks opened one CT and both RTPLANs from the reported case. Each final displayed native slice was the nearest slice to a matching plan isocenter. Early CT zoom retained automatic positioning. One plan's isocenter lies 0.736 mm off the displayed source plane; this is native-slice quantization. No private images or identifiers were exported.
+- Actual before/after DRR screenshots inspected on the approved public nonpatient benchmark. DRR display uses a frozen 16-bit integral image; a cached 8-bit window is generated for display. Ray geometry, apertures, structures and dose calculations are unchanged. The raw DRR cache remains bounded to 160 MiB with 16-bit byte accounting.
+- The 3D change addresses text-driven layout/refitting; it does not claim to exclude every possible GPU or streaming-related source of stutter. Engineering checks are not clinical validation.
+
 ## 0.2.24 — Dense radial modulation
 
 - 332 WPF interaction checks passed. Added interval coverage, boundary deduplication, CW angle wrap and original-MU preservation checks for four- and six-degree intervals.

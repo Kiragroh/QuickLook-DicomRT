@@ -21,7 +21,7 @@ namespace QuickLook.DicomRT
   public void SetFieldsVisible(bool enabled){showBeamFields.IsChecked=enabled;}
   void BuildBeamNavigation(Panel controls)
   {
-   beamPosition.Margin=new Thickness(4,0,12,0);beamPosition.VerticalAlignment=VerticalAlignment.Center;beamNavigation.Children.Add(activeBeamPicker);beamNavigation.Children.Add(beamPlay);beamNavigation.Children.Add(beamCursor);beamNavigation.Children.Add(beamPosition);controls.Children.Add(beamNavigation);
+   beamPosition.Width=285;beamPosition.TextWrapping=TextWrapping.NoWrap;beamPosition.TextTrimming=TextTrimming.CharacterEllipsis;beamPosition.Margin=new Thickness(4,0,12,0);beamPosition.VerticalAlignment=VerticalAlignment.Center;beamNavigation.Children.Add(activeBeamPicker);beamNavigation.Children.Add(beamPlay);beamNavigation.Children.Add(beamCursor);beamNavigation.Children.Add(beamPosition);controls.Children.Add(beamNavigation);
    beamPlay.Click+=(s,e)=>PlaybackRequested?.Invoke();SetPlaying(false);
    activeBeamPicker.ToolTip="Select the highlighted field and its moving MLC preview. Other treatment tracks remain visible.";
    beamCursor.ToolTip="Control point · wheel: 1 CP · Shift + wheel: 0.1 CP. Shared with the MLC and image views.";

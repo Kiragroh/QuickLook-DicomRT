@@ -70,7 +70,7 @@ namespace QuickLook.DicomRT
                 shapes.Outlines.AddRange(item.Outlines);
             }
             if(drr&&ct!=null&&image==null){image=(warming?drrBackground:renderer).Render(p,ct,new RoiOverlay[0],extent,warming?192:384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
-                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){int bytes=image.PixelWidth*image.PixelHeight;while(drrBytes+bytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight;drrs.Remove(old);}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=bytes;}}FrameReady?.Invoke();}
+                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){int bytes=image.PixelWidth*image.PixelHeight*2;while(drrBytes+bytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight*2;drrs.Remove(old);}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=bytes;}}FrameReady?.Invoke();}
             return Join(image,shapes,extent,drr&&ct!=null);
         }
         public MlcProjectionFrame Refine(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,CancellationToken token)
@@ -79,7 +79,7 @@ namespace QuickLook.DicomRT
             if(frame.Drr!=null&&frame.Drr.PixelWidth<384){
                 var image=foreground.Render(p,ct,new RoiOverlay[0],extent,384,true,token,2).Drr;token.ThrowIfCancellationRequested();
                 string key=Id(ct)+":"+GeometryKey(p,extent);
-                lock(gate){BitmapSource previous;if(!disposed&&drrs.TryGetValue(key,out previous)){drrBytes+=image.PixelWidth*image.PixelHeight-previous.PixelWidth*previous.PixelHeight;drrs[key]=image;while(drrBytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight;drrs.Remove(old);}}}
+                lock(gate){BitmapSource previous;if(!disposed&&drrs.TryGetValue(key,out previous)){drrBytes+=image.PixelWidth*image.PixelHeight*2-previous.PixelWidth*previous.PixelHeight*2;drrs[key]=image;while(drrBytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight*2;drrs.Remove(old);}}}
                 frame.Drr=image;FrameReady?.Invoke();
             }
             return frame;
