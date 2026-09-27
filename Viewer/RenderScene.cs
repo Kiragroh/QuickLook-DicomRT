@@ -9,7 +9,7 @@ namespace QuickLook.DicomRT
  public sealed class DoseOverlay { public DoseGrid Dose {get;set;} public Matrix4 ImageToDose {get;set;} = Matrix4.Identity; }
  public sealed class RenderScene
  {
-  public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;public BeamModulationMode FieldModulation;
+  public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;public double ActiveControlPointIndex;
   public VolumeData Volume {get;set;} public PixelPlane Native {get;set;} public DicomEntry Entry {get;set;}
   public string Plane {get;set;} = "Native"; public Vec3 Focus {get;set;} public Vec3? ViewCenter {get;set;}
   public double WindowCenter {get;set;} public double WindowWidth {get;set;} = 400; public double Zoom {get;set;} = 1;

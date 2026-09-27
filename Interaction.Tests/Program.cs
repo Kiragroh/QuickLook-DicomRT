@@ -22,7 +22,7 @@ class Program
         var preferenceScope=new IsodosePreferenceScenarios.TestScope();
         try
         {
-            var app=new Application();app.Resources.MergedDictionaries.Add(new ResourceDictionary {Source=new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml",UriKind.Relative)});
+            var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.Resources.MergedDictionaries.Add(new ResourceDictionary {Source=new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml",UriKind.Relative)});
             var slider=new Slider {Minimum=0,Maximum=20,Value=3,Style=(Style)app.FindResource(typeof(Slider))};Layout(slider);slider.ApplyTemplate();var track=(Track)slider.Template.FindName("PART_Track",slider);
             Check(track!=null,"Custom slider track");track.Value=14;Check(slider.Value==14,"Track drag pushes Slider.Value");slider.Value=7;Check(track.Value==7,"Slider pushes track");Check(slider.IsMoveToPointEnabled,"Track clicking enabled");
             var combo=new ComboBox {Style=(Style)app.FindResource(typeof(ComboBox))};combo.Items.Add("Readable selection");combo.SelectedIndex=0;Layout(combo);
@@ -46,7 +46,7 @@ class Program
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==1&&!Field<bool>(viewer,"sumMode"),"Multiple doses offer a sum without selecting it automatically");
             }
-            BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
+            ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);

@@ -9,15 +9,13 @@ namespace QuickLook.DicomRT
     public sealed partial class ViewerControl
     {
         readonly ComboBox fieldPicker=Theme.Combo(210);
-        readonly ComboBox fieldModulation=new ComboBox{Width=145,Margin=new Thickness(4),ItemsSource=new[]{"Angular modulation","Planned rate setting"},SelectedIndex=0,ToolTip="Arc bars: meterset per degree or the recorded rate setting. Neither is a measured delivered dose rate."};
         readonly Slider fieldCursor=new Slider{Minimum=0,SmallChange=.1,LargeChange=1,Width=180,Margin=new Thickness(8,4,8,4),VerticalAlignment=VerticalAlignment.Center};
         readonly TextBlock fieldPosition=Theme.Text("",10,Theme.Muted);
         const string AllFields="All fields - no highlight";
         bool neutralFields;WrapPanel fieldControls;bool syncingFields;int fieldWheel;
         UIElement BuildFieldControls()
         {
-            fieldControls=new WrapPanel{Visibility=Visibility.Collapsed};fieldControls.Children.Add(fieldPicker);fieldControls.Children.Add(fieldCursor);fieldControls.Children.Add(fieldPosition);fieldControls.Children.Add(fieldModulation);
-            fieldModulation.SelectionChanged+=(s,e)=>UpdateFieldOverlays();
+            fieldControls=new WrapPanel{Visibility=Visibility.Collapsed};fieldControls.Children.Add(fieldPicker);fieldControls.Children.Add(fieldCursor);fieldControls.Children.Add(fieldPosition);
             fieldPicker.ToolTip="Active field · other treatment fields stay faint at their first control point";
             fieldCursor.ToolTip="Active field control point · wheel 1 CP · Shift + wheel 0.1 CP; wheel over the image still changes slices";
             fieldPicker.SelectionChanged+=(s,e)=>{if(syncingFields)return;neutralFields=fieldPicker.SelectedItem is string;if(neutralFields){SyncFieldControls();UpdateFieldOverlays();}else if(fieldPicker.SelectedItem is PlanBeam beam){EnsurePlayback();centralPlayback.Navigate(beam,0);UpdateFieldOverlays();}};
@@ -38,9 +36,10 @@ namespace QuickLook.DicomRT
         }
         void UpdateFieldOverlays()
         {
-            if(latestScene==null)return;latestScene.FieldModulation=(BeamModulationMode)Math.Max(0,fieldModulation.SelectedIndex);latestScene.ActiveBeam=neutralFields?null:activeField;latestScene.ActiveControlPoint=neutralFields?null:activeFieldPoint;
+            if(latestScene==null)return;latestScene.ActiveBeam=neutralFields?null:activeField;latestScene.ActiveControlPoint=neutralFields?null:activeFieldPoint;latestScene.ActiveControlPointIndex=centralPlayback?.LocalPosition??0;
             // Field motion does not re-rasterize the CT, structures, dose, or 3D scene.
             if(workspaceMode=="Bild"&&showFields.IsChecked==true)foreach(var pane in panes)pane.UpdateFields(latestScene);
+            threeDView?.UpdateFields(latestScene);
         }
     }
 }

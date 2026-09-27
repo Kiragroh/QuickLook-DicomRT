@@ -199,3 +199,11 @@ The 0.2.5 installer passed all 32 archive/path/checksum checks and verified its 
 - Local 60-sample MLC interaction test with DRR/PTV/organs enabled: input dispatch median 0.57 ms, p95 3.02 ms; frame loop including a requested 16 ms delay p95 61.44 ms. Complete uncached DRR scrub settled median 293 ms; cached revisit 48 ms. These are local engineering measurements, not universal frame-rate or clinical-performance claims. Pending anatomy remains asynchronous.
 - Public benchmark CSV readback: 51,250 rows each; exactly 18 detailed or 4 simple columns, no numeric field with more than four decimal places. Patient and plan labels were verified in the generated filenames. PNG/3D captures were visually inspected.
 - All projection and dose calculations remain inspection previews. Angular meterset density is not temporal or measured delivered dose rate. No clinical approval is implied by these tests.
+
+## 0.2.11 — 27 September 2026
+
+- Added WPF integration scenarios for standalone 3D field selection and CP navigation without CT, recorded-point mouse wheel, fractional CP synchronization with MLC, active-marker movement, static-field leaf changes, double-layer data, neutral selection and exact surface retention.
+- Interaction suite: 224 checks, including fail-closed miniature behavior for incompatible CP geometry. Existing 3D suite and the all-fields guide/camera/cache tests passed (44 core assertions plus scenario suites).
+- Actual WPF public-benchmark capture verified the moving MLC at start and middle CPs, synchronized view switches and linked 2 × 2 controls. Both prepared ROI meshes and arc-track arrays remained the same objects during 60 CP moves.
+- Local 60-sample CP dispatch: median 1.72 ms, p95 3.59 ms. This measures input processing in that run, not complete-frame latency or universal performance. Public screenshots were visually inspected; private clinical data were not captured or published.
+- The miniature reuses the main MLC renderer and remains a schematic, screen-facing BEV. No physical detector size or delivery time is implied.

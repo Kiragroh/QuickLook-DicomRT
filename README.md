@@ -1,10 +1,10 @@
 ﻿# DICOM RT for QuickLook
 
-**Version 0.2.10** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
+**Version 0.2.11** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.10.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.11.exe) · [Feature film and offline HTML tour](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/v0.2.6)
 
 [Open the HTML presentation in your browser](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 112-second feature film](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.mp4) · [Download the offline HTML presentation](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.6/QuickLook-DicomRT-Feature-Tour-0.2.6.zip)
 
@@ -14,7 +14,7 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 [Read the feature changelog](CHANGELOG.md) for the full list of new capabilities and shortcuts.
 
-## New in 0.2.10
+## New in 0.2.11
 
 - **Compact controls:** one horizontal image toolbar with view icons (including standalone 3D), and one MLC settings row. Narrow windows retain controls through horizontal scrolling. Hover tooltips explain buttons; the info button includes developer links and shortcuts.
 - **Anatomy without pauses:** PTV, organ and other outlines warm before their toggles are enabled. Completed individual outlines appear incrementally, obsolete foreground work is canceled, and the mesh cache retains larger ROI sets. Background preparation uses bounded viewer-local memory and stops on closing the preview.
@@ -31,9 +31,9 @@ The DRR is a HU-derived display projection, not a calibrated treatment image. It
 
 Install and start [QuickLook for Windows](https://github.com/QL-Win/QuickLook) first. The plugin was developed against QuickLook 4.5 and targets .NET Framework 4.6.2; the .NET Framework 4.8 runtime is required. Direct3D 11 provides the main 3D renderer. QuickLook is a separate dependency and is not bundled.
 
-Download **QuickLook-DicomRT-Setup-0.2.10.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
+Download **QuickLook-DicomRT-Setup-0.2.11.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
 
-For manual installation, download `QuickLook.Plugin.DicomRT-0.2.10.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
+For manual installation, download `QuickLook.Plugin.DicomRT-0.2.11.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
 
 ## Explore a dataset
 
@@ -112,8 +112,8 @@ Core geometry, RT interpretation and WPF presentation are separate projects; see
 
 This is an independent C# implementation. DICOM Browser was a feature reference; no Rust code or binaries from it are included. See [dependency notices](THIRD_PARTY.md) and [generated icon provenance](assets/README.md).
 
-### Export and arc display (0.2.10)
+### Export and arc display (0.2.11)
 
 Exports include Patient ID and the relevant Plan ID in the filename; PNGs and detailed DVH tables carry them inside the export too. DVH CSV offers a complete table with metrics or a four-column curves-only format, both with at most four decimal places.
 
-Image and 3D arc guides offer angular meterset modulation (e.g. MU/°) or the recorded planned rate setting (e.g. MU/min). Angular weights are not measured delivery rates. Enable **Fields** in 3D to see all treatment tracks without rebuilding structures.
+Image and 3D arc guides show angular meterset modulation (e.g. MU/°). Angular weights are not measured delivery rates. Enable **Fields** in 3D to see all treatment tracks without rebuilding structures. Select a field and use the CP slider or mouse wheel: a small MLC BEV follows the active marker and updates the actual leaf/jaw opening, including multiple layers. Beam and CP selection are shared with MLC, images and the 2 × 2 view.

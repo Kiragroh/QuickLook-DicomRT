@@ -2,6 +2,22 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.11 — 27 September 2026
+
+### Interactive control points in 3D
+
+- Enable **Fields** in standalone 3D to select the active field and move through its **control-point slider**. The mouse wheel moves one CP; **Shift + wheel** moves 0.1 CP.
+- Field and CP selection stay synchronized with MLC and image views, including fractional slider positions. The same controls are available in the linked 2 × 2 view.
+- A small **MLC BEV preview** follows the active source marker along the arc and updates its leaf and jaw opening at each CP. Static fields keep their marker in place while their MLC shape changes.
+- The miniature uses the same aperture renderer as the main MLC view, including multiple MLC layers. Stable beam-wide jaw framing makes small SRS openings easier to see. It is a screen-facing schematic BEV, not a detector image or a physical-sized collimator model.
+- Only the active field gets a miniature. **All fields · no highlight** removes the miniature while retaining the treatment-track overview.
+- CP motion updates the lightweight field guide and miniature while reusing prepared tracks, ROI meshes and camera position.
+
+### One modulation display
+
+- The ring now shows **angular meterset modulation only** (e.g. MU/°); the planned-rate selector has been removed from image and 3D controls.
+- Angular modulation retains the segment meterset / directed-angle calculation. It does not infer delivery timing or measured dose rate.
+
 ## 0.2.10 — 27 September 2026
 
 ### Exports with useful identifiers

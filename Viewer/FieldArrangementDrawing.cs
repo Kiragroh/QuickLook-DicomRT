@@ -38,7 +38,7 @@ namespace QuickLook.DicomRT
                 bool active=beam==scene.ActiveBeam;var cp=active?scene.ActiveControlPoint:beam.ControlPoints.FirstOrDefault();
                 string reason;var projection=BeamProjection.Create(beam,cp,scene.PlanToImage,out reason);if(projection==null){missing++;continue;}
                 var color=active?Color.FromRgb(255,215,82):Color.FromArgb(125,170,177,187);var brush=new SolidColorBrush(color);var pen=new Pen(brush,active?1.7:.65);
-                if(BeamMotion.IsArc(beam)){DrawArc(dc,beam,scene.PlanToImage,g,rect,brush,active,projection,scene.FieldModulation,invalidate);continue;}
+                if(BeamMotion.IsArc(beam)){DrawArc(dc,beam,scene.PlanToImage,g,rect,brush,active,projection,BeamModulationMode.AngularMeterset,invalidate);continue;}
                 Geometry shape=null;ready?.TryGetValue(beam,out shape);
                 if(shape!=null){var display=shape.Clone();display.Transform=new MatrixTransform(rect.Width,0,0,rect.Height,rect.Left,rect.Top);dc.DrawGeometry(null,pen,display);}
                 // One-way source arrow makes the incoming side unambiguous.

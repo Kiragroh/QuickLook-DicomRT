@@ -60,7 +60,7 @@ namespace QuickLook.DicomRT
             orientation.SetContext(beam,bodyRegion,planNoncoplanar);
             orientation.SetCollimator(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false));
             orientation.Set(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false));
-            try{FrameAnatomy(MlcTimeline.Interpolate(a,b,t));}catch(ArgumentException){projectionStatus.Text="Incompatible beam geometry";aperture.Projection=null;}
+            try{FrameAnatomy(MlcTimeline.Interpolate(a,b,t));}catch(ArgumentException){projectionStatus.Text="Incompatible beam geometry";aperture.Projection=null;interpolated=null;projectionKey=null;projectionVersion++;projectionDelay.Stop();projectionLifetime.Cancel();FrameChanged?.Invoke(beam,null);}
             double weight=a.MetersetWeight+(b.MetersetWeight-a.MetersetWeight)*t;
             details.Text=$"Beam {beam.Number} · {bi+1}/{playbackBeams.Length} in preview · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";
         }
@@ -73,6 +73,7 @@ namespace QuickLook.DicomRT
         public MlcProjectionFrame Projection {get=>projection;set{projection=value;InvalidateVisual();}}
         double drrLeafOpacity=.75;
         public double DrrLeafOpacity {get=>drrLeafOpacity;set{drrLeafOpacity=Math.Max(.1,Math.Min(1,value));InvalidateVisual();}}
+        public bool Compact {get;set;}
         public double Extent {get;set;}=100;
         public int LayerIndex {get=>layerIndex;set {layerIndex=value;InvalidateVisual();}}
         public void Set(ControlPoint a,ControlPoint b,double t){first=a;second=b;fraction=t;Extent=100;
@@ -87,7 +88,7 @@ namespace QuickLook.DicomRT
             catch(ArgumentException){Label(dc,"Incompatible control points",5,8);return;}
             if(layers.Length==0&&xj.Length==0&&yj.Length==0){Label(dc,"No supported aperture data",5,8);return;}
             double extent=Extent;
-            double scale=Math.Max(1,Math.Min(ActualWidth-24,ActualHeight-54))/(extent*2);double cx=ActualWidth/2,cy=ActualHeight/2+8;
+            double scale=Math.Max(1,Math.Min(ActualWidth-(Compact?8:24),ActualHeight-(Compact?8:54)))/(extent*2);double cx=ActualWidth/2,cy=ActualHeight/2+(Compact?0:8);
             Func<double,double,Point> point=(x,y)=>new Point(cx+x*scale,cy-y*scale);
             Action<double,double,double,double,Brush> rect=(x1,y1,x2,y2,brush)=>dc.DrawRectangle(brush,null,new Rect(point(Math.Min(x1,x2),Math.Max(y1,y2)),point(Math.Max(x1,x2),Math.Min(y1,y2))));
             var imageRect=new Rect(point(-extent,extent),point(extent,-extent));
@@ -110,14 +111,14 @@ namespace QuickLook.DicomRT
                 if(mlcY){rect(-extent,-extent,bounds[0],extent,leaf);rect(bounds[n],-extent,extent,extent,leaf);}
                 else{rect(-extent,-extent,extent,bounds[0],leaf);rect(-extent,bounds[n],extent,extent,leaf);}
             }
-            Label(dc,layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
-            Label(dc,"IEC beam limiting device plane · isocenter projection",6,18);
+            if(!Compact){Label(dc,layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
+            Label(dc,"IEC beam limiting device plane · isocenter projection",6,18);}
             var jaw=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),20,25,30)):Theme.Brush("#D927313E");
             if(xj.Length==2){rect(-extent,-extent,xj[0],extent,jaw);rect(xj[1],-extent,extent,extent,jaw);}
             if(yj.Length==2){rect(-extent,-extent,extent,yj[0],jaw);rect(-extent,yj[1],extent,extent,jaw);}
             if(projection!=null){dc.PushClip(new RectangleGeometry(imageRect));dc.PushTransform(new MatrixTransform(imageRect.Width,0,0,imageRect.Height,imageRect.Left,imageRect.Top));foreach(var outline in projection.Outlines){dc.DrawGeometry(null,new Pen(Brushes.Black,3.5/imageRect.Width),outline.Boundary);dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromRgb(outline.Roi.Red,outline.Roi.Green,outline.Roi.Blue)),1.7/imageRect.Width),outline.Boundary);}dc.Pop();dc.Pop();}
             var cross=new Pen(Theme.Brush("#EE8068"),1);dc.DrawLine(cross,point(-6,0),point(6,0));dc.DrawLine(cross,point(0,-6),point(0,6));
-            Label(dc,"+Y",cx+3,34);Label(dc,"+X",Math.Max(0,ActualWidth-25),cy+3);Label(dc,$"±{extent:0} mm",6,Math.Max(0,ActualHeight-18));
+            if(!Compact){Label(dc,"+Y",cx+3,34);Label(dc,"+X",Math.Max(0,ActualWidth-25),cy+3);Label(dc,$"±{extent:0} mm",6,Math.Max(0,ActualHeight-18));}
         }
         private void Label(DrawingContext dc,string text,double x,double y)
         {dc.DrawText(new FormattedText(text,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,Theme.Foreground,VisualTreeHelper.GetDpi(this).PixelsPerDip),new Point(x,y));}

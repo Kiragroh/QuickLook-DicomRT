@@ -11,6 +11,7 @@ namespace QuickLook.DicomRT
    if(threeDView!=null)return;
    threeDView=new ThreeDControl{Visibility=Visibility.Collapsed};
    threeDView.MprRequested+=OpenMpr;
+   threeDView.ControlPointRequested+=(beam,at)=>{EnsurePlayback();neutralFields=beam==null;if(beam!=null)centralPlayback.Navigate(beam,at);SyncFieldControls();UpdateFieldOverlays();};
    mprThreeD=threeDView;workspace.Children.Add(threeDView);
   }
   private void AttachThreeD(bool quad)
