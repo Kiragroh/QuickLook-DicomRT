@@ -68,7 +68,8 @@ namespace QuickLook.DicomRT
             orientation.Set(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true),MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false));
             try{FrameAnatomy(MlcTimeline.Interpolate(a,b,t));}catch(ArgumentException){projectionStatus.Text="Incompatible beam geometry";aperture.Projection=null;interpolated=null;projectionKey=null;projectionVersion++;projectionDelay.Stop();projectionLifetime.Cancel();FrameChanged?.Invoke(beam,null);}
             double weight=a.MetersetWeight+(b.MetersetWeight-a.MetersetWeight)*t;
-            details.Text=$"Beam {beam.Number} · {bi+1}/{playbackBeams.Length} in preview · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Meterset {weight:0.0000}";
+            details.Text=$"Beam {beam.Number} · {bi+1}/{playbackBeams.Length} in preview · CP {local+1:0.0}/{beam.ControlPoints.Count} · Plan {cursor.Value+1:0.0}/{counts.Sum()}\nGantry {AngleText(MlcTimeline.Angle(a.Gantry,b.Gantry,t,a.GantryRotationDirection,true))} · Collimator {AngleText(MlcTimeline.Angle(a.Collimator,b.Collimator,t,a.CollimatorRotationDirection,false))}\nCouch {AngleText(MlcTimeline.Angle(a.Couch,b.Couch,t,a.CouchRotationDirection,false))} · Cumulative weight {weight:0.0000}";
+            var mu=BeamMetersetInfo.At(beam,local);details.Text+=" · "+mu.Text;details.ToolTip=mu.Detail;
         }
         private static string AngleText(double angle)=>double.IsNaN(angle)?"n/a":angle.ToString("0.0")+"°";
     }

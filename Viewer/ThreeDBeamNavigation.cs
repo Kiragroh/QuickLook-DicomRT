@@ -41,6 +41,7 @@ namespace QuickLook.DicomRT
     beamPlay.IsEnabled=scene?.ActiveBeam!=null;
     beamCursor.Visibility=beamPosition.Visibility=scene?.ActiveBeam==null?Visibility.Collapsed:Visibility.Visible;
     beamPosition.Text=$"CP {beamCursor.Value+1:0.0} / {beamCursor.Maximum+1:0}"+(scene?.ActiveControlPoint!=null?$" · Coll {scene.ActiveControlPoint.Collimator:0.#}°":scene?.ActiveBeam!=null?" · geometry unavailable":"");
+    var mu=BeamMetersetInfo.At(scene?.ActiveBeam,beamCursor.Value);if(scene?.ActiveBeam!=null)beamPosition.Text+=" · "+mu.Text;beamPosition.ToolTip=mu.Detail;
    }finally{syncingBeamNavigation=false;}
   }
   // CP navigation changes only the lightweight guide, never anatomy or surface jobs.

@@ -1,4 +1,10 @@
-﻿## 0.2.24 — Dense radial modulation
+﻿## 0.2.25 — Per-CP angular meterset readout
+
+- 341 WPF interaction checks pass, including fractional CP interval assignment, angle wrap, final endpoint labeling, real zero, stationary/unknown values, tiny nonzero formatting and non-MU units.
+- Read-only inspection of the user-specified private case found two treatment arcs, each with 40 control points and no zero angular-meterset intervals. Identifiers and source metadata were not copied into repository files or screenshots.
+- Readout reports the planned interval average, not measured dose rate. Delivery timing and source DICOM files are unchanged.
+
+## 0.2.24 — Dense radial modulation
 
 - 332 WPF interaction checks passed. Added interval coverage, boundary deduplication, CW angle wrap and original-MU preservation checks for four- and six-degree intervals.
 - Linear tick-length mapping and unknown/zero distinction retained. No invented control points, dose changes or smoothing of the interval values.

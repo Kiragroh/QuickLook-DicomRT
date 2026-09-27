@@ -37,7 +37,7 @@ namespace QuickLook.DicomRT
                 var choices=new object[]{AllFields}.Concat(MlcTimeline.PlaybackOrder(selectedPlan)).ToArray();
                 if(!fieldPicker.Items.Cast<object>().SequenceEqual(choices))fieldPicker.ItemsSource=choices;
                 fieldPicker.SelectedItem=neutralFields?(object)AllFields:activeField;fieldCursor.Visibility=fieldPosition.Visibility=neutralFields?Visibility.Collapsed:Visibility.Visible;fieldCursor.Maximum=Math.Max(0,(activeField?.ControlPoints.Count??1)-1);
-                fieldCursor.Value=centralPlayback?.LocalPosition??0;fieldPosition.Text=$"CP {fieldCursor.Value+1:0.0} / {fieldCursor.Maximum+1:0}";
+                fieldCursor.Value=centralPlayback?.LocalPosition??0;var mu=BeamMetersetInfo.At(activeField,fieldCursor.Value);fieldPosition.Text=$"CP {fieldCursor.Value+1:0.0} / {fieldCursor.Maximum+1:0} · "+mu.Text;fieldPosition.ToolTip=mu.Detail;
             }finally{syncingFields=false;}
         }
         void UpdateFieldOverlays()

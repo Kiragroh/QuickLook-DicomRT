@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.25 — 27 September 2026
+
+- Image, MLC and 3D control-point readouts now show the planned interval MU/degree. Hover to inspect the CP range, interval MU and angular span.
+- Values use up to four decimal places, switching to scientific notation for very small nonzero values. Actual zero and unavailable angular meterset are distinct.
+- Fractional CP positions use their enclosing interval. The final CP explicitly shows the last interval; stationary fields have undefined MU/degree. DICOM dosimeter units are preserved.
+
 ## 0.2.24 — 27 September 2026
 
 - Restores radial MU/degree ticks in image, MPR and 3D views; removes the color-band encoding.
