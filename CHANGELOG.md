@@ -2,6 +2,14 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.20 — 27 September 2026
+
+### See which MLC outlines are enabled
+
+- The structure list highlights enabled MLC outlines in their own contour color, with a tinted name, bold text and an **Outline** indicator.
+- **Group off**, **Hidden** and **No match** distinguish a disabled PTV/Organ/Other category, an individually unchecked structure and a missing spatial association. Hover over the indicator for an explanation.
+- Category and individual-checkbox changes update the existing rows immediately. This does not rebuild the list or add work to control-point playback. Image views keep their own unfiltered contour selection semantics.
+
 ## 0.2.19 — 27 September 2026
 
 ### Load the images you need

@@ -38,10 +38,10 @@ namespace QuickLook.DicomRT
             Redraw();
         }
         private void SetRois(bool visible) { foreach (var roi in SelectedStructures.SelectMany(s => s.Rois)) roi.Visible = visible; BuildRoiList(); RoiVisibilityChanged(); }
-        private void RoiVisibilityChanged(){Redraw();if(workspaceMode=="DVH")UpdateDvh();}
+        private void RoiVisibilityChanged(){UpdateRoiOutlineIndicators();Redraw();if(workspaceMode=="DVH")UpdateDvh();}
         private void BuildRoiList()
         {
-            roiList.Children.Clear(); string query = roiSearch.Text.Trim();
+            roiOutlineRows.Clear();roiList.Children.Clear(); string query = roiSearch.Text.Trim();
             foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => query.Length == 0 || r.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
             {
                 var transform = TransformToImage(roi.FrameUid); var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
@@ -50,9 +50,34 @@ namespace QuickLook.DicomRT
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
                 var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Left; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = workspaceMode=="DVH" || transform != null; jump.ToolTip = transform == null ? "No matching registration to the displayed series" : "Go to structure";
                 jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null){bool in3D=workspaceMode=="3D"||workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D";if(in3D&&!roi.Visible){roi.Visible=true;BuildRoiList();}await MoveFocusAsync(map.Transform(roi.Center));if(in3D){if(workspaceMode=="3D")threeDView?.FocusStructure(roi);else mprThreeD?.FocusStructure(roi);}} };
+                var indicator=Theme.Text("",9,Theme.Muted);indicator.VerticalAlignment=VerticalAlignment.Center;indicator.Margin=new Thickness(5,0,3,0);DockPanel.SetDock(indicator,Dock.Right);row.Children.Add(indicator);
+                roiOutlineRows.Add(new RoiOutlineRow{Roi=roi,Name=jump,Stripe=color,Indicator=indicator,Color=color.Background,Tint=new SolidColorBrush(Color.FromArgb(35,roi.Red,roi.Green,roi.Blue))});
                 row.Children.Add(jump); roiList.Children.Add(row);
             }
+            UpdateRoiOutlineIndicators();
             if (roiList.Children.Count == 0) roiList.Children.Add(Theme.Text("No matching structures", 11, Theme.Muted));
+        }
+        private sealed class RoiOutlineRow
+        {
+            public StructureRoi Roi;public Button Name;public Border Stripe;public TextBlock Indicator;public Brush Color,Tint;public int State=-1;
+        }
+        private readonly List<RoiOutlineRow> roiOutlineRows=new List<RoiOutlineRow>();
+        private void UpdateRoiOutlineIndicators()
+        {
+            bool mlc=workspaceMode=="MLC";
+            foreach(var row in roiOutlineRows)
+            {
+                int state=!mlc?0:!row.Roi.Visible?1:TransformToImage(row.Roi.FrameUid)==null?2:centralPlayback?.IsOutlineEnabled(row.Roi)==true?4:3;
+                if(row.State==state)continue;row.State=state;
+                row.Indicator.Visibility=mlc?Visibility.Visible:Visibility.Collapsed;
+                row.Indicator.Text=state==4?"Outline":state==3?"Group off":state==2?"No match":"Hidden";
+                row.Indicator.Foreground=state==4?row.Color:Theme.Muted;
+                row.Indicator.ToolTip=state==4?"Outline enabled in MLC. Uncheck this structure to hide its projection.":state==3?"Structure selected, but its PTV / Organ / Other outline group is off in the MLC toolbar.":state==2?"No matching registration for this structure.":"Structure hidden by its individual checkbox.";
+                row.Name.FontWeight=state==4?FontWeights.SemiBold:FontWeights.Normal;
+                row.Stripe.Opacity=!mlc||state==4?1:.25;
+                if(mlc){row.Name.Background=state==4?row.Tint:Theme.Panel;row.Name.Foreground=state==4?row.Color:Theme.Muted;row.Name.BorderBrush=state==4?row.Color:Theme.Brush("#30383D");}
+                else{row.Name.ClearValue(Control.BackgroundProperty);row.Name.ClearValue(Control.ForegroundProperty);row.Name.ClearValue(Control.BorderBrushProperty);}
+            }
         }
         private void BuildDoseList()
         {

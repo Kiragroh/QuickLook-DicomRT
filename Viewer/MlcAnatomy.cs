@@ -25,7 +25,14 @@ namespace QuickLook.DicomRT
         public static double BeamExtent(PlanBeam beam)=>Math.Max(100,beam.ControlPoints.SelectMany(c=>c.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(c.XJaws??new double[0]).Concat(c.YJaws??new double[0])).Where(BeamProjection.Finite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
         public void Close(){Dispose();projectionCache.Dispose();}
         public void Preload(PlanData value,RenderScene scene,Matrix4 map){projectionCache.Configure(value,scene,map);}
-        RoiOverlay[] SelectedOutlines()=>(anatomy?.Structures??new System.Collections.Generic.List<RoiOverlay>()).Where(r=>{string type=r.Roi.InterpretedType?.Trim().ToUpperInvariant();return type=="PTV"?showPtv.IsChecked==true:type=="ORGAN"?showOrgans.IsChecked==true:showOther.IsChecked==true;}).ToArray();
+        public event Action OutlineSelectionChanged;
+        public bool IsOutlineEnabled(StructureRoi roi)
+        {
+            if(roi==null||!roi.Visible)return false;
+            string type=roi.InterpretedType?.Trim().ToUpperInvariant();
+            return type=="PTV"?showPtv.IsChecked==true:type=="ORGAN"?showOrgans.IsChecked==true:showOther.IsChecked==true;
+        }
+        RoiOverlay[] SelectedOutlines()=>(anatomy?.Structures??new System.Collections.Generic.List<RoiOverlay>()).Where(r=>IsOutlineEnabled(r.Roi)).ToArray();
         readonly FieldArrangementControl fieldArrangement=new FieldArrangementControl{Width=300,Height=230};
         MlcContextPanel contextOverlay;
         RenderScene anatomy;Matrix4 planMap;ControlPoint interpolated;
@@ -38,7 +45,7 @@ namespace QuickLook.DicomRT
         void InitializeAnatomy(StackPanel top,Grid area)
         {
             projectionCache.FrameReady+=()=>{long now=System.Diagnostics.Stopwatch.GetTimestamp();if(now-Interlocked.Read(ref lastCacheNotification)<System.Diagnostics.Stopwatch.Frequency/20)return;Interlocked.Exchange(ref lastCacheNotification,now);if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(IsVisible&&!projectionSuspended)TryCached();}),DispatcherPriority.Background);};
-            var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>RequestProjection(true);check.Unchecked+=(s,e)=>RequestProjection(true);}
+            var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};check.Unchecked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};}
             mlcOpacity=new Slider{Minimum=.1,Maximum=1,Value=.75,Width=70,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4),ToolTip="MLC opacity over DRR: transparent to dark"};
             mlcOpacity.ValueChanged+=(s,e)=>aperture.DrrLeafOpacity=e.NewValue;row.Children.Add(Theme.Text("MLC",10,Theme.Muted));row.Children.Add(mlcOpacity);
             var info=Theme.Button("i");info.ToolTip=projectionStatus;row.Children.Add(info);

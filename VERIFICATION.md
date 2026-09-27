@@ -1,4 +1,10 @@
-﻿# 0.2.19 verification
+﻿## 0.2.20 — Outline selection indicators
+
+- Release build: zero warnings/errors; 299 WPF checks passed.
+- Added interaction coverage for PTV/Organ/Other group state, individual visibility, missing registration, row identity preservation and leaving the MLC workspace.
+- Indicators describe enabled outlines; projection preparation and whether a contour has a supported boundary remain separate. These are engineering checks, not clinical validation.
+
+# 0.2.19 verification
 
 292 WPF interaction checks passed. Added two-frame workflow coverage: only the initially opened series is fully cataloged, the matching plan is preferred even when another plan is discovered first, a different plan starts without unrelated anatomy, targeted image search loads that plan's frame and updates its availability label, and returning to the first plan restores the correct frame. Individual RTDOSE and RTSTRUCT entries are selectable despite an associated plan. Existing CT-free RTPLAN, RTSTRUCT, RTDOSE/DVH and recursive patient-filtering checks remain active.
 
