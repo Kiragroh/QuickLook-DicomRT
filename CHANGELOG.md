@@ -2,6 +2,15 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.13 — 27 September 2026
+
+### Open aperture in the 3D MLC guide
+
+- The miniature shows only the **actual aperture boundary** after intersecting every MLC layer with the jaws, including separate openings in modulated fields.
+- The opening is **fully transparent**: anatomy and scene content remain visible through it. The rectangular backing, outer frame and central cross have been removed.
+- Short, translucent bank-side fringes **fade outwards** from the aperture. Their fill is clipped away from every opening, including adjacent small apertures. Shared internal leaf edges are removed.
+- The guide retains its gantry-track position, isocenter-facing orientation, collimator rotation and CP synchronization. Aperture boundaries are cached for the current CP without rebuilding anatomy.
+
 ## 0.2.12 — 27 September 2026
 
 ### MLC geometry on the gantry arc

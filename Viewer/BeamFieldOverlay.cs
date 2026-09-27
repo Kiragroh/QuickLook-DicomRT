@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,6 +20,8 @@ namespace QuickLook.DicomRT
   internal event Action PathsReady;
   internal bool ShowFields;
   PlanBeam miniatureBeam;ControlPoint miniaturePoint;double miniatureExtent;
+  List<BeamAperture.Opening> miniatureOpenings=new List<BeamAperture.Opening>();
+  List<ApertureEdge> miniatureEdges=new List<ApertureEdge>();
   internal Vec3[] MiniatureCorners=new Vec3[0];
   internal Point? MiniatureAnchor;internal Rect MiniatureBounds;
   internal bool MiniatureVisible;
@@ -38,6 +41,7 @@ namespace QuickLook.DicomRT
    if(value?.ActiveBeam!=miniatureBeam||value?.ActiveControlPoint!=miniaturePoint){
     if(value?.ActiveBeam!=miniatureBeam)miniatureExtent=MiniatureExtent(value?.ActiveBeam);
     miniatureBeam=value?.ActiveBeam;miniaturePoint=value?.ActiveControlPoint;
+    miniatureOpenings=BeamAperture.Rectangles(miniaturePoint);miniatureEdges=ApertureBoundary(miniatureOpenings);
 
    }
    InvalidateVisual();
@@ -64,6 +68,23 @@ namespace QuickLook.DicomRT
    Line(dc,from,iso,color,1.1,true);Point a,b;if(!Project(from,out a)||!Project(iso,out b))return;var v=b-a;if(v.Length<3)return;v.Normalize();var tip=a+(b-a)*.3;var side=new Vector(-v.Y,v.X);var pen=new Pen(color,1.5);dc.DrawLine(pen,tip,tip-v*8+side*4);dc.DrawLine(pen,tip,tip-v*8-side*4);
   }
   void Label(DrawingContext dc,string text,Point at,Brush color)=>dc.DrawText(new FormattedText(text,CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,color,VisualTreeHelper.GetDpi(this).PixelsPerDip),at);
+  internal struct ApertureEdge {public bool Vertical;public double Fixed,From,To;public int Sign;}
+  // Exact boundary of disjoint leaf-opening rectangles. Signed interval events
+  // cancel shared edges, including staggered/orthogonal MLC layers and jaw clipping.
+  internal static List<ApertureEdge> ApertureBoundary(IEnumerable<BeamAperture.Opening> openings)
+  {
+   var vertical=new Dictionary<double,SortedDictionary<double,int>>();var horizontal=new Dictionary<double,SortedDictionary<double,int>>();
+   Action<Dictionary<double,SortedDictionary<double,int>>,double,double,double,int> add=(lines,fixedAt,from,to,sign)=>{
+    SortedDictionary<double,int> events;if(!lines.TryGetValue(fixedAt,out events))lines[fixedAt]=events=new SortedDictionary<double,int>();
+    int value;events.TryGetValue(from,out value);events[from]=value+sign;events.TryGetValue(to,out value);events[to]=value-sign;
+   };
+   foreach(var r in openings){add(vertical,r.Left,r.Bottom,r.Top,-1);add(vertical,r.Right,r.Bottom,r.Top,1);add(horizontal,r.Bottom,r.Left,r.Right,-1);add(horizontal,r.Top,r.Left,r.Right,1);}
+   var result=new List<ApertureEdge>();
+   foreach(bool v in new[]{true,false})foreach(var line in v?vertical:horizontal){int sum=0;double begin=0;
+    foreach(var e in line.Value){int next=sum+e.Value;if(next==sum)continue;if(sum!=0&&e.Key>begin)result.Add(new ApertureEdge{Vertical=v,Fixed=line.Key,From=begin,To=e.Key,Sign=Math.Sign(sum)});sum=next;begin=e.Key;}
+   }
+   return result;
+  }
   void DrawActiveMiniature(DrawingContext dc)
   {
    if(scene.ActiveBeam==null||scene.ActiveControlPoint==null)return;
@@ -75,28 +96,26 @@ namespace QuickLook.DicomRT
    MiniatureCorners=new[]{world(-extent,-extent),world(extent,-extent),world(extent,extent),world(-extent,extent)};
    var corners=new Point[4];for(int i=0;i<4;i++)if(!Project(MiniatureCorners[i],out corners[i]))return;
    MiniatureAnchor=anchor;MiniatureBounds=new Rect(new Point(corners.Min(v=>v.X),corners.Min(v=>v.Y)),new Point(corners.Max(v=>v.X),corners.Max(v=>v.Y)));MiniatureVisible=true;
-   Action<double,double,double,double,Brush,Pen> rectangle=(x1,y1,x2,y2,fill,pen)=>{
-    x1=Math.Max(-extent,x1);x2=Math.Min(extent,x2);y1=Math.Max(-extent,y1);y2=Math.Min(extent,y2);if(x2<=x1||y2<=y1)return;
-    var vertices=new[]{world(x1,y1),world(x2,y1),world(x2,y2),world(x1,y2)};var screen=new Point[4];for(int i=0;i<4;i++)if(!Project(vertices[i],out screen[i]))return;
-    var geometry=new StreamGeometry();using(var g=geometry.Open()){g.BeginFigure(screen[0],true,true);g.PolyLineTo(screen.Skip(1).ToArray(),true,false);}dc.DrawGeometry(fill,pen,geometry);
-   };
-   rectangle(-extent,-extent,extent,extent,new SolidColorBrush(Color.FromArgb(225,10,25,34)),null);
-   for(int layer=0;layer<cp.MlcLayers.Count;layer++){
-    var l=cp.MlcLayers[layer];int n=l.Boundaries.Length-1;if(n<1||l.Positions.Length!=2*n)continue;
-    var fill=new SolidColorBrush(layer%2==0?Color.FromArgb(215,85,133,157):Color.FromArgb(170,178,143,84));
-    var edge=new Pen(layer%2==0?Brushes.LightSteelBlue:Brushes.Wheat,.45);
-    for(int k=0;k<n;k++){
-     if(l.IsY){rectangle(l.Boundaries[k],-extent,l.Boundaries[k+1],l.Positions[k],fill,edge);rectangle(l.Boundaries[k],l.Positions[k+n],l.Boundaries[k+1],extent,fill,edge);}
-     else{rectangle(-extent,l.Boundaries[k],l.Positions[k],l.Boundaries[k+1],fill,edge);rectangle(l.Positions[k+n],l.Boundaries[k],extent,l.Boundaries[k+1],fill,edge);}
-    }
-    if(l.IsY){rectangle(-extent,-extent,l.Boundaries[0],extent,fill,null);rectangle(l.Boundaries[n],-extent,extent,extent,fill,null);}
-    else{rectangle(-extent,-extent,extent,l.Boundaries[0],fill,null);rectangle(-extent,l.Boundaries[n],extent,extent,fill,null);}
+   // All jaws and MLC layers intersect the opening. Leave this union completely
+   // unpainted; only a short bank-side fringe fades away from the real boundary.
+   var aperture=new StreamGeometry();using(var g=aperture.Open())foreach(var r in miniatureOpenings){
+    var vertices=new[]{world(r.Left,r.Bottom),world(r.Right,r.Bottom),world(r.Right,r.Top),world(r.Left,r.Top)};
+    var screen=new Point[4];bool visible=true;for(int i=0;i<4;i++)if(!Project(vertices[i],out screen[i]))visible=false;
+    if(visible){g.BeginFigure(screen[0],true,true);g.PolyLineTo(screen.Skip(1).ToArray(),true,false);}
    }
-   var jaws=new SolidColorBrush(Color.FromArgb(230,29,43,55));
-   if(cp.XJaws?.Length==2){rectangle(-extent,-extent,cp.XJaws[0],extent,jaws,null);rectangle(cp.XJaws[1],-extent,extent,extent,jaws,null);}
-   if(cp.YJaws?.Length==2){rectangle(-extent,-extent,extent,cp.YJaws[0],jaws,null);rectangle(-extent,cp.YJaws[1],extent,extent,jaws,null);}
-   rectangle(-extent,-extent,extent,extent,null,new Pen(Brushes.Gold,1.2));
-   Line(dc,world(-extent*.08,0),world(extent*.08,0),Brushes.OrangeRed,1);Line(dc,world(0,-extent*.08),world(0,extent*.08),Brushes.OrangeRed,1);
+   aperture.Freeze();
+   dc.PushClip(new CombinedGeometry(GeometryCombineMode.Exclude,new RectangleGeometry(new Rect(RenderSize)),aperture));
+   double fade=extent*.18;const int steps=12;
+   foreach(var edge in miniatureEdges)for(int i=0;i<steps;i++){
+    double near=fade*i/steps,far=fade*(i+1)/steps;
+    Func<double,double,Vec3> at=(along,outward)=>edge.Vertical?world(edge.Fixed+edge.Sign*outward,along):world(along,edge.Fixed+edge.Sign*outward);
+    var vertices=new[]{at(edge.From,near),at(edge.To,near),at(edge.To,far),at(edge.From,far)};var screen=new Point[4];bool visible=true;
+    for(int k=0;k<4;k++)if(!Project(vertices[k],out screen[k]))visible=false;if(!visible)continue;
+    var ribbon=new StreamGeometry();using(var g=ribbon.Open()){g.BeginFigure(screen[0],true,true);g.PolyLineTo(screen.Skip(1).ToArray(),true,false);}
+    byte alpha=(byte)(170*Math.Pow(1-(i+.5)/steps,2));dc.DrawGeometry(new SolidColorBrush(Color.FromArgb(alpha,113,167,191)),null,ribbon);
+   }
+   dc.Pop();
+   foreach(var edge in miniatureEdges){var a=edge.Vertical?world(edge.Fixed,edge.From):world(edge.From,edge.Fixed);var b=edge.Vertical?world(edge.Fixed,edge.To):world(edge.To,edge.Fixed);Line(dc,a,b,Brushes.Gold,1.2);}
    Label(dc,"B"+scene.ActiveBeam.Number+" · CP "+(scene.ActiveControlPointIndex+1).ToString("0.0",CultureInfo.InvariantCulture),corners.OrderBy(v=>v.Y).First()+new Vector(3,-15),Brushes.Gold);
   }
   protected override void OnRender(DrawingContext dc)

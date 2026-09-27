@@ -1,4 +1,12 @@
-﻿# 0.2.12 verification
+﻿# 0.2.13 verification
+
+241 WPF interaction checks passed. New raster checks verify zero alpha inside the aperture, decreasing bank-side opacity to zero, removal of shared leaf edges, and transparency only inside the combined double-layer opening. Existing checks cover gantry/couch/collimator orientation, CP updates, static fields and shared view controls.
+
+The approved public nonpatient benchmark was visually inspected in standalone and linked 3D captures. Across 60 CP changes, dispatch latency was 0.20 ms median / 0.46 ms p95 with exact anatomy and track reuse. This measures event dispatch, not end-to-end display latency or clinical acceptance.
+
+---
+
+# 0.2.12 verification
 
 Engineering checks on 27 September 2026. These are inspection previews, not clinical acceptance.
 
