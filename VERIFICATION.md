@@ -4,6 +4,11 @@
 - Read-only inspection of the user-specified private case found two treatment arcs, each with 40 control points and no zero angular-meterset intervals. Identifiers and source metadata were not copied into repository files or screenshots.
 - Readout reports the planned interval average, not measured dose rate. Delivery timing and source DICOM files are unchanged.
 
+## 0.2.27 — DRR default and 3D LINAC
+
+- Release build without warnings/errors; 364 WPF checks passed. Additional checks cover the High contrast opening default, both 3D layouts, gantry/couch/collimator updates, neutral selection, non-intercepting overlay input, and reuse of patient geometry without camera or anatomy rebuilds.
+- Actual standalone and 2 × 2 captures inspected using the approved public nonpatient benchmark. The schematic remains separate from the patient-coordinate anatomy camera; no dose, beam projection or DICOM source data is altered.
+
 ## 0.2.26 — DRR window, loading context and playback layout
 
 - Release build: zero warnings/errors; 353 WPF interaction checks passed, including 16-bit DRR retention, low-contrast percentile expansion, empty/constant images, monotonic tone mapping, preset/manual display changes, nonblocking busy indication, early zoom and stable 3D CP label/viewport/camera dimensions.

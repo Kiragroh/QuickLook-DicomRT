@@ -72,7 +72,7 @@ namespace QuickLook.DicomRT
    root.Children.Add(controls);
    var viewportHost=new Grid();viewportHost.Children.Add(viewport);
    viewport.Visibility=Visibility.Hidden;
-   viewportHost.Children.Add(beamFields);viewportHost.Children.Add(isocenterOverlay);
+   viewportHost.Children.Add(beamFields);viewportHost.Children.Add(isocenterOverlay);BuildLinacOverlay(viewportHost);
    orientationBadge.HorizontalAlignment=HorizontalAlignment.Left;orientationBadge.VerticalAlignment=VerticalAlignment.Bottom;orientationBadge.Margin=new Thickness(5);viewportHost.Children.Add(orientationBadge);
    interactionHint.HorizontalAlignment=HorizontalAlignment.Right;interactionHint.VerticalAlignment=VerticalAlignment.Top;interactionHint.Margin=new Thickness(8);interactionHint.Visibility=gpu==null?Visibility.Visible:Visibility.Collapsed;interactionHint.IsHitTestVisible=false;viewportHost.Children.Add(interactionHint);
    var host=new Border{Background=Theme.Background,Child=viewportHost,ClipToBounds=true};Grid.SetRow(host,1);root.Children.Add(host);host.SizeChanged+=(s,e)=>{if(!cameraAdjusted){ResetCamera();if(showBeamFields.IsChecked==true)FitFieldGuides();}};
@@ -115,7 +115,7 @@ namespace QuickLook.DicomRT
    foreach(var point in beamFields.Bounds()){var delta=new Vector3D(point.X-target.X,point.Y-target.Y,point.Z-target.Z);distance=Math.Max(distance,Math.Max(Math.Abs(Vector3D.DotProduct(delta,right))/tangent,Math.Abs(Vector3D.DotProduct(delta,up))*aspect/tangent)-Vector3D.DotProduct(delta,forward));}
    UpdateCamera();
   }
-  void UpdateBeamFields(){beamFields.ShowFields=showBeamFields.IsChecked==true;beamFields.Set(scene,camera,radius);SyncBeamNavigation();}
+  void UpdateBeamFields(){beamFields.ShowFields=showBeamFields.IsChecked==true;beamFields.Set(scene,camera,radius);SyncBeamNavigation();UpdateLinac();}
   public void SetScene(RenderScene value)
   {
    if(disposed)return;

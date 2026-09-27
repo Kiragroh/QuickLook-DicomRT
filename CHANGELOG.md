@@ -2,6 +2,12 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.27 — LINAC orientation throughout 3D
+
+- DRRs start with **High contrast**. Auto, Soft, Original and Custom remain available in the DRR menu.
+- The familiar LINAC model now appears at the upper right of the standalone 3D view and the 3D pane in the linked 2 × 2 workspace. It follows the active field and control point, including gantry, couch and collimator, and retains the colored left/right patient cues.
+- The schematic overlay adapts to pane size, does not intercept orbit/zoom input, and updates rotations without rebuilding anatomy. Neutral field selection hides the model rather than showing a stale beam.
+
 ## 0.2.26 — DRR contrast and visible background preparation
 
 - **Automatic DRR contrast** spreads the useful anatomy range across the grayscale display. A compact DRR menu adds Soft, High contrast, Original and Custom window settings; brightness and contrast reuse the cached projection without ray tracing again.

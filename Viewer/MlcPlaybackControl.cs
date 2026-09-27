@@ -80,7 +80,7 @@ namespace QuickLook.DicomRT
         public MlcProjectionFrame Projection {get=>projection;set{projection=value;InvalidateVisual();}}
         readonly System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource> drrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>();
         System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource> customDrrDisplays;
-        string drrPreset="Auto";double drrCenter=.5,drrWidth=1;
+        string drrPreset="High contrast";double drrCenter=.5,drrWidth=1;
         public void SetDrrWindow(string preset,double center,double width){drrPreset=preset;drrCenter=center;drrWidth=width;customDrrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>();InvalidateVisual();}
         System.Windows.Media.Imaging.BitmapSource DisplayDrr(System.Windows.Media.Imaging.BitmapSource source)=>
             (drrPreset=="Auto"?drrDisplays:customDrrDisplays??(customDrrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>())).GetValue(source,s=>DrrWindow.Apply(s,drrPreset,drrCenter,drrWidth));
