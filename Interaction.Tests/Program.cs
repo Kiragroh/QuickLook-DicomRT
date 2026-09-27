@@ -21,6 +21,9 @@ class Program
         if(args.Length==2&&args[0]=="--private-sum")return PrivateSumAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-bev")return PrivateBeamAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--public-navigation")return NavigationBenchmark.Run(args[1]);
+        if(args.Length==2&&args[0]=="--quad-navigation")return NavigationBenchmark.Run(args[1],true);
+        if(args.Length==2&&args[0]=="--interactive-preview")return InteractivePreview(args[1]);
+        if(args.Length==2&&args[0]=="--projection-workload")return ProjectionWorkScenarios.Inspect(args[1]);
         var preferenceScope=new IsodosePreferenceScenarios.TestScope();
         try
         {
@@ -48,7 +51,7 @@ class Program
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==2&&!Field<bool>(viewer,"sumMode"),"Unassociated doses offer standalone entries, not an unsafe sum");
             }
-            AvatarScenarios.Run(Check);ThreeDLinacScenarios.Run(Check);DrrWindowScenarios.Run(Check);BeamMetersetInfoScenarios.Run(Check);FieldPlaybackCacheScenarios.Run(Check);DvhCurveScenarios.Run(Check);OutlineIndicatorScenarios.Run(Check);SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
+            ProjectionWorkScenarios.Run(Check);NavigationProgressScenarios.Run(Check);AvatarScenarios.Run(Check);ThreeDLinacScenarios.Run(Check);DrrWindowScenarios.Run(Check);BeamMetersetInfoScenarios.Run(Check);FieldPlaybackCacheScenarios.Run(Check);DvhCurveScenarios.Run(Check);OutlineIndicatorScenarios.Run(Check);SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
@@ -59,4 +62,10 @@ class Program
         catch(Exception e){Console.WriteLine("FAIL: "+e);return 1;}
         finally{preferenceScope.Dispose();}
     }
+    static int InteractivePreview(string folder){
+        var app=new Application();var viewer=new ViewerControl();var window=new Window{Title="DICOM RT · Interaction review",Width=1200,Height=850,Content=viewer};
+        window.Loaded+=async(s,e)=>{var cat=await System.Threading.Tasks.Task.Run(()=>DicomCatalog.Scan(System.IO.Directory.EnumerateFiles(folder).First(),System.Threading.CancellationToken.None));viewer.Open(cat.Files.First(x=>x.Modality=="CT").Path);await viewer.LoadCompletion;Field<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";};
+        window.Closed+=(s,e)=>viewer.Dispose();app.Run(window);return 0;
+    }
+
 }

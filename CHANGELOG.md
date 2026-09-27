@@ -2,6 +2,14 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.29 — 27 September 2026
+
+- Lighter background preparation: distinct recorded views across treatment fields, with exact fractional views prepared in a bounded active-field lookahead. Unchanged fixed-field projections are reused; setup/imaging views are prepared when selected.
+- Independent DRR and outline workers prioritize current navigation; disabling DRR avoids hidden fractional ray tracing. All ROI categories still preload at recorded views.
+- Rotating background gear with separate DRR and ROI-projection counts and an estimated remaining time.
+- Faster linked 2 × 2 scrolling: unchanged orthogonal slices retain their images and contours.
+- Orientation character picker opens on mouse release so the initiating click does not dismiss it immediately.
+
 ## 0.2.28 — Choose your orientation character
 
 - Click the orientation character in a slice or 3D view to open a dark preview picker: Human, Freeza (Dragon Ball), Obelisk (the custom Codex pet), Elsa (Frozen), or Saitama (One-Punch Man).

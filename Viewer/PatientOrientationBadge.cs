@@ -18,7 +18,9 @@ namespace QuickLook.DicomRT
    var grid=new Grid();grid.RowDefinitions.Add(new RowDefinition());grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});Child=grid;
    var viewport=new Viewport3D{Camera=camera};grid.Children.Add(viewport);var group=new Model3DGroup();group.Children.Add(new AmbientLight(Color.FromRgb(150,150,150)));group.Children.Add(new DirectionalLight(Colors.White,new Vector3D(-1,-2,-3)));viewport.Children.Add(new ModelVisual3D{Content=group});avatar.Content=PatientOrientationGlyph.Create();viewport.Children.Add(avatar);
    System.ComponentModel.PropertyChangedEventManager.AddHandler(avatarPreferences,AvatarChanged,"Selected");
-   MouseLeftButtonDown+=(s,e)=>{e.Handled=true;OpenAvatarPicker();};MouseLeftButtonUp+=(s,e)=>e.Handled=true;
+   MouseLeftButtonDown+=(s,e)=>{e.Handled=true;Focus();};
+   // Opening a non-staying popup on mouse-down lets the same release dismiss it.
+   MouseLeftButtonUp+=(s,e)=>{e.Handled=true;OpenAvatarPicker();};
    KeyDown+=(s,e)=>{if(e.Key==System.Windows.Input.Key.Enter){e.Handled=true;OpenAvatarPicker();}};
    camera.Width=1.85;camera.NearPlaneDistance=.01;camera.FarPlaneDistance=20;
    var legend=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Center};legend.Children.Add(Theme.Text("L",9,Theme.Brush(PatientOrientationGlyph.LeftColor)));legend.Children.Add(Theme.Text(" / ",9,Theme.Muted));legend.Children.Add(Theme.Text("R",9,Theme.Brush(PatientOrientationGlyph.RightColor)));Grid.SetRow(legend,1);grid.Children.Add(legend);

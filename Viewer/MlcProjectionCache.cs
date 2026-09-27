@@ -37,8 +37,9 @@ namespace QuickLook.DicomRT
         string context,nearbyKey;bool disposed;
         Action<CancellationToken> nearby,nearbyDrr;int nearbyVersion;
         Task outlineWarm=Task.CompletedTask,drrWarm=Task.CompletedTask;
-        int prepared;public int Prepared=>Volatile.Read(ref prepared);
-        public int Total {get;private set;}
+        internal PreparationProgress Progress {get;private set;}=new PreparationProgress();
+        public int Prepared=>Progress.Completed;
+        public int Total=>Progress.Total;
         public event Action FrameReady;
         public Task WarmCompletion {get;private set;}=Task.CompletedTask;
         static string Values(params double[] values)=>string.Join(",",values.Select(x=>Math.Round(x,8).ToString("R",CultureInfo.InvariantCulture)));
@@ -89,39 +90,48 @@ namespace QuickLook.DicomRT
             var ct=scene?.Entry?.Modality=="CT"?scene.Volume:null;
             var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:string.Equals(r.Roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase)?1:2).ToArray();
             string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;
-            warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;prepared=Total=0;
+            warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;var progress=new PreparationProgress();Progress=progress;
             lock(gate){nearby=null;nearbyDrr=null;}
             if(plan==null||map==null||ct==null&&warmRois.Length==0)return;
-            var jobs=MlcTimeline.PlaybackOrder(plan).SelectMany(b=>{var extent=MlcPlaybackControl.BeamExtent(b);return b.ControlPoints.Select(cp=>Tuple.Create(b,cp,extent));}).ToArray();
-            // Integer CPs first, then the .2 grid used by default 5 CP/s playback.
-            // Fixed fields reuse the same geometry key, so static gantry frames are free hits.
-            var allJobsTask=Task.Run(()=>{
-            var fractional=MlcTimeline.PlaybackOrder(plan).SelectMany(b=>{var extent=MlcPlaybackControl.BeamExtent(b);return Enumerable.Range(0,Math.Max(0,b.ControlPoints.Count-1)).SelectMany(i=>Enumerable.Range(1,4).Select(n=>Tuple.Create(b,SafeInterpolate(b.ControlPoints[i],b.ControlPoints[i+1],n*.2),extent)));});
-            return jobs.Concat(fractional).Where(j=>j.Item2!=null).Select(j=>{token.ThrowIfCancellationRequested();return j;}).ToArray();},token);
+            // Recorded views everywhere; fractional positions only in the active lookahead.
+            // Aperture-only changes do not require a new anatomy projection.
+            var allJobsTask=Task.Run(()=>BuildWarmViews(plan,map,scene?.ActiveBeam,token),token);
             var previous=WarmCompletion;
             outlineWarm=StartWarm(previous,token,()=>{
-                var allJobs=allJobsTask.GetAwaiter().GetResult();Total=allJobs.Length*3;
-                foreach(var set in new[]{jobs,allJobs.Skip(jobs.Length).ToArray()})foreach(int pass in new[]{0,1})foreach(var job in set){
+                var allJobs=allJobsTask.GetAwaiter().GetResult();progress.SetOutlineTotal(allJobs.Length*warmRois.Length);
+                foreach(int pass in new[]{0,1})foreach(var job in allJobs){
                     token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearby;nearby=null;}local?.Invoke(token);
-                    string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);
-                    if(p!=null)Render(p,null,warmRois.Where(r=>pass==0?IsTarget(r):!IsTarget(r)).ToArray(),job.Item3,false,token,true);
-                    Interlocked.Increment(ref prepared);FrameReady?.Invoke();
+                    var p=job.Projection;
+                    foreach(var roi in warmRois.Where(r=>pass==0?IsTarget(r):!IsTarget(r))){
+                        token.ThrowIfCancellationRequested();TakeNearby(false,token);Render(p,null,new[]{roi},job.Extent,false,token,true);progress.OutlineDone();
+                    }
+                    FrameReady?.Invoke();
                 }
                 DrainNearby(false,token);
             });
             // DRRs no longer wait behind every organ projection in the plan.
             drrWarm=StartWarm(previous,token,()=>{
-                var allJobs=allJobsTask.GetAwaiter().GetResult();
+                var allJobs=allJobsTask.GetAwaiter().GetResult();progress.SetDrrTotal(ct==null?0:allJobs.Length);
                 foreach(var job in allJobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearbyDrr;nearbyDrr=null;}local?.Invoke(token);
-                    string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);
-                    if(p!=null&&ct!=null)Render(p,ct,new RoiOverlay[0],job.Item3,true,token,true);
-                    Interlocked.Increment(ref prepared);FrameReady?.Invoke();
+                    var p=job.Projection;
+                    if(ct!=null){Render(p,ct,new RoiOverlay[0],job.Extent,true,token,true);progress.DrrDone();}
+                    FrameReady?.Invoke();
                 }
                 DrainNearby(true,token);
             });
             ObserveWarm();
         }
-        static ControlPoint SafeInterpolate(ControlPoint a,ControlPoint b,double t){try{return MlcTimeline.Interpolate(a,b,t);}catch(ArgumentException){return null;}}
+        internal sealed class WarmView {public BeamProjection Projection;public double Extent;}
+        internal static WarmView[] BuildWarmViews(PlanData plan,Matrix4 map,PlanBeam active,CancellationToken token){
+            var views=new List<WarmView>();var seen=new HashSet<string>();
+            foreach(var beam in MlcTimeline.PlaybackOrder(plan).Where(b=>!BeamMotion.IsImaging(b)||b==active).OrderBy(b=>b==active?0:1)){
+                double extent=MlcPlaybackControl.BeamExtent(beam);
+                foreach(var cp in beam.ControlPoints){token.ThrowIfCancellationRequested();string why;var projection=BeamProjection.Create(beam,cp,map,out why);
+                    if(projection!=null&&seen.Add(GeometryKey(projection,extent)))views.Add(new WarmView{Projection=projection,Extent=extent});
+                }
+            }return views.ToArray();
+        }
+        void TakeNearby(bool image,CancellationToken token){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}job?.Invoke(token);}
         static bool IsTarget(RoiOverlay r)=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase);
         static Task StartWarm(Task previous,CancellationToken token,Action work)=>Task.Run(async()=>{
             try{await previous.ConfigureAwait(false);}catch(OperationCanceledException){}catch(Exception){}
@@ -143,7 +153,7 @@ namespace QuickLook.DicomRT
             var views=positions.Where(at=>at>=0&&at<=beam.ControlPoints.Count-1).Distinct().Select(at=>{
                 int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
                 try{return BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i),map,out reason);}catch(ArgumentException){return null;}
-            }).Where(p=>p!=null).ToArray();
+            }).Where(p=>p!=null).GroupBy(p=>GeometryKey(p,extent)).Select(g=>g.First()).ToArray();
             Action<CancellationToken> outlines=t=>{
                 foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
                     Render(p,null,rois,extent,false,t,true);}

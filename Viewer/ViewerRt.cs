@@ -114,8 +114,18 @@ namespace QuickLook.DicomRT
             // Constrain the scroll coordinate to the physical volume's bounding box.
             var corners = new List<Vec3>(); foreach (int x in new[] { 0, volume.Width - 1 }) foreach (int y in new[] { 0, volume.Height - 1 }) foreach (int z in new[] { 0, volume.Depth - 1 }) corners.Add(volume.WorldAt(x, y, z));
             double value = candidate.Dot(axis), bounded = Math.Max(corners.Min(p => p.Dot(axis)), Math.Min(corners.Max(p => p.Dot(axis)), value));
-            focus = candidate + axis * (bounded - value); Redraw();
+            focus = candidate + axis * (bounded - value); RedrawNavigation();
         }
+        private void RedrawNavigation()
+        {
+            if(disposed)return;
+            if(latestScene==null||workspaceMode!="Bild"||(string)planes.SelectedItem=="Native"){Redraw();return;}
+            latestScene.Focus=focus;
+            foreach(var pane in panes)pane.Navigate(focus);
+            if((string)planes.SelectedItem=="MPR + 3D")mprThreeD?.SetSlicePlanes(focus,volume);
+            UpdatePositionText();
+        }
+        private void UpdatePositionText(){position.Text=$"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";}
         private void Redraw()
         {
             if (disposed) return;ExportIdentity.SetContext(this,CurrentExportIdentity());UpdateImageModeButtons();windowRange?.SetSource(volume?.Values??native?.Values,volume?.Min??native?.Min??0,volume?.Max??native?.Max??1,currentEntry?.Modality=="CT"?"HU":"");
@@ -152,7 +162,7 @@ namespace QuickLook.DicomRT
             if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);
             if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,volume);}
-            position.Text = $"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";
+            UpdatePositionText();
         }
     }
 }

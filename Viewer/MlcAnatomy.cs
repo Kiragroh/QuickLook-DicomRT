@@ -39,6 +39,7 @@ namespace QuickLook.DicomRT
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
         string projectionKey,displayedProjectionKey;
+        internal string PreparationStatus=>projectionCache.Progress.Text;
         internal bool IsPreparing=>!projectionCache.WarmCompletion.IsCompleted||projectionBusy;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
@@ -84,8 +85,8 @@ namespace QuickLook.DicomRT
             var p=interpolated;
             string key=beam.Number+":"+string.Join(",",new[]{p.Gantry,p.Couch,p.Collimator,p.Isocenter.X,p.Isocenter.Y,p.Isocenter.Z,p.GantryPitch,p.TablePitch,p.TableRoll,p.TableEccentric,aperture.Extent}.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)));
             if(!force&&key==projectionKey)return;bool geometryChanged=projectionKey!=key;projectionKey=key;projectionVersion++;projectionDelay.Stop();if(geometryChanged){aperture.Projection=null;displayedProjectionKey=null;}
-            if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);ScheduleRefinement();return;}
-            projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);
+            if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,showDrr.IsChecked==true&&anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);ScheduleRefinement();return;}
+            projectionCache.PrepareNearby(beam,LocalPosition,planMap,showDrr.IsChecked==true&&anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);
             projectionStatus.Text="Preparing overlays in background …";
             projectionDelay.Stop();if(!IsPlaying)projectionDelay.Start();
         }
@@ -100,7 +101,7 @@ namespace QuickLook.DicomRT
             MlcProjectionFrame frame;if(projectionCache.TryGet(p,ct,rois,extents[nextBeam],showDrr.IsChecked==true,out frame))return true;
             // Leave the complete current CP visible while missing exact-angle data are prepared.
             // Never draw a stale contour/DRR against a newer leaf aperture.
-            projectionCache.PrepareNearby(nextBeam,local,planMap,ct,rois,PlaybackStep,true);
+            projectionCache.PrepareNearby(nextBeam,local,planMap,showDrr.IsChecked==true?ct:null,rois,PlaybackStep,true);
             projectionStatus.Text="Buffering exact-angle overlays · navigation remains available";
             return false;
         }
@@ -133,7 +134,7 @@ namespace QuickLook.DicomRT
             var token=projectionLifetime.Token;projectionBusy=true;
             try{
                 var frame=await Task.Run(()=>drr?projectionCache.Refine(projection,ct,rois,extent,token):projectionCache.Render(projection,ct,rois,extent,false,token),token);
-                if(version==projectionVersion&&!projectionSuspended){ApplyProjection(frame);projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,ct,rois,PlaybackStep,IsPlaying);}
+                if(version==projectionVersion&&!projectionSuspended){ApplyProjection(frame);projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,showDrr.IsChecked==true?ct:null,rois,PlaybackStep,IsPlaying);}
             }catch(OperationCanceledException){}catch(Exception){if(version==projectionVersion){projectionStatus.Text="DRR / contour projection unavailable for this geometry";aperture.Projection=null;}}
             finally{projectionBusy=false;if(!projectionSuspended&&version!=projectionVersion){TryCached();if(!IsPlaying){projectionDelay.Stop();projectionDelay.Start();}}}
         }

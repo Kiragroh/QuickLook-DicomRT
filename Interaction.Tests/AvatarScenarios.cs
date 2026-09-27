@@ -24,6 +24,8 @@ internal static class AvatarScenarios {
    var camera=Get<OrthographicCamera>(a,"camera");var direction=camera.LookDirection;var position=camera.Position;
    check(a.IsHitTestVisible&&a.Cursor==Cursors.Hand,"slice character is an interactive selection target");
    var click=new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.MouseLeftButtonDownEvent};a.RaiseEvent(click);
+   check(click.Handled&&Get<Popup>(a,"avatarPicker")==null,"mouse-down consumes input without opening a popup that the release could dismiss");
+   a.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.MouseLeftButtonUpEvent});
    check(click.Handled&&Get<Popup>(a,"avatarPicker").IsOpen,"left-click opens character picker and stops crosshair navigation");
    var buttons=Get<System.Collections.Generic.Dictionary<string,Button>>(a,"avatarButtons");check(buttons.Count==5,"picker contains human and all four requested characters");
    foreach(string id in new[]{"human","frieza","obelisk","elsa","saitama"}){

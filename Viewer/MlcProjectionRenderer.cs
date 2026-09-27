@@ -35,7 +35,9 @@ namespace QuickLook.DicomRT
                 if(!meshes.TryGetValue(overlay.Roi,out mesh))
                 {
                     string reason;mesh=ThreeDGeometry.BuildRoiSurface(overlay.Roi,Matrix4.Identity,token,out reason);
-                    if(mesh!=null){while(order.Count>0&&(meshes.Count>=256||vertices+mesh.Points.Count>8000000)){var old=order.Dequeue();vertices-=meshes[old].Points.Count;meshes.Remove(old);}meshes[overlay.Roi]=mesh;vertices+=mesh.Points.Count;order.Enqueue(overlay.Roi);}
+                    // Remember unsupported contours too; do not retry the same failed meshing at every angle.
+                    int count=mesh?.Points.Count??0;while(order.Count>0&&(meshes.Count>=256||vertices+count>8000000)){var old=order.Dequeue();vertices-=meshes[old]?.Points.Count??0;meshes.Remove(old);}
+                    meshes[overlay.Roi]=mesh;vertices+=count;order.Enqueue(overlay.Roi);
                 }
                 if(mesh==null){skipped++;continue;}
                 int bytes;var boundary=CompactSilhouette(mesh,overlay.RoiToImage,projection,extent,512,token,out bytes);result.EstimatedBytes+=bytes;

@@ -27,10 +27,18 @@ string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why
             check(image.IsFrozen&&image.PixelWidth==192,"background DRR is immutable and bounded 192 resolution");
             var refined=type.GetMethod("Refine").Invoke(cache,new object[]{projection,ct,new RoiOverlay[0],100d,CancellationToken.None});
             check(((BitmapSource)refined.GetType().GetField("Drr").GetValue(refined)).PixelWidth==384,"stationary DRR refines to 384 without clearing cached frame");
+            var unrequested=BeamProjection.Create(beam,MlcTimeline.Interpolate(cp,beam.ControlPoints[1],.2),Matrix4.Identity,out why);
+            check(!(bool)type.GetMethod("TryGet").Invoke(cache,new object[]{unrequested,ct,scene.Structures.ToArray(),100d,true,null}),"unused fractional views do not multiply whole-plan preload");
+            type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,0d,Matrix4.Identity,null,scene.Structures.Take(1).ToArray(),.2,true});
+            ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();
+            check((bool)type.GetMethod("TryGet").Invoke(cache,new object[]{unrequested,null,scene.Structures.Take(1).ToArray(),100d,false,null}),"outline lookahead works with DRR disabled");
+            check(!(bool)type.GetMethod("TryGet").Invoke(cache,new object[]{unrequested,ct,new RoiOverlay[0],100d,true,null}),"DRR-disabled lookahead does not ray trace hidden fractional images");
+            type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,0d,Matrix4.Identity,ct,scene.Structures.ToArray(),.2,true});
+            ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();
             for(int n=1;n<5;n++){
                 var fractional=BeamProjection.Create(beam,MlcTimeline.Interpolate(cp,beam.ControlPoints[1],n*.2),Matrix4.Identity,out why);
                 var fractionalArgs=new object[]{fractional,ct,scene.Structures.ToArray(),100d,true,null};
-                check((bool)type.GetMethod("TryGet").Invoke(cache,fractionalArgs),"fractional playback CP has all PTV/organ/other contours and exact-angle DRR prewarmed");
+                check((bool)type.GetMethod("TryGet").Invoke(cache,fractionalArgs),"active-field lookahead prepares all selected exact-angle fractional overlays");
             }
             type.GetMethod("PrepareNearby").Invoke(cache,new object[]{beam,.08,Matrix4.Identity,ct,scene.Structures.ToArray(),.08,true});
             ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();

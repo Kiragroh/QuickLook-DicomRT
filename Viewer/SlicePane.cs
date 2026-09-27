@@ -17,6 +17,14 @@ namespace QuickLook.DicomRT
   sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public bool InterpolatedContours,ContourFallback;public List<OverlayLines> Lines=new List<OverlayLines>();}
   RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
   public RenderScene Scene {get=>scene;set{scene=value;if(picking&&value?.InteractionPreview==true){UpdateCrosshair(value.Focus);return;}Refresh();}}
+  // Position-only navigation: orthogonal panes keep their pixels and contours.
+  internal void Navigate(Vec3 focus)
+  {
+   if(scene==null)return;var before=SliceGeometry.Create(scene);scene=scene.Snapshot();scene.Focus=focus;
+   var after=SliceGeometry.Create(scene);UpdateCrosshair(focus);
+   if((before.Center-after.Center).Length>1e-7)Refresh();
+   else if(frame!=null)frame.Scene.Focus=focus;
+  }
   internal void CancelPending(){pending?.Cancel();}
   internal void UpdateFields(RenderScene value){if(scene!=null)CopyFields(scene,value);if(frame!=null)CopyFields(frame.Scene,value);InvalidateVisual();}
   static void CopyFields(RenderScene target,RenderScene value){target.Plan=value.Plan;target.PlanToImage=value.PlanToImage;target.ActiveBeam=value.ActiveBeam;target.ActiveControlPoint=value.ActiveControlPoint;target.ShowFields=value.ShowFields;target.ActiveControlPointIndex=value.ActiveControlPointIndex;}
@@ -58,7 +66,7 @@ namespace QuickLook.DicomRT
      }
      return result;
     },cancel.Token);
-    if(disposed||mine!=generation)return;frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair · contours on release":null;InvalidateVisual();
+    if(disposed||mine!=generation)return;copy.Focus=scene.Focus;frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair · contours on release":null;InvalidateVisual();
    }
    catch(OperationCanceledException){}
    catch(Exception){if(!disposed&&mine==generation){status=frame==null?"Image display unavailable":"Update failed; showing previous view";InvalidateVisual();}}

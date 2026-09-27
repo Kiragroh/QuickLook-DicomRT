@@ -1,4 +1,11 @@
-﻿## 0.2.25 — Per-CP angular meterset readout
+﻿## 0.2.29 — Preparation workload and linked navigation
+
+- Release build: zero warnings/errors; 421 WPF interaction checks and 32 installer payload checks pass. Tests cover exact-view deduplication, changed collimator angles, setup opt-in, active-field priority, fractional lookahead, DRR-off behavior, progress generations/ETA and unchanged orthogonal slice geometry. No DICOM ray geometry or ROI silhouette resolution is reduced.
+- Read-only workload inspection of the requested private folder found 2,718 previous whole-plan view jobs versus 546 distinct recorded views across two plans (79.9% fewer scheduled global views). This is a workload count, not an 80% measured wall-time speedup; active fractional lookahead remains additional work. No identifiers or private images are published.
+- On this workstation, 20 settled axial scroll samples in the 1200 × 800 linked workspace measured median dispatch/settle of 1.87/83.42 ms before and 1.03/17.05 ms after. The public nonpatient benchmark measured 2.57/62.64 ms before and 0.86/16.04 ms after. Measurements include background preparation and are engineering samples, not a general latency guarantee.
+- The original character-click failure was reproduced using native mouse input. The release-handler change is covered by WPF routed-event checks; the subsequent native mouse verification was stopped with Escape and remains unverified.
+
+## 0.2.25 — Per-CP angular meterset readout
 
 - 341 WPF interaction checks pass, including fractional CP interval assignment, angle wrap, final endpoint labeling, real zero, stationary/unknown values, tiny nonzero formatting and non-MU units.
 - Read-only inspection of the user-specified private case found two treatment arcs, each with 40 control points and no zero angular-meterset intervals. Identifiers and source metadata were not copied into repository files or screenshots.
