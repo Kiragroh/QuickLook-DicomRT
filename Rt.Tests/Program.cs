@@ -50,6 +50,7 @@ internal static class Program
         var imageRef=RegItem("1.1",Translate(2,0,0)); imageRef.Remove(DicomTag.FrameOfReferenceUID); imageRef.Add(new DicomSequence(DicomTag.ReferencedImageSequence,new DicomDataset().Add(DicomTag.ReferencedSOPInstanceUID,"1.5")));
         var refCat=new DicomCatalog(); refCat.Files.Add(new DicomEntry { SopUid="1.5",FrameUid="1.1",Modality="CT" }); refCat.Files.Add(new DicomEntry {Modality="REG",Dataset=new DicomDataset().Add(DicomTag.FrameOfReferenceUID,"1.2").Add(new DicomSequence(DicomTag.RegistrationSequence,imageRef)) });
         Assert(RegistrationReader.Resolve(RegistrationReader.Read(refCat),"1.1","1.2")!=null,"frame inferred from exact image reference");
+        var identity=refCat.Files[0];refCat.Files.RemoveAt(0);refCat.DeferredImages.Add(identity);Assert(RegistrationReader.Resolve(RegistrationReader.Read(refCat),"1.1","1.2")!=null,"REG image references resolve against deferred identities without pixel loading");refCat.Files.Insert(0,identity);
         refCat.Files[1].Dataset.Add(new DicomSequence(new DicomTag(0x0064,0x0002),new DicomDataset()));
         Assert(RegistrationReader.Read(refCat).Count==0,"deformable registration unsupported");
         var invalidRigid=MatrixItem(new Matrix4(new double[]{2,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}));invalidRigid.AddOrUpdate(DicomTag.FrameOfReferenceTransformationMatrixType,"RIGID");

@@ -21,15 +21,58 @@ namespace QuickLook.DicomRT
         void ShowAbout()
         {
             if(infoPopup?.IsOpen==true){infoPopup.IsOpen=false;return;}
-            var panel=new StackPanel{Width=400};panel.Children.Add(Theme.Text("DICOM RT for QuickLook",19,Theme.Accent));
+            var panel=new StackPanel{Width=Math.Min(500,Math.Max(280,SystemParameters.WorkArea.Width-64))};panel.Children.Add(Theme.Text("DICOM RT for QuickLook",19,Theme.Accent));
             panel.Children.Add(Theme.Text("The Space-key preview workflow, extended to DICOM images and radiotherapy objects on Windows. Inspect local plans, structures and dose without importing them into a TPS.",12));
             panel.Children.Add(Theme.Text("Developed by Maximilian Grohmann",14));panel.Children.Add(Theme.Text("Medical physicist and medical informatics specialist, Leipzig. Built with AI-assisted development. Research and inspection preview; not a clinically validated TPS.",11,Theme.Muted));
             var links=new WrapPanel();foreach(var link in new[]{Tuple.Create("GitHub / downloads","https://github.com/Kiragroh/QuickLook-DicomRT"),Tuple.Create("What is new / changelog","https://github.com/Kiragroh/QuickLook-DicomRT/blob/main/CHANGELOG.md"),Tuple.Create("Developer profile","https://kiragroh.github.io/"),Tuple.Create("QuickLook for Windows","https://github.com/QL-Win/QuickLook")}){
                 var button=Theme.Button(link.Item1);button.ToolTip=link.Item2;button.Click+=(s,e)=>{try{Process.Start(new ProcessStartInfo(link.Item2){UseShellExecute=true});}catch(Exception){status.Text="Unable to open browser.";}};links.Children.Add(button);
             }panel.Children.Add(links);panel.Children.Add(Theme.Text("Keyboard & mouse",14,Theme.Accent));
-            panel.Children.Add(Theme.Text("Space in Explorer   Open preview\nCtrl+1 / 2 / 3 / 4   Native / Axial / Coronal / Sagittal\nCtrl+5 / 6   Linked 2 x 2 / standalone 3D\nAlt+I / M / D / V   Image / MLC / DVH / 3D\nCtrl+I   Go to isocenter\nCtrl+F   Search DICOM tags\nCtrl+Shift+S   Save entire viewer (PNG)\nHome   Fit image\nF1   This help\nLeft drag   Move linked crosshair\nRight drag   Custom window / level\nCtrl+wheel   Image zoom\nMLC wheel   1 CP; Shift+wheel   0.1 CP\nRight-click view   Save only that view as PNG\nRight-click DVH   Also export active curves and metrics",11));
+            panel.Children.Add(ShortcutSection("OPEN & NAVIGATE",new[]{
+                new[]{"Space","Open preview in Explorer"},
+                new[]{"Ctrl + I","Go to isocenter"},
+                new[]{"Ctrl + F","Search DICOM tags"},
+                new[]{"Home","Fit image"},
+                new[]{"F1","Open this help"}}));
+            panel.Children.Add(ShortcutSection("SWITCH VIEWS",new[]{
+                new[]{"Ctrl + 1","Native image"},new[]{"Ctrl + 2","Axial"},
+                new[]{"Ctrl + 3","Coronal"},new[]{"Ctrl + 4","Sagittal"},
+                new[]{"Ctrl + 5","Linked 2 × 2"},new[]{"Ctrl + 6","Standalone 3D"},
+                new[]{"Alt + I","Image workspace"},new[]{"Alt + M","MLC workspace"},
+                new[]{"Alt + D","DVH workspace"},new[]{"Alt + V","3D workspace"}}));
+            panel.Children.Add(ShortcutSection("IMAGE & MLC CONTROLS",new[]{
+                new[]{"Left drag","Move linked crosshair"},
+                new[]{"Right drag","Custom window / level"},
+                new[]{"Ctrl + wheel","Zoom image"},
+                new[]{"Wheel","MLC: move by 1 control point"},
+                new[]{"Shift + wheel","MLC: move by 0.1 control point"}}));
+            panel.Children.Add(ShortcutSection("SAVE & EXPORT",new[]{
+                new[]{"Ctrl + Shift + S","Save entire viewer as PNG, including sidebars"},
+                new[]{"Right-click view","Save only that view as PNG"},
+                new[]{"Right-click DVH","Export active curves, with optional metrics"}}));
             var shot=Theme.Button("Save entire viewer");shot.ToolTip="Save all visible panels, toolbars and displayed identifiers (Ctrl+Shift+S)";shot.Click+=(s,e)=>{infoPopup.IsOpen=false;SaveScreenshot();};panel.Children.Add(shot);
-            infoPopup=DarkPopup(infoButton.IsVisible?(UIElement)infoButton:this,new ScrollViewer{Content=panel,MaxHeight=620,VerticalScrollBarVisibility=ScrollBarVisibility.Auto});if(!infoButton.IsVisible)infoPopup.Placement=PlacementMode.Center;infoPopup.IsOpen=true;
+            infoPopup=DarkPopup(infoButton.IsVisible?(UIElement)infoButton:this,new ScrollViewer{Content=panel,MaxHeight=Math.Min(720,Math.Max(240,SystemParameters.WorkArea.Height-100)),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto});if(!infoButton.IsVisible)infoPopup.Placement=PlacementMode.Center;infoPopup.IsOpen=true;
+        }
+        static UIElement ShortcutSection(string title,string[][] shortcuts)
+        {
+            var section=new StackPanel{Margin=new Thickness(0,10,0,2)};
+            var heading=Theme.Text(title,10,Theme.Muted);heading.FontWeight=FontWeights.SemiBold;heading.Margin=new Thickness(2,0,0,6);section.Children.Add(heading);
+            var table=new Grid();table.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(174)});table.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
+            for(int i=0;i<shortcuts.Length;i++)
+            {
+                table.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
+                var background=new Border{Background=i%2==0?Theme.Brush("#171E24"):Theme.Brush("#141A20"),BorderBrush=Theme.Brush("#28323B"),BorderThickness=new Thickness(0,0,0,i==shortcuts.Length-1?0:1)};Grid.SetRow(background,i);Grid.SetColumnSpan(background,2);table.Children.Add(background);
+                var keys=new WrapPanel{Margin=new Thickness(9,6,6,6),VerticalAlignment=VerticalAlignment.Center};
+                var tokens=shortcuts[i][0].Split(new[]{" + "},StringSplitOptions.None);
+                for(int k=0;k<tokens.Length;k++)
+                {
+                    if(k>0){var plus=Theme.Text("+",10,Theme.Muted);plus.Margin=new Thickness(3,2,3,0);keys.Children.Add(plus);}
+                    var text=Theme.Text(tokens[k],11,Theme.Foreground);text.Margin=new Thickness(0);text.FontWeight=FontWeights.SemiBold;
+                    keys.Children.Add(new Border{Child=text,Padding=new Thickness(6,2,6,3),CornerRadius=new CornerRadius(4),Background=Theme.Brush("#263440"),BorderBrush=Theme.Brush("#466075"),BorderThickness=new Thickness(1)});
+                }
+                Grid.SetRow(keys,i);table.Children.Add(keys);
+                var description=Theme.Text(shortcuts[i][1],12);description.Margin=new Thickness(6,7,10,7);description.VerticalAlignment=VerticalAlignment.Center;Grid.SetRow(description,i);Grid.SetColumn(description,1);table.Children.Add(description);
+            }
+            section.Children.Add(new Border{Child=table,BorderBrush=Theme.Brush("#33414D"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(5),Padding=new Thickness(1)});return section;
         }
         void InitializeShortcuts()
         {

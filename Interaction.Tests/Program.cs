@@ -42,10 +42,10 @@ class Program
                 Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Only dose"});
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
                 Check(!Field<bool>(viewer,"sumMode"),"Dose-only opening never selects a sum automatically");Check(Field<ComboBox>(viewer,"plans").SelectedIndex==-1,"Dose-only sum requires explicit selection");
-                Check(Field<ComboBox>(viewer,"plans").Items.Count==0,"One dose never offers a sum");
+                Check(Field<ComboBox>(viewer,"plans").Items.Count==1,"One dose offers its standalone entry, not a sum");
                 Field<System.Collections.Generic.List<DoseGrid>>(viewer,"doses").Add(new DoseGrid {Label="Second dose"});
                 typeof(ViewerControl).GetMethod("RefreshPlanChoices",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null);
-                Check(Field<ComboBox>(viewer,"plans").Items.Count==0&&!Field<bool>(viewer,"sumMode"),"Unassociated dose objects do not offer an unsafe sum");
+                Check(Field<ComboBox>(viewer,"plans").Items.Count==2&&!Field<bool>(viewer,"sumMode"),"Unassociated doses offer standalone entries, not an unsafe sum");
             }
             SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);

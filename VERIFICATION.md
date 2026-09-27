@@ -1,4 +1,16 @@
-﻿# 0.2.18 verification
+﻿# 0.2.19 verification
+
+292 WPF interaction checks passed. Added two-frame workflow coverage: only the initially opened series is fully cataloged, the matching plan is preferred even when another plan is discovered first, a different plan starts without unrelated anatomy, targeted image search loads that plan's frame and updates its availability label, and returning to the first plan restores the correct frame. Individual RTDOSE and RTSTRUCT entries are selectable despite an associated plan. Existing CT-free RTPLAN, RTSTRUCT, RTDOSE/DVH and recursive patient-filtering checks remain active.
+
+The Core suite verifies deferred image identities, direct loading from known paths without rescanning unrelated directories, RT-first discovery and cancellation. 136 RT assertions passed, including REG frame inference from deferred image references without image decoding.
+
+The user-supplied private multi-plan case passed local read-only checks for four plan selections, three-plan and two-plan sums, and a targeted image search that attached the previously unloaded image frame. No patient identifiers, source paths or images were exported to the repository or release media.
+
+Large-folder performance remains dependent on directory enumeration and metadata I/O. Deferred entries contain identity metadata, not image buffers. Source DICOM files remain unchanged. These are engineering checks, not clinical acceptance.
+
+---
+
+# 0.2.18 verification
 
 281 WPF interaction checks passed, including visibility of subfolder search after RTPLAN-only loading and recursive discovery that preserves the current image, finds matching RT and excludes another patient's plan. The underlying sum, Dmax and electron-cutout checks are retained from 0.2.17.
 

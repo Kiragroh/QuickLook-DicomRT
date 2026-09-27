@@ -11,6 +11,7 @@ namespace QuickLook.DicomRT
     public class DicomCatalog
     {
         public List<DicomEntry> Files = new List<DicomEntry>();
+        public List<DicomEntry> DeferredImages = new List<DicomEntry>();
         public List<ImageStack> Stacks = new List<ImageStack>();
         public int SkippedFiles;
 
@@ -62,19 +63,19 @@ namespace QuickLook.DicomRT
         /// A seed is an already-read instance from this folder (normally the initially displayed image).
         /// </summary>
         public static DicomCatalog Scan(string selectedFile, CancellationToken token, Action<int> progress = null,
-            Action<DicomEntry> entryFound = null, Action<string,int,int> phaseProgress = null, DicomEntry seed = null, string searchRoot = null, bool recursive = false)
+            Action<DicomEntry> entryFound = null, Action<string,int,int> phaseProgress = null, DicomEntry seed = null, string searchRoot = null, bool recursive = false, Func<DicomEntry,bool> imageFilter = null, IEnumerable<string> knownPaths = null)
         {
             token.ThrowIfCancellationRequested();
             var result = new DicomCatalog();
             string folder = searchRoot==null?System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(selectedFile)):System.IO.Path.GetFullPath(searchRoot);
             var groups = new Dictionary<string, List<ImageStack>>(StringComparer.Ordinal);
             var paths = new List<string>();
-            var folders=new Stack<string>();folders.Push(folder);
+            var folders=new Stack<string>();if(knownPaths!=null){foreach(var path in knownPaths){token.ThrowIfCancellationRequested();paths.Add(path);}}else folders.Push(folder);
             while(folders.Count>0){token.ThrowIfCancellationRequested();var directory=folders.Pop();
                 try{foreach(var path in Directory.EnumerateFiles(directory)){token.ThrowIfCancellationRequested();paths.Add(path);}if(recursive)foreach(var child in Directory.EnumerateDirectories(directory)){token.ThrowIfCancellationRequested();if((File.GetAttributes(child)&FileAttributes.ReparsePoint)==0)folders.Push(child);}}
                 catch(UnauthorizedAccessException){result.SkippedFiles++;}catch(IOException){result.SkippedFiles++;}
             }
-            var deferred = new List<string>();
+            var deferred = new List<string>();var identities=new Dictionary<string,DicomEntry>(StringComparer.OrdinalIgnoreCase);
             string seedPath = string.IsNullOrEmpty(seed?.Path) ? null : System.IO.Path.GetFullPath(seed.Path);
             int processed = 0;
             void Load(string path)
@@ -118,16 +119,18 @@ namespace QuickLook.DicomRT
                 var path = paths[i]; bool priority = false;
                 try
                 {
-                    if (string.Equals(path, seedPath, StringComparison.OrdinalIgnoreCase)) priority = IsRtOrRegistration(seed.Dataset);
+                    if (string.Equals(path, seedPath, StringComparison.OrdinalIgnoreCase)){priority = IsRtOrRegistration(seed.Dataset);if(imageFilter!=null&&!priority)identities[path]=seed;}
                     else
                     {
                         // Use the DICOM reader's stop condition, including raw/no-preamble datasets and all
                         // supported transfer syntaxes. No private parser or filename convention is involved.
-                        // SOP Class and Modality precede image geometry, nested RT data and pixel payloads.
+                        // Deferred discovery also keeps series/frame identity from this same header pass.
+                        // Both probes stop before nested RT data and pixel payloads.
                         var header = DicomFile.Open(path, Encoding.UTF8,
-                            state => state.SequenceDepth == 0 && state.Tag.CompareTo(DicomTag.Modality) > 0,
+                            state => state.SequenceDepth == 0 && (imageFilter==null?state.Tag.CompareTo(DicomTag.Modality)>0:state.Tag.Group>0x0020),
                             FileReadOption.ReadLargeOnDemand);
                         priority = header != null && IsRtOrRegistration(header.Dataset);
+                        if(imageFilter!=null&&!priority&&header!=null)identities[path]=ImageIdentity(header.Dataset,path);
                     }
                 }
                 catch (Exception ex) when (ex is DicomException || ex is IOException || ex is UnauthorizedAccessException ||
@@ -139,6 +142,10 @@ namespace QuickLook.DicomRT
             phaseProgress?.Invoke("catalog", processed, paths.Count);
             foreach (var path in deferred)
             {
+                if(imageFilter!=null){
+                    try{DicomEntry identity;if(!identities.TryGetValue(path,out identity))identity=ReadImageIdentity(path);if(!imageFilter(identity)){result.DeferredImages.Add(identity);++processed;progress?.Invoke(processed);phaseProgress?.Invoke("catalog",processed,paths.Count);continue;}}
+                    catch(Exception ex) when(ex is DicomException||ex is IOException||ex is UnauthorizedAccessException||ex is ArgumentException||ex is InvalidOperationException||ex is FormatException||ex is OverflowException){}
+                }
                 Load(path); phaseProgress?.Invoke("catalog", processed, paths.Count);
             }
             foreach (var stack in result.Stacks)
@@ -157,6 +164,18 @@ namespace QuickLook.DicomRT
             result.Stacks = result.Stacks.OrderByDescending(s => s.Entries.Count).ToList();
             phaseProgress?.Invoke("complete", processed, paths.Count);
             return result;
+        }
+
+        // Stop before pixel data and retain only discovery identity, never an image buffer.
+        static DicomEntry ReadImageIdentity(string path)
+        {
+            var file=DicomFile.Open(path,Encoding.UTF8,state=>state.SequenceDepth==0&&state.Tag.CompareTo(new DicomTag(0x0021,0))>=0,FileReadOption.ReadLargeOnDemand);
+            return ImageIdentity(file.Dataset,path);
+        }
+        static DicomEntry ImageIdentity(DicomDataset d,string path)
+        {
+            if(!d.Contains(DicomTag.SOPInstanceUID))throw new ArgumentException("Missing instance identity");
+            return new DicomEntry{Path=path,SopUid=Text(d,DicomTag.SOPInstanceUID),SeriesUid=Text(d,DicomTag.SeriesInstanceUID),StudyUid=Text(d,DicomTag.StudyInstanceUID),FrameUid=Text(d,DicomTag.FrameOfReferenceUID),Modality=Text(d,DicomTag.Modality),Description=Text(d,DicomTag.SeriesDescription),PatientKey=Text(d,DicomTag.PatientID)+"|"+Text(d,DicomTag.IssuerOfPatientID)};
         }
 
         private static bool IsRtOrRegistration(DicomDataset dataset)

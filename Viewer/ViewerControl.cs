@@ -67,10 +67,11 @@ namespace QuickLook.DicomRT
         public double FirstPlanMilliseconds { get; private set; }
         public double IndexMilliseconds { get; private set; }
         public bool SelectedFileVisible => SamePath(initialEntry?.Path, currentEntry?.Path);
-        public bool ReferencedPlanSelected => initialEntry?.Modality!="RTDOSE" || doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.PlanUid==selectedPlan?.Entry.SopUid;
+        public bool ReferencedPlanSelected => initialEntry?.Modality!="RTDOSE" || selectedDose?.Entry?.SopUid==initialEntry?.SopUid || doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.PlanUid==selectedPlan?.Entry.SopUid;
 
         public ViewerControl()
         {
+            searchMoreImages.Visibility=Visibility.Collapsed;searchMoreImages.ToolTip="Load matching images for this RT selection. Known deferred series are loaded directly; otherwise choose a search folder.";
             isodosePreferences.Changed += GlobalIsodosesChanged;
             Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/QuickLook.DicomRT.Viewer;component/Theme.xaml", UriKind.Relative) });
             FontFamily = new FontFamily("Segoe UI"); FontSize = 12; Background = Theme.Background; Foreground = Theme.Foreground;
@@ -85,7 +86,7 @@ namespace QuickLook.DicomRT
             leftPanel=BuildRtPanel();body.Children.Add(leftPanel);var splitLeft=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitLeft,1);body.Children.Add(splitLeft);
             var middle=BuildMiddle();Grid.SetColumn(middle,2);body.Children.Add(middle);var splitter=new GridSplitter {Width=4,HorizontalAlignment=HorizontalAlignment.Stretch,Background=Theme.Background};Grid.SetColumn(splitter,3);body.Children.Add(splitter);
             rightPanel=BuildRight();Grid.SetColumn(rightPanel,4);body.Children.Add(rightPanel);UpdatePanels();
-            var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};DockPanel.SetDock(searchSubfolders,Dock.Right);footer.Children.Add(searchSubfolders);searchSubfolders.Click+=async(s,e)=>await SearchSubfoldersAsync();activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
+            var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};DockPanel.SetDock(searchMoreImages,Dock.Right);footer.Children.Add(searchMoreImages);searchMoreImages.Click+=async(s,e)=>await SearchMoreImagesAsync();DockPanel.SetDock(searchSubfolders,Dock.Right);footer.Children.Add(searchSubfolders);searchSubfolders.Click+=async(s,e)=>await SearchSubfoldersAsync();activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
             series.SelectionChanged += async (s, e) => { if (!changing && series.SelectedItem is ImageStack stack) {userNavigatedImage=true;await SelectStackAsync(stack);} };
             planes.SelectionChanged += (s, e) => { if (!changing) { if ((string)planes.SelectedItem != "Native" && volume == null) { changing = true; planes.SelectedItem = "Native"; changing = false; status.Text = "MPR becomes available once a volume with suitable geometry has loaded."; } RebuildPanes(); } };
             tagSource.SelectionChanged += (s, e) => UpdateTags();
@@ -171,7 +172,7 @@ namespace QuickLook.DicomRT
         public void Dispose()
         {
             isodosePreferences.Changed -= GlobalIsodosesChanged;
-            if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
+            if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true;suspendedImage=null; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Close(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
     }

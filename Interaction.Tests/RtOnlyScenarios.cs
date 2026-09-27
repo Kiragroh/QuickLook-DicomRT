@@ -77,6 +77,25 @@ internal static class RtOnlyScenarios
                 check(Field<DicomEntry>(viewer,"currentEntry").SopUid==before.SopUid&&viewer.HasImage,"recursive RT discovery preserves the displayed image");
                 check(Field<bool>(viewer,"layersVisible")&&Field<Button>(viewer,"searchSubfolders").Content.ToString()=="Search subfolders…","RT panel opens and search remains repeatable");
             }
+            var multi=Path.Combine(root,"multi-frame");Directory.CreateDirectory(multi);
+            var imageA=DicomFile.Open(imagePath).Dataset;new DicomFile(imageA).Save(Path.Combine(multi,"image-A.dcm"));
+            const string frameB="1.2.826.0.1.3680043.10.543.100";
+            var imageB=imageA.Clone();imageB.AddOrUpdate(DicomTag.FrameOfReferenceUID,frameB);imageB.AddOrUpdate(DicomTag.SeriesInstanceUID,"1.2.826.0.1.3680043.10.543.101");imageB.AddOrUpdate(DicomTag.SOPInstanceUID,"1.2.826.0.1.3680043.10.543.102");new DicomFile(imageB).Save(Path.Combine(multi,"image-B.dcm"));
+            var otherPlan=DicomFile.Open(Path.Combine(source,"RTPLAN.dcm")).Dataset;otherPlan.AddOrUpdate(DicomTag.FrameOfReferenceUID,frameB);otherPlan.AddOrUpdate(DicomTag.SOPInstanceUID,"1.2.826.0.1.3680043.10.543.103");otherPlan.AddOrUpdate(DicomTag.RTPlanLabel,"OTHER FRAME");otherPlan.Remove(DicomTag.ReferencedStructureSetSequence);new DicomFile(otherPlan).Save(Path.Combine(multi,"000-first-plan.dcm"));
+            foreach(var name in new[]{"RTPLAN.dcm","RTDOSE.dcm","RTSTRUCT.dcm"})File.Copy(Path.Combine(source,name),Path.Combine(multi,name));
+            using(var viewer=Open(Path.Combine(multi,"image-A.dcm"))){
+                var cat=Field<DicomCatalog>(viewer,"catalog");check(cat.Stacks.Count==1&&cat.DeferredImages.Any(e=>e.FrameUid==frameB),"initial CT opening fully indexes only its own series and defers other image metadata");
+                check(Field<PlanData>(viewer,"selectedPlan").FrameUid==imageA.GetSingleValue<string>(DicomTag.FrameOfReferenceUID),"matching plan wins over first discovered unrelated plan");
+                var picker=Field<ComboBox>(viewer,"plans");Func<string,object> planChoice=frame=>picker.Items.Cast<object>().First(c=>(c.GetType().GetField("Plan").GetValue(c) as PlanData)?.FrameUid==frame);
+                var choice=planChoice(frameB);check(choice.ToString().Contains("images not loaded"),"plan labels distinguish known deferred images");
+                Action<object> select=c=>{typeof(ViewerControl).GetField("changing",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,true);picker.SelectedItem=c;typeof(ViewerControl).GetField("changing",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,false);Pump((Task)typeof(ViewerControl).GetMethod("SelectPlanChoiceAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null));};
+                select(choice);check(!viewer.HasImage&&Field<RenderScene>(viewer,"latestScene").Volume==null&&Field<RenderScene>(viewer,"latestScene").Native==null,"unloaded-plan selection removes unrelated CT from scene");check(Field<string>(viewer,"workspaceMode")=="MLC"&&Field<MlcPlaybackControl>(viewer,"centralPlayback")!=null,"unloaded plan remains usable in MLC");
+                var deferred=cat.DeferredImages.Where(e=>e.FrameUid==frameB).Select(e=>e.Path).ToArray();Pump((Task)typeof(ViewerControl).GetMethod("SearchImagesAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{multi,deferred}));
+                check(viewer.HasImage&&Field<DicomEntry>(viewer,"currentEntry").FrameUid==frameB,"targeted image search loads and attaches the selected plan's frame");check(planChoice(frameB).ToString().Contains("images available"),"plan image status refreshes after loading");
+                select(planChoice(imageA.GetSingleValue<string>(DicomTag.FrameOfReferenceUID)));check(viewer.HasImage&&Field<DicomEntry>(viewer,"currentEntry").FrameUid!=frameB,"returning to the original plan restores its own image frame");
+                var doseChoice=picker.Items.Cast<object>().First(c=>c.GetType().GetField("Dose").GetValue(c)!=null);select(doseChoice);check(Field<PlanData>(viewer,"selectedPlan")==null&&Field<DoseGrid>(viewer,"selectedDose")!=null,"individual dose is selectable independently of its available plan");
+                var structChoice=picker.Items.Cast<object>().First(c=>c.GetType().GetField("Structure").GetValue(c)!=null);select(structChoice);check(Field<PlanData>(viewer,"selectedPlan")==null&&Field<StructureSet>(viewer,"selectedStructure")!=null,"individual structure set is selectable independently of plans");
+            }
             stage("plan",new[]{"RTPLAN.dcm"});
             using(var viewer=Open(Path.Combine(root,"plan","RTPLAN.dcm")))
             {
@@ -98,7 +117,7 @@ internal static class RtOnlyScenarios
             using(var viewer=Open(Path.Combine(root,"dose_structures","RTDOSE.dcm")))
             {
                 check(!viewer.HasImage && Field<List<PlanData>>(viewer,"planData").Count==0,"Dose and structures load without plan or image");
-                check(!Field<bool>(viewer,"sumMode") && Field<ComboBox>(viewer,"plans").SelectedIndex==-1,"Dose-only scan never automatically selects plan sum");
+                check(!Field<bool>(viewer,"sumMode") && Field<ComboBox>(viewer,"plans").SelectedItem!=null&&Field<PlanData>(viewer,"selectedPlan")==null,"Dose-only scan selects the actual standalone dose, never a plan sum");
                 Invoke(viewer,"SetWorkspace","DVH");Invoke(viewer,"BuildRoiList");
                 var dvh=Field<DvhControl>(viewer,"dvhView");Pump(dvh.Completion);
                 check(dvh.CalculationCount>0 && !dvh.StatusText.Contains("Unable") && !dvh.StatusText.StartsWith("No visible"),"Dose plus structures computes DVH without a plan or CT");

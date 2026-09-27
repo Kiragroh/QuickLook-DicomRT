@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Dicom;
@@ -30,7 +30,7 @@ namespace QuickLook.DicomRT
                     {
                         string frame=RtDicom.Text(item,DicomTag.FrameOfReferenceUID);
                         var sops=new HashSet<string>(RtDicom.Items(item,DicomTag.ReferencedImageSequence).Select(i=>RtDicom.Text(i,DicomTag.ReferencedSOPInstanceUID)).Where(s=>s.Length>0));
-                        var matchedFrames=catalog.Files.Where(e=>sops.Contains(e.SopUid??"") && !string.IsNullOrWhiteSpace(e.FrameUid)).Select(e=>e.FrameUid).Distinct().ToArray();
+                        var matchedFrames=catalog.Files.Concat(catalog.DeferredImages).Where(e=>sops.Contains(e.SopUid??"") && !string.IsNullOrWhiteSpace(e.FrameUid)).Select(e=>e.FrameUid).Distinct().ToArray();
                         if(matchedFrames.Length>1 || (matchedFrames.Length==1 && frame.Length>0 && matchedFrames[0]!=frame)) throw new ArgumentException("Inconsistent registration references.");
                         if(frame.Length==0 && matchedFrames.Length==1) frame=matchedFrames[0];
                         var matrixRegs=RtDicom.Items(item,DicomTag.MatrixRegistrationSequence).ToArray();

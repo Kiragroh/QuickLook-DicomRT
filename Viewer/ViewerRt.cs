@@ -10,14 +10,17 @@ namespace QuickLook.DicomRT
 {
     public sealed partial class ViewerControl
     {
-        private IEnumerable<StructureSet> SelectedStructures => !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTSTRUCT" ? structures.Where(s=>s.Entry.SopUid==initialEntry.SopUid) : !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE"&&selectedPlan==null ? DoseCompatibleStructures : sumMode ? structures.Where(s=>sumResult?.IncludedPlanUids!=null&&planData.Any(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)&&p.StructureSopUid==s.Entry.SopUid)) : selectedPlan != null ? structures.Where(s => s.Entry.SopUid == selectedPlan.StructureSopUid) : planData.Count>1?Enumerable.Empty<StructureSet>():structures;
+        private IEnumerable<StructureSet> SelectedStructures => selectedPlan==null&&selectedStructure!=null&&!sumMode ? new[]{selectedStructure} : selectedPlan==null&&selectedDose!=null&&!sumMode ? StructuresForDose(selectedDose) : !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTSTRUCT" ? structures.Where(s=>s.Entry.SopUid==initialEntry.SopUid) : !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE"&&selectedPlan==null ? DoseCompatibleStructures : sumMode ? structures.Where(s=>sumResult?.IncludedPlanUids!=null&&planData.Any(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)&&p.StructureSopUid==s.Entry.SopUid)) : selectedPlan != null ? structures.Where(s => s.Entry.SopUid == selectedPlan.StructureSopUid) : planData.Count>1?Enumerable.Empty<StructureSet>():structures;
         private IEnumerable<StructureSet> DoseCompatibleStructures
         {
             get {var dose=doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry?.SopUid);return dose==null?Enumerable.Empty<StructureSet>():structures.Where(s=>s.Rois.Any(r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose.FrameUid)!=null));}
         }
-        private IEnumerable<DoseGrid> SelectedDoses => !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE" ? doses.Where(d=>d.Entry.SopUid==initialEntry.SopUid) : sumMode ? (sumResult?.Dose==null?Enumerable.Empty<DoseGrid>():new[]{sumResult.Dose}) : selectedPlan != null ? doses.Where(d => d.PlanUid == selectedPlan.Entry.SopUid) : planData.Count>1?Enumerable.Empty<DoseGrid>():doses;
+        private IEnumerable<DoseGrid> SelectedDoses => selectedPlan==null&&selectedDose!=null&&!sumMode ? new[]{selectedDose} : selectedPlan==null&&selectedStructure!=null&&!sumMode ? DosesForStructure(selectedStructure) : !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE" ? doses.Where(d=>d.Entry.SopUid==initialEntry.SopUid) : sumMode ? (sumResult?.Dose==null?Enumerable.Empty<DoseGrid>():new[]{sumResult.Dose}) : selectedPlan != null ? doses.Where(d => d.PlanUid == selectedPlan.Entry.SopUid) : planData.Count>1?Enumerable.Empty<DoseGrid>():doses;
+        private IEnumerable<DoseGrid> DosesForStructure(StructureSet set){var matches=doses.Where(d=>set.Rois.Any(r=>RegistrationReader.Resolve(registrations,r.FrameUid,d.FrameUid)!=null)).ToArray();return matches.Length==1?matches:Enumerable.Empty<DoseGrid>();}
+        private IEnumerable<StructureSet> StructuresForDose(DoseGrid dose){var plan=planData.FirstOrDefault(p=>p.Entry.SopUid==dose.PlanUid);return plan!=null?structures.Where(s=>s.Entry.SopUid==plan.StructureSopUid):structures.Where(s=>s.Rois.Any(r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose.FrameUid)!=null));}
         private string SceneFrameUid => HasImage&&!string.IsNullOrEmpty(currentEntry?.FrameUid)?currentEntry.FrameUid:
             !string.IsNullOrEmpty(selectedPlan?.FrameUid)?selectedPlan.FrameUid:
+            !sumMode&&selectedDose!=null?selectedDose.FrameUid:
             !sumMode&&!userSelectedPlan&&initialEntry?.Modality=="RTDOSE"?doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.FrameUid:
             SelectedStructures.SelectMany(s=>s.Rois).Select(r=>r.FrameUid).Concat(SelectedDoses.Select(d=>d.FrameUid)).FirstOrDefault(f=>!string.IsNullOrEmpty(f));
         private Matrix4 TransformToImage(string frame) => RegistrationReader.Resolve(registrations,frame,SceneFrameUid);
@@ -31,7 +34,7 @@ namespace QuickLook.DicomRT
             bool own = currentEntry != null && frames.Any(f => f == currentEntry.FrameUid);
             bool registered = currentEntry != null && frames.Any(f => f != currentEntry.FrameUid && TransformToImage(f) != null);
             registrationStatus.Foreground = own || registered ? Theme.Accent : Theme.Muted;
-            registrationStatus.Text = registered ? "REG active · RT mapped to this image series" : own ? "RT in the same coordinate system" : frames.Length == 0 ? "" : $"No unambiguous RT association with this series ({regFiles} REG).";
+            registrationStatus.Text = !HasImage&&frames.Length>0 ? "RT-only · no CT/MR loaded" : registered ? "REG active · RT mapped to this image series" : own ? "RT in the same coordinate system" : frames.Length == 0 ? "" : $"No unambiguous RT association with this series ({regFiles} REG).";
             Redraw();
         }
         private void SetRois(bool visible) { foreach (var roi in SelectedStructures.SelectMany(s => s.Rois)) roi.Visible = visible; BuildRoiList(); RoiVisibilityChanged(); }
@@ -62,7 +65,7 @@ namespace QuickLook.DicomRT
                 doseList.Children.Add(check); doseList.Children.Add(Theme.Text($"Maximum {dose.Maximum:0.###} {dose.Units}\nReference for percentages", 11, Theme.Muted));
                 if (!available) doseList.Children.Add(Theme.Text("No matching registration.", 11, Theme.Muted));
             }
-            if (doseList.Children.Count == 0) doseList.Children.Add(Theme.Text("No dose associated with this plan", 11, Theme.Muted));
+            if (doseList.Children.Count == 0) doseList.Children.Add(Theme.Text(selectedStructure!=null?"No single dose association · select an individual dose in the RT menu":"No dose associated with this plan", 11, Theme.Muted));
         }
         private async Task MoveFocusAsync(Vec3 world)
         {

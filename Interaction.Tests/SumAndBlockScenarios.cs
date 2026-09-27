@@ -19,6 +19,12 @@ internal static class SumAndBlockScenarios
   var groups=DoseSum.CompatibleGroups(input,links);check(groups.Count==1&&groups[0].Count==3&&!groups[0].Contains(a),"sum groups exclude unrelated first frame and retain all compatible plans");
   var sum=DoseSum.Calculate(groups[0],links,CancellationToken.None);check(sum.IncludedCount==3&&sum.IncludedPlanUids.Length==3&&Math.Abs(sum.Dose.Maximum-12)<1e-6,"all three selected plans contribute to labelled sum");
   check((sum.Dose.MaximumPosition.Value-new Vec3(12,23,34)).Length<1e-8,"derived Dmax maps to physical maximum voxel");
+  using(var viewer=new ViewerControl()){
+   Action<string,object> set=(name,value)=>typeof(ViewerControl).GetField(name,BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,value);
+   set("initialEntry",new DicomEntry{Modality="CT",FrameUid="frame1",SopUid="fixture",PatientKey="test|"});set("currentEntry",new DicomEntry{Modality="CT",FrameUid="frame1",SopUid="fixture",PatientKey="test|"});set("native",new PixelPlane{Width=2,Height=2,Values=new float[4]});set("sumMode",true);set("scanComplete",true);set("sumResult",sum);set("sumGroup",groups[0]);set("summedRevision",0);set("summedSelection",string.Join("|",groups[0].Select(g=>g.Entry.SopUid).OrderBy(x=>x)));
+   ((System.Threading.Tasks.Task)typeof(ViewerControl).GetMethod("BuildSumAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null)).GetAwaiter().GetResult();
+   check(!viewer.HasImage,"returning to a cached sum also removes unrelated CT");
+  }
   var reduced=DoseSum.Calculate(new[]{b,c},links,CancellationToken.None);check(reduced.IncludedCount==2&&reduced.Dose.Maximum==7,"deselected plan does not contribute");
   var duplicate=Dose("B","frame2",8);duplicate.Entry.SopUid="second-dose-B";check(DoseSum.CompatibleGroups(new[]{b,duplicate,c},links).Count==0,"ambiguous duplicate plan doses do not silently double-count");
   var block=BeamBlock.Create("APERTURE",new[]{-20d,-20,20,-20,20,0,0,0,0,20,-20,20},6);

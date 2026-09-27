@@ -2,6 +2,27 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.19 — 27 September 2026
+
+### Load the images you need
+
+- **Search more images** loads matching image series for the selected plan, dose, structure set or generated sum. Known deferred images are loaded directly by their paths; otherwise choose a search folder. The search is cancellable.
+- Opening an image fully catalogs its own series. Other image series retain lightweight patient/series/frame identities for later discovery; unrelated pixels and volumes are not loaded. Opening an RT file catalogs images associated with that object.
+- The RT-first scan reuses the same bounded header pass for deferred identities. Large folders still require file enumeration and header reads; this is not a claim of constant-time discovery.
+- **Search subfolders** finds additional RT while deferring image series. It remains available after RT has already been found.
+
+### Explicit RT selection, with or without CT
+
+- The RT dropdown lists plans with indented entries for their individual doses and structure sets, plus standalone entries for unassociated RT files.
+- Plans are marked **images available**, **images not loaded**, or **no matching images**. When opening an image, matching plans are preferred over unrelated ones. Opening an RT file keeps that specific object selected.
+- Selecting a plan without loaded matching images clears unrelated anatomy from the display and keeps MLC available. RTDOSE and RTSTRUCT remain usable independently in 3D and available dose analysis; an RTPLAN does not require a CT or dose for MLC playback.
+- Image matching uses patient identity, explicit referenced series when present, frame identity and existing unambiguous REG mappings. Deferred image identities can resolve REG image references without pixel loading.
+- The selected dose or structure set can be inspected independently even when an associated plan is available. For a standalone structure set, dose is automatically associated only when a single compatible dose is available; select an individual dose when several alternatives exist.
+
+### Clearer shortcut reference
+
+- The Info / F1 panel presents keyboard and mouse controls in grouped two-column tables, with individual keycaps and one action per row. Navigation, views, image/MLC controls and export are easy to scan.
+
 ## 0.2.18 — 27 September 2026
 
 - **Search subfolders remains available after every initial scan**, including when plans, structures or doses have already been found. Search a common parent to add more matching RT objects from sibling directories without closing the current case.

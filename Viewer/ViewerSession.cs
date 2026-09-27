@@ -46,16 +46,16 @@ namespace QuickLook.DicomRT
                     catch (Exception) { status.Text = "Unable to display the individual image file; checking available series."; }
                 }
                 status.Text = "Scanning DICOM files in the same folder …";
-                var progressClock=System.Diagnostics.Stopwatch.StartNew();
+                var progressClock=System.Diagnostics.Stopwatch.StartNew();Func<DicomEntry,bool> openingImages=null;
                 catalog = await Task.Run(() => DicomCatalog.Scan(path,token,null,OnEntryFound,(phase,count,total)=>
                 {
                     if(progressClock.ElapsedMilliseconds<120&&count!=total)return;progressClock.Restart();
                     Dispatcher.BeginInvoke(new Action(()=>{if(disposed||scanComplete)return;activity.Text=phase=="headers"?$"● Searching RT files · {count}/{total} headers":$"● RT ready · scanning image series {count}/{total}";}));
-                },initialEntry),token);
+                },initialEntry,imageFilter:e=>{if(openingImages==null)openingImages=Dispatcher.Invoke(()=>InitialImagePredicate());return openingImages(e);}),token);
                 IndexMilliseconds=elapsed.Elapsed.TotalMilliseconds;scanComplete=true;activity.Visibility=System.Windows.Visibility.Collapsed;activity.Text=$"✓ Scan complete · {planData.Count} plans · {doses.Count} doses · {catalog.Files.Count} files"+(rtFailures>0?$" · {rtFailures} unreadable RT files":"");
                 if (token.IsCancellationRequested) return;
                 Func<DicomEntry,bool> samePatient = e => initialEntry.PatientKey != "|" && !string.IsNullOrEmpty(initialEntry.PatientKey) ? e.PatientKey == initialEntry.PatientKey : !string.IsNullOrEmpty(initialEntry.StudyUid) && e.StudyUid == initialEntry.StudyUid;
-                catalog.Files = catalog.Files.Where(samePatient).ToList(); catalog.Stacks = catalog.Stacks.Where(s => s.Entries.All(samePatient)).ToList();
+                catalog.DeferredImages=catalog.DeferredImages.Where(samePatient).ToList();catalog.Files = catalog.Files.Where(samePatient).ToList(); catalog.Stacks = catalog.Stacks.Where(s => s.Entries.All(samePatient)).ToList();
                 registrations=await Task.Run(()=>RegistrationReader.Read(catalog),token);loadRevision++;sumResult=null;
                 changing = true; series.ItemsSource = catalog.Stacks; changing = false;
                 var rtTask = Task.CompletedTask;
@@ -68,17 +68,9 @@ namespace QuickLook.DicomRT
                 else
                 {
                     await rtTask;
-                    // RT opening follows an explicit reference to the planning images.
-                    var wantedSet = structures.FirstOrDefault(s => SamePath(s.Entry.Path, path));
-                    var wantedPlan = planData.FirstOrDefault(p => SamePath(p.Entry.Path, path));
-                    var wantedDose = doses.FirstOrDefault(d => SamePath(d.Entry.Path, path));
-                    if (wantedDose != null) wantedPlan = planData.FirstOrDefault(p => p.Entry.SopUid == wantedDose.PlanUid);
-                    if (wantedPlan == null && wantedSet != null) { var matches=planData.Where(p=>p.StructureSopUid==wantedSet.Entry.SopUid).ToArray();if(matches.Length==1)wantedPlan=matches[0]; }
-                    if (wantedPlan != null) { wantedSet = structures.FirstOrDefault(s => s.Entry.SopUid == wantedPlan.StructureSopUid);if(!userSelectedPlan){selectedPlan=wantedPlan;sumMode=false;RefreshPlanChoices();} }
-                    if (wantedSet != null)
-                        first = catalog.Stacks.FirstOrDefault(s => s.Entries.Any(e => wantedSet.ReferencedSeries.Contains(e.SeriesUid)));
-                    if (first != null) { changing = true; series.SelectedItem = first; changing = false; await SelectStackAsync(first); }
-                    else status.Text = "RT objects ready · no matching image series. MLC, structures and available dose analysis remain usable.";
+                    RefreshPlanChoices();first=MatchingObjectStack(selectedPlan,selectedDose,selectedStructure);
+                    if(first!=null){changing=true;series.SelectedItem=first;changing=false;await SelectStackAsync(first);}
+                    else status.Text="RT-only preview · Search more images to load a matching series. MLC, structures and dose analysis remain available.";
                 }
                 if (token.IsCancellationRequested) return;
                 // An RT object's attributes stay explicitly selectable after its images appear.
@@ -88,7 +80,7 @@ namespace QuickLook.DicomRT
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
                 RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
-                searchSubfolders.Visibility=System.Windows.Visibility.Visible;
+                searchSubfolders.Visibility=searchMoreImages.Visibility=System.Windows.Visibility.Visible;
             }
             catch (OperationCanceledException) { }
             catch (Exception) { if (!disposed) status.Text = "Unable to load the complete DICOM preview. Check the file, read permissions or encoding."; }

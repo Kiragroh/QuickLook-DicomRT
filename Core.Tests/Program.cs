@@ -40,6 +40,8 @@ class Program {
   var root=Path.Combine(folder,"nested");var ct=Path.Combine(root,"CT");var rt=Path.Combine(root,"RT","plan");Directory.CreateDirectory(ct);Directory.CreateDirectory(rt);string selected=Path.Combine(ct,"ct.dcm");new DicomFile(Make(0)).Save(selected);
   var dataset=new DicomDataset().Add(DicomTag.SOPClassUID,DicomUID.RTPlanStorage).Add(DicomTag.SOPInstanceUID,"2.25.99801").Add(DicomTag.Modality,"RTPLAN").Add(DicomTag.PatientID,"SYNTHETIC");new DicomFile(dataset).Save(Path.Combine(rt,"opaque.bin"));
   Check(DicomCatalog.Scan(selected,CancellationToken.None).Files.Count==1,"default search remains folder-local");var seen=new List<string>();var catalog=DicomCatalog.Scan(selected,CancellationToken.None,entryFound:e=>seen.Add(e.Modality),searchRoot:root,recursive:true);Check(catalog.Files.Count==2&&seen[0]=="RTPLAN","chosen common parent finds sibling RT with RT-first decoding");
+  var rtOnly=DicomCatalog.Scan(selected,CancellationToken.None,searchRoot:root,recursive:true,imageFilter:e=>false);Check(rtOnly.Files.Count==1&&rtOnly.Files[0].Modality=="RTPLAN"&&rtOnly.Stacks.Count==0&&rtOnly.DeferredImages.Count==1,"RT discovery defers full image entries without losing identity");
+  var targeted=DicomCatalog.Scan(selected,CancellationToken.None,knownPaths:rtOnly.DeferredImages.Select(e=>e.Path));Check(targeted.Files.Count==1&&targeted.Stacks.Count==1,"known image paths load without rescanning unrelated folders");
   using(var cancel=new CancellationTokenSource()){cancel.Cancel();bool stopped=false;try{DicomCatalog.Scan(selected,cancel.Token,searchRoot:root,recursive:true);}catch(OperationCanceledException){stopped=true;}Check(stopped,"recursive discovery is cancellable");}
  }
  static void PriorityCatalog(){

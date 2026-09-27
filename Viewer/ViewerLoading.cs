@@ -16,56 +16,57 @@ namespace QuickLook.DicomRT
         private int rtFailures, loadRevision, summedRevision=-1;
         private CancellationTokenSource sumLoad;
         private DoseSumResult sumResult;
+        private DoseGrid selectedDose;private StructureSet selectedStructure;
         private List<DoseGrid> sumGroup;
         private readonly HashSet<string> sumExcluded=new HashSet<string>();
         private string summedSelection;private int planSelectionRevision;
         private sealed class PlanChoice
         {
-            public PlanData Plan;public bool Sum;public List<DoseGrid> Doses;public string Label;public override string ToString()=>Sum?Label:Plan.Label;
+            public PlanData Plan;public DoseGrid Dose;public StructureSet Structure;public bool Sum;public List<DoseGrid> Doses;public string Label;public override string ToString()=>Label??Plan?.Label??Dose?.Label??"RT object";
         }
         private UIElement BuildPlanPicker()
         {
             var row=new DockPanel {Margin=new Thickness(0,2,0,3)};
-            var label=Theme.Text("Plan",11,Theme.Muted);label.Margin=new Thickness(0,0,8,0);label.VerticalAlignment=VerticalAlignment.Center;DockPanel.SetDock(label,Dock.Left);row.Children.Add(label);
-            plans.ToolTip="Individual plan or spatially added plan sum";row.Children.Add(plans);return row;
+            var label=Theme.Text("RT",11,Theme.Muted);label.Margin=new Thickness(0,0,8,0);label.VerticalAlignment=VerticalAlignment.Center;DockPanel.SetDock(label,Dock.Left);row.Children.Add(label);
+            plans.ToolTip="Plans with associated doses and structures; select an individual RT object or a plan sum";row.Children.Add(plans);return row;
         }
         private void RefreshPlanChoices()
         {
-            var choices=planData.Select(p=>new PlanChoice{Plan=p}).ToList();foreach(var group in DoseSum.CompatibleGroups(doses,registrations))choices.Add(new PlanChoice{Sum=true,Doses=group,Label="Σ "+string.Join(" + ",group.Select(DosePlanLabel))});
-            bool prior=changing;changing=true;plans.ItemsSource=choices;
-            var choice=sumMode?choices.FirstOrDefault(c=>c.Sum&&sumGroup!=null&&c.Doses.Any(d=>sumGroup.Contains(d))):choices.FirstOrDefault(c=>!c.Sum&&c.Plan==selectedPlan);
-            if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTDOSE")
-            {var reference=doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid)?.PlanUid;choice=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==reference);selectedPlan=choice?.Plan;}
-            if(!userSelectedPlan&&!sumMode&&initialEntry?.Modality=="RTSTRUCT")
-            {var matches=choices.Where(c=>c.Plan!=null&&c.Plan.StructureSopUid==initialEntry.SopUid).ToArray();choice=matches.Length==1?matches[0]:null;selectedPlan=choice?.Plan;}
-            if(choice==null){var opened=choices.FirstOrDefault(c=>c.Plan!=null&&c.Plan.Entry.SopUid==initialEntry?.SopUid);bool referencedOnly=initialEntry?.Modality=="RTDOSE"||initialEntry?.Modality=="RTSTRUCT";choice=opened??(referencedOnly?null:choices.FirstOrDefault(c=>c.Plan!=null));selectedPlan=choice?.Plan;sumMode=false;}
-            if(choice?.Sum==true)sumGroup=choice.Doses;plans.SelectedItem=choice;changing=prior;
+            var choices=new List<PlanChoice>();var usedDoses=new HashSet<DoseGrid>();var usedSets=new HashSet<StructureSet>();
+            var ordered=planData.OrderByDescending(p=>HasImage&&BuildImagePredicate(p,null,null)(currentEntry)).ThenByDescending(p=>MatchingObjectStack(p,null,null)!=null);
+            foreach(var p in ordered){choices.Add(new PlanChoice{Plan=p,Label="Plan · "+p.Label+ImageAvailability(p,null,null)});
+                foreach(var dose in doses.Where(d=>d.PlanUid==p.Entry.SopUid)){choices.Add(new PlanChoice{Dose=dose,Label="    ↳ Dose · "+dose.Label+" · "+p.Label});usedDoses.Add(dose);}
+                foreach(var set in structures.Where(r=>r.Entry.SopUid==p.StructureSopUid))if(usedSets.Add(set))choices.Add(new PlanChoice{Structure=set,Label="    ↳ Structures · "+StructureLabel(set)});
+            }
+            foreach(var dose in doses.Where(d=>!usedDoses.Contains(d)))choices.Add(new PlanChoice{Dose=dose,Label="Dose · "+dose.Label+" · standalone"});
+            foreach(var set in structures.Where(r=>!usedSets.Contains(r)))choices.Add(new PlanChoice{Structure=set,Label="Structures · "+StructureLabel(set)+" · standalone"});
+            foreach(var group in DoseSum.CompatibleGroups(doses,registrations))choices.Add(new PlanChoice{Sum=true,Doses=group,Label="Σ "+string.Join(" + ",group.Select(DosePlanLabel))});
+            var choice=sumMode?choices.FirstOrDefault(c=>c.Sum&&sumGroup!=null&&c.Doses.Any(d=>sumGroup.Contains(d))):selectedPlan!=null?choices.FirstOrDefault(c=>c.Plan==selectedPlan):selectedDose!=null?choices.FirstOrDefault(c=>c.Dose==selectedDose):selectedStructure!=null?choices.FirstOrDefault(c=>c.Structure==selectedStructure):null;
+            if(!userSelectedPlan){
+                var opened=choices.FirstOrDefault(c=>initialEntry?.SopUid!=null&&(c.Plan?.Entry.SopUid==initialEntry.SopUid||c.Dose?.Entry?.SopUid==initialEntry.SopUid||c.Structure?.Entry.SopUid==initialEntry.SopUid));
+                if(opened!=null)choice=opened;
+                else if(initialEntry!=null&&!initialEntry.Modality.StartsWith("RT"))choice=choices.FirstOrDefault(c=>c.Plan!=null&&HasImage&&BuildImagePredicate(c.Plan,null,null)(currentEntry));
+            }
+            if(choice==null&&!userSelectedPlan){selectedPlan=null;selectedDose=null;selectedStructure=null;sumMode=false;}
+            if(choice!=null){selectedPlan=choice.Plan;selectedDose=choice.Dose;selectedStructure=choice.Structure;sumMode=choice.Sum;if(choice.Sum)sumGroup=choice.Doses;}
+            bool prior=changing;changing=true;plans.ItemsSource=choices;plans.SelectedItem=choice;plans.ToolTip=choice?.ToString()??"Select a plan, individual dose or structure set";changing=prior;
             if(viewButtons.ContainsKey("MLC"))viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
         }
+        private static string StructureLabel(StructureSet set){var label=set.Entry.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.StructureSetLabel,"");return !string.IsNullOrWhiteSpace(label)?label:!string.IsNullOrWhiteSpace(set.Entry.Description)?set.Entry.Description:"RTSTRUCT · "+set.Rois.Count+" ROIs";}
         private async Task SelectPlanChoiceAsync()
         {
             if(changing)return;var choice=plans.SelectedItem as PlanChoice;if(choice==null)return;
-            int selection=++planSelectionRevision;userSelectedPlan=true;initialIsocenterApplied=true;sumLoad?.Cancel();sumMode=choice.Sum;selectedPlan=choice.Plan;sumGroup=choice.Doses;
+            int selection=++planSelectionRevision;userSelectedPlan=true;initialIsocenterApplied=true;imageSearch?.Cancel();sumLoad?.Cancel();sumMode=choice.Sum;selectedPlan=choice.Plan;selectedDose=choice.Dose;selectedStructure=choice.Structure;sumGroup=choice.Doses;
             viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
             if(sumMode&&rtTabs!=null)rtTabs.SelectedIndex=1;
             if(sumMode&&workspaceMode=="MLC")SetWorkspace("Bild");
-            if(!sumMode&&scanComplete)activity.Visibility=Visibility.Collapsed;RefreshRt();
+            if(!sumMode&&scanComplete)activity.Visibility=Visibility.Collapsed;
+            if(!sumMode){await ApplySelectedImagesAsync();if(selection!=planSelectionRevision||disposed)return;}
+            RefreshRt();
             if(sumMode)await BuildSumAsync();
-            else if(selectedPlan!=null&&catalog!=null&&(!HasImage||TransformToImage(selectedPlan.FrameUid)==null)){
-                var stack=MatchingPlanStack();
-                if(stack!=null&&stack!=currentStack){changing=true;series.SelectedItem=stack;changing=false;await SelectStackAsync(stack);if(!disposed)RefreshRt();}
-            }
-            if(!sumMode&&selection==planSelectionRevision&&!disposed)await JumpToPlanDoseAsync();
+            else{if(!HasImage)SetWorkspace(selectedPlan!=null?"MLC":"3D");else if(selectedPlan==null&&workspaceMode=="MLC")SetWorkspace("3D");await JumpToPlanDoseAsync();}
         }
-        private ImageStack MatchingPlanStack()
-        {
-            if(selectedPlan==null||catalog==null)return null;
-            var referenced=structures.FirstOrDefault(s=>s.Entry.SopUid==selectedPlan.StructureSopUid)?.ReferencedSeries;
-            if(referenced==null)return null;
-            var matches=catalog.Stacks.Where(s=>s.Entries.Any(e=>referenced.Contains(e.SeriesUid))&&RegistrationReader.Resolve(registrations,selectedPlan.FrameUid,s.FrameUid)!=null).ToArray();
-            if(matches.Length==1)return matches[0];
-            var ct=matches.Where(s=>s.Entries.All(e=>e.Modality=="CT")).ToArray();return ct.Length==1?ct[0]:null;
-        }
+        private ImageStack MatchingPlanStack()=>MatchingObjectStack(selectedPlan,null,null);
         private async Task BuildSumAsync()
         {
             if(!sumMode||disposed)return;
@@ -73,7 +74,7 @@ namespace QuickLook.DicomRT
             var sources=(sumGroup??new List<DoseGrid>()).Where(d=>!sumExcluded.Contains(d.PlanUid)).ToList();
             string selection=string.Join("|",sources.Select(d=>d.Entry.SopUid).OrderBy(x=>x));
             if(sources.Count<2){activity.Text="Select at least two plans and generate the sum.";activity.Visibility=Visibility.Visible;BuildDoseList();return;}
-            if(summedRevision==loadRevision&&summedSelection==selection&&sumResult!=null){RefreshRt();await JumpToPlanDoseAsync();return;}
+            if(summedRevision==loadRevision&&summedSelection==selection&&sumResult!=null){int request=planSelectionRevision;await ApplySelectedImagesAsync();if(disposed||!sumMode||request!=planSelectionRevision)return;RefreshRt();if(!HasImage)SetWorkspace("3D");await JumpToPlanDoseAsync();return;}
             sumLoad?.Cancel();sumLoad?.Dispose();sumLoad=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);var token=sumLoad.Token;int revision=loadRevision;
             activity.Visibility=Visibility.Visible;activity.Text="● Adding dose grids in physical space …";sumResult=null;Redraw();
             var links=registrations.ToList();
@@ -84,9 +85,10 @@ namespace QuickLook.DicomRT
                 sumResult=result;summedRevision=revision;summedSelection=selection;activity.Text=result.Dose!=null?"✓ Plan sum ready":"Plan sum unavailable";
                 if(result.Dose!=null){result.Dose.Label="Σ "+string.Join(" + ",sources.Select(DosePlanLabel));
                     var stack=catalog?.Stacks.Where(s=>s.FrameUid==result.Dose.FrameUid).OrderByDescending(s=>s.Modality=="CT").ThenByDescending(s=>s.Entries.Count).FirstOrDefault();
+                    if(stack==null&&HasImage&&TransformToImage(result.Dose.FrameUid)==null)DetachUnrelatedImage();
                     if(stack!=null&&(!HasImage||TransformToImage(result.Dose.FrameUid)==null)){changing=true;series.SelectedItem=stack;changing=false;await SelectStackAsync(stack);}
                 }
-                if(disposed||token.IsCancellationRequested||!sumMode)return;RefreshRt();await JumpToPlanDoseAsync();
+                if(disposed||token.IsCancellationRequested||!sumMode)return;RefreshRt();if(!HasImage)SetWorkspace("3D");await JumpToPlanDoseAsync();
             }
             catch(OperationCanceledException){}
             catch(Exception){if(!token.IsCancellationRequested)activity.Text="Plan sum unavailable; check dose associations and units.";}

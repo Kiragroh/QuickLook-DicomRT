@@ -28,13 +28,13 @@ namespace QuickLook.DicomRT
     {
         ExportIdentity CurrentExportIdentity(bool dvh=false)
         {
-            var dose=dvh?(dvhDose.SelectedItem as DoseChoice)?.Dose:null;
-            var plan=dvh?(dose==null?null:planData.FirstOrDefault(p=>p.Entry?.SopUid==dose.PlanUid)):selectedPlan;
+            var dose=dvh?(dvhDose.SelectedItem as DoseChoice)?.Dose:selectedDose;
+            var plan=dvh?(dose==null?null:planData.FirstOrDefault(p=>p.Entry?.SopUid==dose.PlanUid)):(selectedPlan??(dose==null?null:planData.FirstOrDefault(p=>p.Entry?.SopUid==dose.PlanUid)));
             var entry=dvh?dose?.Entry:workspaceMode=="MLC"?plan?.Entry:currentEntry;
             entry=entry??plan?.Entry??initialEntry;
             string label=plan?.Label??"";
             if(sumMode&&workspaceMode!="MLC"&&(!dvh||dose==sumResult?.Dose)){var labels=planData.Where(p=>sumResult?.IncludedPlanUids?.Contains(p.Entry?.SopUid)==true).Select(p=>p.Label).ToArray();label=labels.Length>0?"SUM: "+string.Join(" + ",labels):"SUM (preparing)";}
-            else if(dvh&&plan==null&&!string.IsNullOrEmpty(dose?.PlanUid))label="UID "+dose.PlanUid;
+            else if(plan==null&&!string.IsNullOrEmpty(dose?.PlanUid))label="UID "+dose.PlanUid;
             else if(!dvh&&workspaceMode!="MLC"&&plan!=null&&TransformToImage(plan.FrameUid)==null)label="";
             return new ExportIdentity{PatientId=entry?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.PatientID,"")??"",PlanId=label};
         }
