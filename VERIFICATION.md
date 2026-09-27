@@ -1,4 +1,14 @@
-﻿# 0.2.15 verification
+﻿# 0.2.16 verification
+
+265 WPF interaction checks passed, including fractional exact-angle contour/DRR cache hits, changed playback speeds, stationary 384-pixel DRR refinement, a raster check for visible gantry geometry beyond the CT rectangle, fixed-field intersections beyond that rectangle, and pane clipping. Render checks passed: 368 render/coordinate checks and 48 contour reformat checks.
+
+The approved public nonpatient benchmark was exercised with all 55 structures and DRR enabled, using the actual playback timer. First pass: 119 advances in 12 seconds, zero missing enabled cached overlays, longest interval 294 ms. Warm repeat: 82 advances in 8 seconds, zero missing overlays, median interval 94 ms and longest interval 110 ms. Initial selected-overlay preparation took 2953 ms after case loading. Stationary DRR refinement reached 384 pixels. Twelve warmed integer-CP scroll positions had zero cache misses and 1.73 ms median UI dispatch time.
+
+These are local engineering measurements with background preparation and warm OS files, not guaranteed cold-start, display-frame or clinical performance. First-time preparation may still buffer playback; navigation is not blocked. Actual MLC and image captures were inspected locally. Test fixtures remain separate from the public presentation and release media.
+
+---
+
+# 0.2.15 verification
 
 256 WPF interaction checks passed. Initial positioning checks cover absent dose, incompatible dose frame, preserving manual navigation, choosing the native isocenter slice while in MLC, and preventing repeat automatic jumps.
 

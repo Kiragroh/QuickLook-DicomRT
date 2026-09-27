@@ -31,12 +31,13 @@ namespace QuickLook.DicomRT
         }
         readonly OutlineStore targets=new OutlineStore(96),others=new OutlineStore(128);
         OutlineStore Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
-        readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer();
+        readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer(),drrBackground=new MlcProjectionRenderer();
         long drrBytes;
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
-        string context;bool disposed;
-        Action<CancellationToken> nearby;int nearbyVersion;RoiOverlay[] allRois=new RoiOverlay[0];
-        public int Prepared {get;private set;}
+        string context,nearbyKey;bool disposed;
+        Action<CancellationToken> nearby,nearbyDrr;int nearbyVersion;
+        Task outlineWarm=Task.CompletedTask,drrWarm=Task.CompletedTask;
+        int prepared;public int Prepared=>Volatile.Read(ref prepared);
         public int Total {get;private set;}
         public event Action FrameReady;
         public Task WarmCompletion {get;private set;}=Task.CompletedTask;
@@ -68,52 +69,99 @@ namespace QuickLook.DicomRT
                     lock(gate){if(!disposed)Store(roi).Put(okey,item);}FrameReady?.Invoke();}
                 shapes.Outlines.AddRange(item.Outlines);
             }
-            if(drr&&ct!=null&&image==null){image=renderer.Render(p,ct,new RoiOverlay[0],extent,384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
-                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){while(drrBytes+147456>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrs.Remove(old);drrBytes-=147456;}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=147456;}}FrameReady?.Invoke();}
+            if(drr&&ct!=null&&image==null){image=(warming?drrBackground:renderer).Render(p,ct,new RoiOverlay[0],extent,warming?192:384,true,token,warming?1:2).Drr;token.ThrowIfCancellationRequested();
+                lock(gate){if(!disposed&&!drrs.ContainsKey(dkey)){int bytes=image.PixelWidth*image.PixelHeight;while(drrBytes+bytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight;drrs.Remove(old);}drrs[dkey]=image;drrOrder.Enqueue(dkey);drrBytes+=bytes;}}FrameReady?.Invoke();}
             return Join(image,shapes,extent,drr&&ct!=null);
+        }
+        public MlcProjectionFrame Refine(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,CancellationToken token)
+        {
+            var frame=Render(p,ct,rois,extent,true,token);
+            if(frame.Drr!=null&&frame.Drr.PixelWidth<384){
+                var image=foreground.Render(p,ct,new RoiOverlay[0],extent,384,true,token,2).Drr;token.ThrowIfCancellationRequested();
+                string key=Id(ct)+":"+GeometryKey(p,extent);
+                lock(gate){BitmapSource previous;if(!disposed&&drrs.TryGetValue(key,out previous)){drrBytes+=image.PixelWidth*image.PixelHeight-previous.PixelWidth*previous.PixelHeight;drrs[key]=image;while(drrBytes>160L*1024*1024&&drrOrder.Count>0){var old=drrOrder.Dequeue();drrBytes-=drrs[old].PixelWidth*drrs[old].PixelHeight;drrs.Remove(old);}}}
+                frame.Drr=image;FrameReady?.Invoke();
+            }
+            return frame;
         }
         public void Configure(PlanData plan,RenderScene scene,Matrix4 map)
         {
             var ct=scene?.Entry?.Modality=="CT"?scene.Volume:null;
             var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:string.Equals(r.Roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase)?1:2).ToArray();
-            string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;allRois=warmRois;
-            warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;Prepared=Total=0;
-            lock(gate)nearby=null;
+            string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;
+            warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;prepared=Total=0;
+            lock(gate){nearby=null;nearbyDrr=null;}
             if(plan==null||map==null||ct==null&&warmRois.Length==0)return;
             var jobs=MlcTimeline.PlaybackOrder(plan).SelectMany(b=>{var extent=MlcPlaybackControl.BeamExtent(b);return b.ControlPoints.Select(cp=>Tuple.Create(b,cp,extent));}).ToArray();
-            Total=jobs.Length*3;
-            // A dedicated low-priority worker and one ray thread leave CPU capacity for interaction.
+            // Integer CPs first, then the .2 grid used by default 5 CP/s playback.
+            // Fixed fields reuse the same geometry key, so static gantry frames are free hits.
+            var allJobsTask=Task.Run(()=>{
+            var fractional=MlcTimeline.PlaybackOrder(plan).SelectMany(b=>{var extent=MlcPlaybackControl.BeamExtent(b);return Enumerable.Range(0,Math.Max(0,b.ControlPoints.Count-1)).SelectMany(i=>Enumerable.Range(1,4).Select(n=>Tuple.Create(b,SafeInterpolate(b.ControlPoints[i],b.ControlPoints[i+1],n*.2),extent)));});
+            return jobs.Concat(fractional).Where(j=>j.Item2!=null).Select(j=>{token.ThrowIfCancellationRequested();return j;}).ToArray();},token);
             var previous=WarmCompletion;
-            WarmCompletion=Task.Run(async()=>{try{await previous.ConfigureAwait(false);}catch(OperationCanceledException){}catch(Exception){}token.ThrowIfCancellationRequested();
-                await Task.Factory.StartNew(()=>{
-                    var thread=Thread.CurrentThread;var priority=thread.Priority;thread.Priority=ThreadPriority.BelowNormal;
-                    try{foreach(var pass in new[]{0,1,2})foreach(var job in jobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearby;nearby=null;}local?.Invoke(token);
-                        string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);if(p!=null){var subset=warmRois.Where(r=>pass==0?string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):pass==1?!string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):false).ToArray();Render(p,ct,subset,job.Item3,pass==2,token,true);}
-                        Prepared++;FrameReady?.Invoke();}
-                    }finally{thread.Priority=priority;}
-                },token,TaskCreationOptions.LongRunning,TaskScheduler.Default).ConfigureAwait(false);
+            outlineWarm=StartWarm(previous,token,()=>{
+                var allJobs=allJobsTask.GetAwaiter().GetResult();Total=allJobs.Length*3;
+                foreach(var set in new[]{jobs,allJobs.Skip(jobs.Length).ToArray()})foreach(int pass in new[]{0,1})foreach(var job in set){
+                    token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearby;nearby=null;}local?.Invoke(token);
+                    string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);
+                    if(p!=null)Render(p,null,warmRois.Where(r=>pass==0?IsTarget(r):!IsTarget(r)).ToArray(),job.Item3,false,token,true);
+                    Interlocked.Increment(ref prepared);FrameReady?.Invoke();
+                }
+                DrainNearby(false,token);
             });
-            // Observe cancellation/failures even when the UI is closed during background preparation.
-            WarmCompletion.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted);
+            // DRRs no longer wait behind every organ projection in the plan.
+            drrWarm=StartWarm(previous,token,()=>{
+                var allJobs=allJobsTask.GetAwaiter().GetResult();
+                foreach(var job in allJobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearbyDrr;nearbyDrr=null;}local?.Invoke(token);
+                    string reason;var p=BeamProjection.Create(job.Item1,job.Item2,map,out reason);
+                    if(p!=null&&ct!=null)Render(p,ct,new RoiOverlay[0],job.Item3,true,token,true);
+                    Interlocked.Increment(ref prepared);FrameReady?.Invoke();
+                }
+                DrainNearby(true,token);
+            });
+            ObserveWarm();
         }
-        public void PrepareNearby(PlanBeam beam,double local,Matrix4 map,VolumeData ct,RoiOverlay[] rois)
+        static ControlPoint SafeInterpolate(ControlPoint a,ControlPoint b,double t){try{return MlcTimeline.Interpolate(a,b,t);}catch(ArgumentException){return null;}}
+        static bool IsTarget(RoiOverlay r)=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase);
+        static Task StartWarm(Task previous,CancellationToken token,Action work)=>Task.Run(async()=>{
+            try{await previous.ConfigureAwait(false);}catch(OperationCanceledException){}catch(Exception){}
+            token.ThrowIfCancellationRequested();await Task.Factory.StartNew(()=>{
+                var thread=Thread.CurrentThread;var priority=thread.Priority;thread.Priority=ThreadPriority.BelowNormal;
+                try{work();}finally{thread.Priority=priority;}
+            },token,TaskCreationOptions.LongRunning,TaskScheduler.Default).ConfigureAwait(false);
+        });
+        void ObserveWarm(){WarmCompletion=Task.WhenAll(outlineWarm,drrWarm);WarmCompletion.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted);}
+        public void PrepareNearby(PlanBeam beam,double local,Matrix4 map,VolumeData ct,RoiOverlay[] rois,double step=.4,bool playing=false)
         {
             if(disposed||beam==null||map==null||beam.ControlPoints.Count==0)return;
-            var requested=rois.Concat(allRois).GroupBy(r=>r.Roi).Select(g=>g.First()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:1).ToArray();
-            int mine=Interlocked.Increment(ref nearbyVersion);double anchor=Math.Round(local);var token=warmLifetime.Token;
-            Action<CancellationToken> work=t=>{
-                double extent=MlcPlaybackControl.BeamExtent(beam);
-                foreach(int pass in new[]{0,1,2})for(int n=0;n<=3;n++)foreach(int direction in n==0?new[]{1}:new[]{1,-1}){
-                    t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
-                    double at=anchor+n*direction;if(at<0||at>beam.ControlPoints.Count-1)continue;
-                    int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);ControlPoint cp;
-                    try{cp=MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i);}catch(ArgumentException){continue;}
-                    string reason;var p=BeamProjection.Create(beam,cp,map,out reason);if(p!=null)Render(p,ct,requested.Where(r=>pass==0?string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):pass==1?!string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase):false).ToArray(),extent,pass==2&&ct!=null,t,true);FrameReady?.Invoke();
-                }
+            string key=Id(beam)+":"+Id(ct)+":"+Values(local,step)+":"+playing+":"+Values(map.Values)+":"+OutlineKey("",rois);
+            if(key==nearbyKey){ResumeNearby(warmLifetime.Token);return;}nearbyKey=key;
+            int mine=Interlocked.Increment(ref nearbyVersion);var token=warmLifetime.Token;double extent=MlcPlaybackControl.BeamExtent(beam);
+            var positions=new List<double>{local};
+            if(playing){for(int n=1;n<=24;n++)positions.Add(Math.Round(local+n*step,8));}
+            else {for(int n=1;n<=4;n++){positions.Add(Math.Round(local)+n);positions.Add(Math.Round(local)-n);}for(int n=1;n<=12;n++)positions.Add(Math.Round(local+n*step,8));}
+            var views=positions.Where(at=>at>=0&&at<=beam.ControlPoints.Count-1).Distinct().Select(at=>{
+                int i=(int)at,j=Math.Min(i+1,beam.ControlPoints.Count-1);string reason;
+                try{return BeamProjection.Create(beam,MlcTimeline.Interpolate(beam.ControlPoints[i],beam.ControlPoints[j],at-i),map,out reason);}catch(ArgumentException){return null;}
+            }).Where(p=>p!=null).ToArray();
+            Action<CancellationToken> outlines=t=>{
+                foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
+                    Render(p,null,rois,extent,false,t,true);}
             };
-            lock(gate){nearby=work;}
-            if(WarmCompletion.IsCompleted){var previous=WarmCompletion;WarmCompletion=Task.Run(()=>{Action<CancellationToken> job;lock(gate){job=nearby;nearby=null;}try{job?.Invoke(token);}catch(OperationCanceledException){}catch(Exception){}});}
+            Action<CancellationToken> images=t=>{
+                if(ct==null)return;foreach(var p in views){t.ThrowIfCancellationRequested();if(mine!=Volatile.Read(ref nearbyVersion))return;
+                    Render(p,ct,new RoiOverlay[0],extent,true,t,true);}
+            };
+            lock(gate){nearby=outlines;nearbyDrr=images;}
+            ResumeNearby(token);
         }
-        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;drrs.Clear();drrOrder.Clear();targets.Clear();others.Clear();drrBytes=0;}}
+        void ResumeNearby(CancellationToken token){
+            bool outlines,images;lock(gate){outlines=nearby!=null;images=nearbyDrr!=null;}
+            if(outlines&&outlineWarm.IsCompleted)outlineWarm=StartWarm(outlineWarm,token,()=>DrainNearby(false,token));
+            if(images&&drrWarm.IsCompleted)drrWarm=StartWarm(drrWarm,token,()=>DrainNearby(true,token));
+            ObserveWarm();
+        }
+        void DrainNearby(bool image,CancellationToken token){while(true){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}if(job==null)return;token.ThrowIfCancellationRequested();job(token);}}
+        public void Dispose(){disposed=true;warmLifetime.Cancel();lock(gate){nearby=null;nearbyDrr=null;drrs.Clear();drrOrder.Clear();targets.Clear();others.Clear();drrBytes=0;}}
     }
 }

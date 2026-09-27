@@ -29,7 +29,8 @@ namespace QuickLook.DicomRT
         public bool IsPlaying=>timer.IsEnabled;
         public event Action<bool> PlaybackStateChanged;
         public void TogglePlayback(){if(IsPlaying){Pause();return;}if(cursor.Maximum<=0)return;if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";PlaybackStateChanged?.Invoke(true);}
-        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}cursor.Value=cursor.Value>=cursor.Maximum?0:Math.Min(cursor.Maximum,cursor.Value+(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds);}
+        double PlaybackStep=>(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds;
+        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}double next=cursor.Value>=cursor.Maximum?0:Math.Min(cursor.Maximum,Math.Round(cursor.Value+PlaybackStep,8));if(PlaybackFrameReady(next)){play.Content="Ⅱ Pause";cursor.Value=next;}else play.Content="Ⅱ Preparing…";}
 
         public void Navigate(PlanBeam selected,double local){Pause();int index=Array.IndexOf(playbackBeams,selected);if(index>=0)cursor.Value=counts.Take(index).Sum()+Math.Max(0,Math.Min(counts[index]-1,local));}
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}

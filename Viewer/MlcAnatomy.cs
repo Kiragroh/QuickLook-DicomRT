@@ -20,7 +20,7 @@ namespace QuickLook.DicomRT
         readonly CheckBox showOrgans=new CheckBox{Content="Organ outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly CheckBox showOther=new CheckBox{Content="Other outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly TextBlock projectionStatus=Theme.Text("DRR needs an associated CT",10,Theme.Muted);
-        readonly DispatcherTimer projectionDelay=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(20)};
+        readonly DispatcherTimer projectionDelay=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(120)};
         readonly MlcProjectionCache projectionCache=new MlcProjectionCache();
         public static double BeamExtent(PlanBeam beam)=>Math.Max(100,beam.ControlPoints.SelectMany(c=>c.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(c.XJaws??new double[0]).Concat(c.YJaws??new double[0])).Where(BeamProjection.Finite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
         public void Close(){Dispose();projectionCache.Dispose();}
@@ -73,12 +73,27 @@ namespace QuickLook.DicomRT
         {
             if(projectionSuspended||beam==null||interpolated==null)return;
             var p=interpolated;
-            string key=beam.Number+":"+string.Join(",",new[]{p.Gantry,p.Couch,p.Collimator,p.Isocenter.X,p.Isocenter.Y,p.Isocenter.Z,p.GantryPitch,p.TablePitch,p.TableRoll,p.TableEccentric,aperture.Extent}.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)))+":"+timer.IsEnabled;
-            if(!force&&key==projectionKey)return;bool geometryChanged=projectionKey!=key;projectionKey=key;projectionVersion++;projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();if(geometryChanged){aperture.Projection=null;displayedProjectionKey=null;}
-            if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());return;}
-            projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines());
+            string key=beam.Number+":"+string.Join(",",new[]{p.Gantry,p.Couch,p.Collimator,p.Isocenter.X,p.Isocenter.Y,p.Isocenter.Z,p.GantryPitch,p.TablePitch,p.TableRoll,p.TableEccentric,aperture.Extent}.Select(x=>x.ToString("R",System.Globalization.CultureInfo.InvariantCulture)));
+            if(!force&&key==projectionKey)return;bool geometryChanged=projectionKey!=key;projectionKey=key;projectionVersion++;projectionDelay.Stop();if(geometryChanged){aperture.Projection=null;displayedProjectionKey=null;}
+            if(TryCached()){projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);ScheduleRefinement();return;}
+            projectionCache.PrepareNearby(beam,LocalPosition,planMap,anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null,SelectedOutlines(),PlaybackStep,IsPlaying);
             projectionStatus.Text="Preparing overlays in background …";
-            projectionDelay.Stop();projectionDelay.Start();
+            projectionDelay.Stop();if(!IsPlaying)projectionDelay.Start();
+        }
+        void ScheduleRefinement(){if(!IsPlaying&&!projectionBusy&&!projectionDelay.IsEnabled&&showDrr.IsChecked==true&&aperture.Projection?.Drr?.PixelWidth<384)projectionDelay.Start();}
+        bool PlaybackFrameReady(double position)
+        {
+            if(!IsVisible||projectionSuspended)return true;
+            int index;double local;MlcTimeline.Locate(counts,position,out index,out local);if(index<0)return true;
+            var nextBeam=playbackBeams[index];int i=(int)local,j=Math.Min(i+1,nextBeam.ControlPoints.Count-1);string reason;BeamProjection p;
+            try{p=BeamProjection.Create(nextBeam,MlcTimeline.Interpolate(nextBeam.ControlPoints[i],nextBeam.ControlPoints[j],local-i),planMap,out reason);}catch(ArgumentException){return true;}
+            if(p==null)return true;var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;var rois=SelectedOutlines();
+            MlcProjectionFrame frame;if(projectionCache.TryGet(p,ct,rois,extents[nextBeam],showDrr.IsChecked==true,out frame))return true;
+            // Leave the complete current CP visible while missing exact-angle data are prepared.
+            // Never draw a stale contour/DRR against a newer leaf aperture.
+            projectionCache.PrepareNearby(nextBeam,local,planMap,ct,rois,PlaybackStep,true);
+            projectionStatus.Text="Buffering exact-angle overlays · navigation remains available";
+            return false;
         }
         void ApplyProjection(MlcProjectionFrame frame)
         {
@@ -88,6 +103,7 @@ namespace QuickLook.DicomRT
                 foreach(var outline in previous.Outlines)if(wanted.Contains(outline.Roi)&&!frame.Outlines.Any(o=>o.Roi==outline.Roi))frame.Outlines.Add(outline);
                 if(showDrr.IsChecked==true&&frame.Drr==null)frame.Drr=previous.Drr;
             }
+            if(previous!=null&&displayedProjectionKey==projectionKey&&ReferenceEquals(previous.Drr,frame.Drr)&&previous.Outlines.Count==frame.Outlines.Count&&previous.Outlines.Zip(frame.Outlines,(a,b)=>a.Roi==b.Roi&&ReferenceEquals(a.Boundary,b.Boundary)).All(same=>same))return;
             displayedProjectionKey=projectionKey;aperture.Projection=frame;
         }
         bool TryCached()
@@ -95,7 +111,7 @@ namespace QuickLook.DicomRT
             if(beam==null||interpolated==null)return false;string reason;var p=BeamProjection.Create(beam,interpolated,planMap,out reason);if(p==null)return false;
             MlcProjectionFrame frame;var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;
             if(!projectionCache.TryGet(p,ct,SelectedOutlines(),aperture.Extent,showDrr.IsChecked==true,out frame)){ApplyProjection(frame);projectionStatus.Text=frame.Note;return false;}
-            projectionDelay.Stop();ApplyProjection(frame);projectionStatus.Text=frame.Note+(projectionCache.Total>0?$" · Views prepared {projectionCache.Prepared}/{projectionCache.Total}":"");return true;
+            if(IsPlaying||showDrr.IsChecked!=true||frame.Drr==null||frame.Drr.PixelWidth>=384)projectionDelay.Stop();ApplyProjection(frame);ScheduleRefinement();projectionStatus.Text=frame.Note+(projectionCache.Total>0?$" · Views prepared {projectionCache.Prepared}/{projectionCache.Total}":"");return true;
         }
         async Task RenderProjectionAsync()
         {
@@ -107,10 +123,10 @@ namespace QuickLook.DicomRT
             var ct=anatomy?.Entry?.Modality=="CT"?anatomy.Volume:null;bool drr=showDrr.IsChecked==true;double extent=aperture.Extent;
             var token=projectionLifetime.Token;projectionBusy=true;
             try{
-                var frame=await Task.Run(()=>projectionCache.Render(projection,ct,rois,extent,drr,token),token);
-                if(version==projectionVersion&&!projectionSuspended){ApplyProjection(frame);projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,ct,rois);}
+                var frame=await Task.Run(()=>drr?projectionCache.Refine(projection,ct,rois,extent,token):projectionCache.Render(projection,ct,rois,extent,false,token),token);
+                if(version==projectionVersion&&!projectionSuspended){ApplyProjection(frame);projectionStatus.Text=frame.Note;projectionCache.PrepareNearby(beam,LocalPosition,planMap,ct,rois,PlaybackStep,IsPlaying);}
             }catch(OperationCanceledException){}catch(Exception){if(version==projectionVersion){projectionStatus.Text="DRR / contour projection unavailable for this geometry";aperture.Projection=null;}}
-            finally{projectionBusy=false;if(!projectionSuspended&&version!=projectionVersion){projectionDelay.Stop();projectionDelay.Start();}}
+            finally{projectionBusy=false;if(!projectionSuspended&&version!=projectionVersion){TryCached();if(!IsPlaying){projectionDelay.Stop();projectionDelay.Start();}}}
         }
     }
 }

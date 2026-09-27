@@ -16,17 +16,18 @@ namespace QuickLook.DicomRT
     {
         sealed class Prepared {public ControlPoint Point;public PlanBeam Beam;public PlanData Plan;public Matrix4 Map;public Vec3 Origin,End;public CancellationTokenSource Cancel;public Task<Dictionary<PlanBeam,Geometry>> Work;}
         static readonly ConditionalWeakTable<RenderScene,Prepared> frames=new ConditionalWeakTable<RenderScene,Prepared>();
-        public static void Draw(DrawingContext dc,RenderScene scene,SliceGeometry g,Rect rect,Action invalidate=null)
+        public static void Draw(DrawingContext dc,RenderScene scene,SliceGeometry g,Rect rect,Action invalidate=null,Rect? viewport=null)
         {
             if(!scene.ShowFields||scene.Plan==null||scene.PlanToImage==null)return;
-            var prepared=frames.GetValue(scene,_=>new Prepared());var origin=g.WorldAt(0,0);var end=g.WorldAt(1,1);
+            var bounds=viewport.HasValue?new Rect((viewport.Value.Left-rect.Left)/rect.Width,(viewport.Value.Top-rect.Top)/rect.Height,viewport.Value.Width/rect.Width,viewport.Value.Height/rect.Height):new Rect(0,0,1,1);
+            var prepared=frames.GetValue(scene,_=>new Prepared());var origin=g.WorldAt(bounds.Left,bounds.Top);var end=g.WorldAt(bounds.Right,bounds.Bottom);
             if(prepared.Work==null||prepared.Point!=scene.ActiveControlPoint||prepared.Beam!=scene.ActiveBeam||prepared.Plan!=scene.Plan||prepared.Map!=scene.PlanToImage||(origin-prepared.Origin).Length>1e-8||(end-prepared.End).Length>1e-8)
             {
                 prepared.Cancel?.Cancel();prepared.Cancel=new CancellationTokenSource();var token=prepared.Cancel.Token;
                 prepared.Point=scene.ActiveControlPoint;prepared.Beam=scene.ActiveBeam;prepared.Plan=scene.Plan;prepared.Map=scene.PlanToImage;prepared.Origin=origin;prepared.End=end;
                 var entries=scene.Plan.Beams.Where(b=>(!BeamMotion.IsImaging(b)||b==scene.ActiveBeam)&&!BeamMotion.IsArc(b)).Select(b=>Tuple.Create(b,b==scene.ActiveBeam?scene.ActiveControlPoint:b.ControlPoints.FirstOrDefault())).ToArray();var map=scene.PlanToImage;
                 var dispatcher=Dispatcher.CurrentDispatcher;
-                prepared.Work=Task.Run(()=>{var shapes=new Dictionary<PlanBeam,Geometry>();foreach(var entry in entries){token.ThrowIfCancellationRequested();string reason;var p=BeamProjection.Create(entry.Item1,entry.Item2,map,out reason);if(p!=null)shapes[entry.Item1]=Opening(p,entry.Item2,g,token);}return shapes;},token);
+                prepared.Work=Task.Run(()=>{var shapes=new Dictionary<PlanBeam,Geometry>();foreach(var entry in entries){token.ThrowIfCancellationRequested();string reason;var p=BeamProjection.Create(entry.Item1,entry.Item2,map,out reason);if(p!=null)shapes[entry.Item1]=Opening(p,entry.Item2,g,token,bounds);}return shapes;},token);
                 prepared.Work.ContinueWith(t=>{if(t.IsFaulted){var ignored=t.Exception;}if(t.Status==TaskStatus.RanToCompletion&&!token.IsCancellationRequested&&invalidate!=null&&!dispatcher.HasShutdownStarted)dispatcher.BeginInvoke(invalidate,DispatcherPriority.Background);},TaskScheduler.Default);
             }
             var ready=prepared.Work.Status==TaskStatus.RanToCompletion?prepared.Work.Result:null;
@@ -74,14 +75,14 @@ namespace QuickLook.DicomRT
             var tip=from+(to-from)*.25;var side=new Vector(-vector.Y,vector.X);var solid=new Pen(brush,width);dc.DrawLine(solid,tip,tip-vector*8+side*4);dc.DrawLine(solid,tip,tip-vector*8-side*4);
         }
         // Merge the filled leaf ray intersections before stroking: no internal leaf seams.
-        internal static Geometry Opening(BeamProjection projection,ControlPoint cp,SliceGeometry g,CancellationToken token=default(CancellationToken))
+        internal static Geometry Opening(BeamProjection projection,ControlPoint cp,SliceGeometry g,CancellationToken token=default(CancellationToken),Rect? viewport=null)
         {
-            Geometry union=null;
+            Geometry union=null;var bounds=viewport??new Rect(0,0,1,1);
             foreach(var r in BeamAperture.Rectangles(cp))
             {
                 token.ThrowIfCancellationRequested();
                 var corners=new[]{projection.PlanePoint(r.Left,r.Bottom),projection.PlanePoint(r.Right,r.Bottom),projection.PlanePoint(r.Right,r.Top),projection.PlanePoint(r.Left,r.Top)};
-                var polygon=new List<Vec3>{g.WorldAt(0,0),g.WorldAt(1,0),g.WorldAt(1,1),g.WorldAt(0,1)};
+                var polygon=new List<Vec3>{g.WorldAt(bounds.Left,bounds.Top),g.WorldAt(bounds.Right,bounds.Top),g.WorldAt(bounds.Right,bounds.Bottom),g.WorldAt(bounds.Left,bounds.Bottom)};
                 var center=projection.PlanePoint((r.Left+r.Right)*.5,(r.Bottom+r.Top)*.5);
                 for(int i=0;i<4&&polygon.Count>0;i++){
                     var normal=(corners[i]-projection.Source).Cross(corners[(i+1)%4]-projection.Source).Normalized();

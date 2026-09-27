@@ -2,6 +2,21 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.16 — 27 September 2026
+
+### Field geometry across the full image pane
+
+- Gantry arcs, angular-modulation ticks and fixed-field aperture intersections can extend **past the CT image boundary into the free pane area**. The pane boundary still prevents drawing into adjacent views or controls.
+- Anatomy and dose contours keep their original image clipping and spatial mapping.
+
+### Prepared MLC anatomy during playback
+
+- The background cache includes **fractional control points** used by default playback, with additional exact-position lookahead for other playback speeds and manual navigation.
+- DRR preparation has its **own background worker**, running alongside structure preparation. PTV, organ and other categories remain prepared before their checkboxes are enabled.
+- Completed projections survive cursor changes. Unchanged cached overlays do not repeatedly redraw as unrelated background work completes.
+- **192-pixel DRR previews** keep the preparation and memory cost bounded; stationary views refine to **384 pixels** in place. Angles and projection geometry are unchanged between preview and refinement.
+- Playback advances with complete enabled overlays. If the next exact-angle frame is not ready, the Play/Pause button briefly shows **Preparing**, retaining the complete current CP. Scrolling, scrubbing and pausing remain available; no old-angle DRR or contours are attached to a newer aperture.
+
 ## 0.2.15 — 27 September 2026
 
 ### Start at the plan isocenter
