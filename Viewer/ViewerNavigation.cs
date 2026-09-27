@@ -24,7 +24,7 @@ namespace QuickLook.DicomRT
     {
         readonly Dictionary<string,Button> imageModeButtons=new Dictionary<string,Button>();
         WindowRangeControl windowRange;
-        string windowPreset="Auto";ComboBox windowPresets;StackPanel customWindow;bool applyingPreset;
+        string windowPreset="DICOM";ComboBox windowPresets;StackPanel customWindow;bool applyingPreset;
         UIElement BuildImageModes()
         {
             var row=new WrapPanel();int key=1;
@@ -46,7 +46,7 @@ namespace QuickLook.DicomRT
         UIElement BuildWindowControls()
         {
             var panel=new StackPanel();windowPresets=Theme.Combo(180);windowPresets.ToolTip="Window / level preset. Custom exposes width and level sliders.";
-            windowPresets.ItemsSource=new[]{"Auto","DICOM","Soft tissue","Lung","Bone","Brain","Liver","Custom"};windowPresets.SelectedItem=windowPreset;panel.Children.Add(windowPresets);
+            windowPresets.ItemsSource=new[]{"DICOM","Auto","Soft tissue","Lung","Bone","Brain","Liver","Custom"};windowPresets.SelectedItem=windowPreset;panel.Children.Add(windowPresets);
             customWindow=new StackPanel{Visibility=windowPreset=="Custom"?Visibility.Visible:Visibility.Collapsed};panel.Children.Add(customWindow);
             miniWidth=new Slider{Minimum=1,Maximum=Math.Max(5000,windowWidth),Value=windowWidth,Width=145};miniLevel=new Slider{Minimum=Math.Min(-1500,windowCenter),Maximum=Math.Max(3500,windowCenter),Value=windowCenter,Width=145};
             foreach(var item in new[]{Tuple.Create("W",miniWidth),Tuple.Create("L",miniLevel)}){var row=new StackPanel{Orientation=Orientation.Horizontal};var label=Theme.Text(item.Item1,10,Theme.Muted);label.Width=20;row.Children.Add(label);row.Children.Add(item.Item2);customWindow.Children.Add(row);}

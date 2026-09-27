@@ -2,6 +2,14 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.22 — 27 September 2026
+
+- Waiting field outlines stay visible during control-point playback. Their first-control-point geometry is prepared independently of the active field; only the active fixed-field aperture changes. Arc playback does not rebuild the gray field contours.
+
+- Images start with the **DICOM** window preset, using the window center and width stored in the image.
+- Auto and the other presets remain selectable. If DICOM window values are absent, automatic windowing provides the fallback.
+- Run the installer for this version to update an existing installation on another Windows PC. Older installers retain their embedded version.
+
 ## 0.2.21 — 27 September 2026
 
 ### Select DVH curves directly

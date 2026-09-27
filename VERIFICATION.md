@@ -1,4 +1,11 @@
-﻿## 0.2.21 — Direct DVH curve interaction and blue icon
+﻿## 0.2.22 — DICOM opening window and stable field context
+
+- Release build without warnings/errors; 326 WPF interaction checks passed.
+- CT and MR initialization use their stored DICOM center and width. Missing window metadata uses the automatic fallback. Manual Auto and other presets remain available.
+- Regression checks verify the same completed gray geometry survives fixed-field and arc CP changes, field selection and neutral mode. Slice and zoom changes invalidate it; equal transform values preserve it.
+- Window changes affect display only, not pixels, geometry, dose or source files.
+
+## 0.2.21 — Direct DVH curve interaction and blue icon
 
 - 312 WPF interaction checks passed, including interpolated-segment selection, toggle focus, empty space, repeated dose / vertical segments, hidden curves, resized bounds, hover identity and six metrics, and overlap preference.
 - Hover, selection and resize leave CalculationCount unchanged. A local microbenchmark of 1,000 probes across 128 curves / 2,048 bins took 30 ms; this is hit-testing evidence, not an end-to-end viewer latency guarantee.

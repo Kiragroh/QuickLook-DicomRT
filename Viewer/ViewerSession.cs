@@ -205,7 +205,7 @@ namespace QuickLook.DicomRT
         private void SetEntryFocus(DicomEntry entry) { viewportCenter=null;focus = entry.Origin + entry.AxisX * ((entry.Columns - 1) * entry.SpacingX / 2) + entry.AxisY * ((entry.Rows - 1) * entry.SpacingY / 2); }
         private void SetInitialWindow()
         {
-            ApplyWindowPreset("Auto");
+            ApplyWindowPreset("DICOM");
         }
         private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 

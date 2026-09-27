@@ -18,7 +18,14 @@ internal static class NavigationExportScenarios
         using(var viewer=new ViewerControl()){
             check(Get<Dictionary<string,Button>>(viewer,"imageModeButtons").Count==6,"six icon view buttons include standalone 3D");
             check(Get<ComboBox>(viewer,"planes").Parent==null,"image plane dropdown removed from visible UI");
-            check(Get<string>(viewer,"windowPreset")=="Auto"&&Get<StackPanel>(viewer,"customWindow").Visibility==Visibility.Collapsed,"Auto is default and custom sliders hidden");
+            check(Get<string>(viewer,"windowPreset")=="DICOM"&&Get<StackPanel>(viewer,"customWindow").Visibility==Visibility.Collapsed,"DICOM is default and custom sliders hidden");
+            Set(viewer,"currentEntry",new DicomEntry{Modality="CT",WindowCenter=900,WindowWidth=8000});Call(viewer,"SetInitialWindow");
+            check(Get<string>(viewer,"windowPreset")=="DICOM"&&Get<double>(viewer,"windowCenter")==900&&Get<double>(viewer,"windowWidth")==8000,"CT opens with its stored DICOM center and width");
+            Set(viewer,"currentEntry",new DicomEntry{Modality="MR",WindowCenter=120,WindowWidth=250});Call(viewer,"SetInitialWindow");
+            check(Get<string>(viewer,"windowPreset")=="DICOM"&&Get<double>(viewer,"windowCenter")==120&&Get<double>(viewer,"windowWidth")==250,"MR uses its own stored DICOM window too");
+            Set(viewer,"currentEntry",new DicomEntry{Modality="CT"});Call(viewer,"SetInitialWindow");
+            check(Get<string>(viewer,"windowPreset")=="DICOM"&&Get<double>(viewer,"windowCenter")==500&&Get<double>(viewer,"windowWidth")==1000,"Missing DICOM window uses automatic fallback without a CT-specific preset");
+            Call(viewer,"ApplyWindowPreset","Auto");check(Get<string>(viewer,"windowPreset")=="Auto","Auto remains manually selectable");
             Call(viewer,"ApplyWindowPreset","Lung");check(Get<double>(viewer,"windowCenter")==-600&&Get<double>(viewer,"windowWidth")==1500,"lung preset width and level");
             Call(viewer,"ApplyWindowPreset","Custom");check(Get<StackPanel>(viewer,"customWindow").Visibility==Visibility.Visible&&Get<double>(viewer,"windowCenter")==-600,"custom exposes sliders and keeps current values");
             var bar=Get<object>(viewer,"windowRange");var element=(FrameworkElement)bar;element.Measure(new Size(142,184));element.Arrange(new Rect(0,0,142,184));Call(bar,"Change",50d);check(Get<double>(viewer,"windowWidth")>=1,"histogram window handle keeps a positive range");

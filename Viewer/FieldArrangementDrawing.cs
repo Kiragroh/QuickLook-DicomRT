@@ -14,23 +14,60 @@ namespace QuickLook.DicomRT
 {
     internal static class FieldArrangementDrawing
     {
-        sealed class Prepared {public ControlPoint Point;public PlanBeam Beam;public PlanData Plan;public Matrix4 Map;public Vec3 Origin,End;public CancellationTokenSource Cancel;public Task<Dictionary<PlanBeam,Geometry>> Work;}
+        sealed class Prepared
+        {
+            public PlanData Plan;public Matrix4 Map;public Vec3 Center,Right,Down;public double Width,Height;public Rect Bounds;
+            public CancellationTokenSource BackgroundCancel,ActiveCancel;
+            public Task<Dictionary<PlanBeam,Geometry>> Background;
+            public Task<Dictionary<PlanBeam,Geometry>> Active;
+            public PlanBeam Beam;public ControlPoint Point;
+        }
         static readonly ConditionalWeakTable<RenderScene,Prepared> frames=new ConditionalWeakTable<RenderScene,Prepared>();
+        static bool SameMap(Matrix4 a,Matrix4 b)=>ReferenceEquals(a,b)||(a!=null&&b!=null&&a.Values.SequenceEqual(b.Values));
+        static Task<Dictionary<PlanBeam,Geometry>> Prepare(Tuple<PlanBeam,ControlPoint>[] entries,Matrix4 map,SliceGeometry g,Rect bounds,CancellationTokenSource owner,Action invalidate)
+        {
+            var token=owner.Token;var dispatcher=Dispatcher.CurrentDispatcher;
+            var work=Task.Run(()=>{var shapes=new Dictionary<PlanBeam,Geometry>();foreach(var entry in entries){token.ThrowIfCancellationRequested();string reason;var p=BeamProjection.Create(entry.Item1,entry.Item2,map,out reason);if(p!=null)shapes[entry.Item1]=Opening(p,entry.Item2,g,token,bounds);}return shapes;},token);
+            work.ContinueWith(t=>{if(t.IsFaulted){var ignored=t.Exception;}if(t.Status==TaskStatus.RanToCompletion&&!token.IsCancellationRequested&&invalidate!=null&&!dispatcher.HasShutdownStarted)dispatcher.BeginInvoke(invalidate,DispatcherPriority.Background);},TaskScheduler.Default);
+            return work;
+        }
+        static void Cancel(ref CancellationTokenSource source)
+        {var old=source;source=null;if(old!=null){old.Cancel();old.Dispose();}}
+        static Prepared PrepareShapes(RenderScene scene,SliceGeometry g,Rect bounds,Action invalidate)
+        {
+            var prepared=frames.GetValue(scene,_=>new Prepared());
+            bool changed=prepared.Background==null||prepared.Plan!=scene.Plan||!SameMap(prepared.Map,scene.PlanToImage)||
+                (prepared.Center-g.Center).Length>1e-8||(prepared.Right-g.Right).Length>1e-8||(prepared.Down-g.Down).Length>1e-8||
+                prepared.Width!=g.WidthMm||prepared.Height!=g.HeightMm||prepared.Bounds!=bounds;
+            if(changed)
+            {
+                Cancel(ref prepared.BackgroundCancel);Cancel(ref prepared.ActiveCancel);prepared.Active=null;
+                prepared.Plan=scene.Plan;prepared.Map=scene.PlanToImage;prepared.Center=g.Center;prepared.Right=g.Right;prepared.Down=g.Down;
+                prepared.Width=g.WidthMm;prepared.Height=g.HeightMm;prepared.Bounds=bounds;
+                // First-CP outlines are immutable context, including the currently active
+                // treatment field so switching fields does not discard the background.
+                var entries=scene.Plan.Beams.Where(b=>!BeamMotion.IsImaging(b)&&!BeamMotion.IsArc(b)).Select(b=>Tuple.Create(b,b.ControlPoints.FirstOrDefault())).ToArray();
+                prepared.BackgroundCancel=new CancellationTokenSource();
+                prepared.Background=Prepare(entries,scene.PlanToImage,g,bounds,prepared.BackgroundCancel,invalidate);
+            }
+            if(changed||prepared.Point!=scene.ActiveControlPoint||prepared.Beam!=scene.ActiveBeam)
+            {
+                Cancel(ref prepared.ActiveCancel);prepared.Active=null;prepared.Beam=scene.ActiveBeam;prepared.Point=scene.ActiveControlPoint;
+                if(scene.ActiveBeam!=null&&!BeamMotion.IsArc(scene.ActiveBeam))
+                {
+                    if(!BeamMotion.IsImaging(scene.ActiveBeam)&&ReferenceEquals(scene.ActiveControlPoint,scene.ActiveBeam.ControlPoints.FirstOrDefault()))prepared.Active=prepared.Background;
+                    else {prepared.ActiveCancel=new CancellationTokenSource();prepared.Active=Prepare(new[]{Tuple.Create(scene.ActiveBeam,scene.ActiveControlPoint)},scene.PlanToImage,g,bounds,prepared.ActiveCancel,invalidate);}
+                }
+            }
+            return prepared;
+        }
         public static void Draw(DrawingContext dc,RenderScene scene,SliceGeometry g,Rect rect,Action invalidate=null,Rect? viewport=null)
         {
             if(!scene.ShowFields||scene.Plan==null||scene.PlanToImage==null)return;
             var bounds=viewport.HasValue?new Rect((viewport.Value.Left-rect.Left)/rect.Width,(viewport.Value.Top-rect.Top)/rect.Height,viewport.Value.Width/rect.Width,viewport.Value.Height/rect.Height):new Rect(0,0,1,1);
-            var prepared=frames.GetValue(scene,_=>new Prepared());var origin=g.WorldAt(bounds.Left,bounds.Top);var end=g.WorldAt(bounds.Right,bounds.Bottom);
-            if(prepared.Work==null||prepared.Point!=scene.ActiveControlPoint||prepared.Beam!=scene.ActiveBeam||prepared.Plan!=scene.Plan||prepared.Map!=scene.PlanToImage||(origin-prepared.Origin).Length>1e-8||(end-prepared.End).Length>1e-8)
-            {
-                prepared.Cancel?.Cancel();prepared.Cancel=new CancellationTokenSource();var token=prepared.Cancel.Token;
-                prepared.Point=scene.ActiveControlPoint;prepared.Beam=scene.ActiveBeam;prepared.Plan=scene.Plan;prepared.Map=scene.PlanToImage;prepared.Origin=origin;prepared.End=end;
-                var entries=scene.Plan.Beams.Where(b=>(!BeamMotion.IsImaging(b)||b==scene.ActiveBeam)&&!BeamMotion.IsArc(b)).Select(b=>Tuple.Create(b,b==scene.ActiveBeam?scene.ActiveControlPoint:b.ControlPoints.FirstOrDefault())).ToArray();var map=scene.PlanToImage;
-                var dispatcher=Dispatcher.CurrentDispatcher;
-                prepared.Work=Task.Run(()=>{var shapes=new Dictionary<PlanBeam,Geometry>();foreach(var entry in entries){token.ThrowIfCancellationRequested();string reason;var p=BeamProjection.Create(entry.Item1,entry.Item2,map,out reason);if(p!=null)shapes[entry.Item1]=Opening(p,entry.Item2,g,token,bounds);}return shapes;},token);
-                prepared.Work.ContinueWith(t=>{if(t.IsFaulted){var ignored=t.Exception;}if(t.Status==TaskStatus.RanToCompletion&&!token.IsCancellationRequested&&invalidate!=null&&!dispatcher.HasShutdownStarted)dispatcher.BeginInvoke(invalidate,DispatcherPriority.Background);},TaskScheduler.Default);
-            }
-            var ready=prepared.Work.Status==TaskStatus.RanToCompletion?prepared.Work.Result:null;
+            var prepared=PrepareShapes(scene,g,bounds,invalidate);
+            var background=prepared.Background.Status==TaskStatus.RanToCompletion?prepared.Background.Result:null;
+            var foreground=prepared.Active?.Status==TaskStatus.RanToCompletion?prepared.Active.Result:null;
             Func<Vec3,Point> screen=p=>new Point(rect.Left+g.U(p)*rect.Width,rect.Top+g.V(p)*rect.Height);
             int missing=0;
             foreach(var beam in scene.Plan.Beams.OrderBy(b=>b==scene.ActiveBeam?1:0))
@@ -40,7 +77,7 @@ namespace QuickLook.DicomRT
                 string reason;var projection=BeamProjection.Create(beam,cp,scene.PlanToImage,out reason);if(projection==null){missing++;continue;}
                 var color=active?Color.FromRgb(255,215,82):Color.FromArgb(125,170,177,187);var brush=new SolidColorBrush(color);var pen=new Pen(brush,active?1.7:.65);
                 if(BeamMotion.IsArc(beam)){DrawArc(dc,beam,scene.PlanToImage,g,rect,brush,active,projection,BeamModulationMode.AngularMeterset,invalidate);continue;}
-                Geometry shape=null;ready?.TryGetValue(beam,out shape);
+                Geometry shape=null;(active?foreground:background)?.TryGetValue(beam,out shape);
                 if(shape!=null){var display=shape.Clone();display.Transform=new MatrixTransform(rect.Width,0,0,rect.Height,rect.Left,rect.Top);dc.DrawGeometry(null,pen,display);}
                 // One-way source arrow makes the incoming side unambiguous.
                 var direction=projection.Forward-g.Normal*projection.Forward.Dot(g.Normal);
