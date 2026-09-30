@@ -2,6 +2,13 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.34 — Targets, organ names and legacy machines
+
+- **Targets instead of PTV-only filters:** the selected plan's explicitly referenced target volumes, DICOM target types and names containing PTV share one group in MLC outlines and 3D. Matching requires the referenced structure-set SOP and ROI number; changing plans updates the group while retaining reusable meshes.
+- **Organs across older exports:** explicit ORGAN types and referenced plan OARs are supplemented by recognized English/German organ names when useful type metadata is absent. Unknown helpers remain Other. External/body/skin and support contours stay outside the target/organ groups. Hover a structure for the grouping reason and original DICOM type.
+- **Local ring hint:** machine names starting with Hal select a cutaway ring when model metadata is unrecognized. Explicit model tags take precedence, and the local hint is labeled. ARTISTE model tags select the C-arm schematic. Layer count never determines machine form.
+- **Broader read-only compatibility checks:** 644 of 645 RTPLAN files parsed in a legacy archive candidate scan; 152,093 CPs examined. One plan has unsupported/missing block geometry; missing source-axis distance and unsupported projection geometry remain explicit limitations. A separate 32-structure-set sample exercised 807 ROIs. This is bounded parser/display testing, not a claim of universal LINAC or clinical validation. [Scope](docs/linac-compatibility.md).
+
 ## 0.2.33 — Machine-aware dual-layer previews
 
 - **Machine identity:** treatment machine name/model in the RT panel, MLC details and orientation model.

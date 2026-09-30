@@ -36,12 +36,20 @@ namespace QuickLook.DicomRT
     }
     public sealed class PlanData
     {
+        public HashSet<int> TargetRoiNumbers=new HashSet<int>(),OrganRoiNumbers=new HashSet<int>();
         public DicomEntry Entry; public string FrameUid,StructureSopUid; public string Label {get;set;} public List<PlanBeam> Beams=new List<PlanBeam>();
         public override string ToString()=>Label;
         public static PlanData Load(DicomEntry entry)
         {
             var d=RtDicom.Full(entry); var result=new PlanData {Entry=entry,FrameUid=RtDicom.Text(d,DicomTag.FrameOfReferenceUID),Label=RtDicom.Text(d,DicomTag.RTPlanLabel,"RTPLAN"),
                 StructureSopUid=RtDicom.Items(d,DicomTag.ReferencedStructureSetSequence).Select(i=>RtDicom.Text(i,DicomTag.ReferencedSOPInstanceUID)).FirstOrDefault()??""};
+            foreach(var reference in RtDicom.Items(d,DicomTag.DoseReferenceSequence)){
+                int roi=RtDicom.Int(reference,DicomTag.ReferencedROINumber,-1);
+                if(roi<0||RtDicom.Text(reference,DicomTag.DoseReferenceStructureType)!="VOLUME")continue;
+                string type=RtDicom.Text(reference,DicomTag.DoseReferenceType);
+                if(type=="TARGET")result.TargetRoiNumbers.Add(roi);
+                if(type=="ORGAN_AT_RISK")result.OrganRoiNumbers.Add(roi);
+            }
             var metersets=new Dictionary<int,List<double>>();
             foreach(var group in RtDicom.Items(d,DicomTag.FractionGroupSequence))foreach(var beam in RtDicom.Items(group,DicomTag.ReferencedBeamSequence))
             {int number=RtDicom.Int(beam,DicomTag.ReferencedBeamNumber,-1);double value=RtDicom.Number(beam,DicomTag.BeamMeterset); if(!metersets.ContainsKey(number))metersets[number]=new List<double>();metersets[number].Add(value);}

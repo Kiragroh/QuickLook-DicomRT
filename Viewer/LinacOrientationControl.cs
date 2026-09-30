@@ -97,6 +97,7 @@ namespace QuickLook.DicomRT
             var machine=BeamMachineInfo.Form(beam)==LinacForm.Ring?ring:cArm;
             if(machineHost.Children.Count!=1||!ReferenceEquals(machineHost.Children[0],machine)){machineHost.Children.Clear();machineHost.Children.Add(machine);}
             string schematic=BeamMachineInfo.Form(beam)==LinacForm.Unknown?"Generic schematic":BeamMachineInfo.Form(beam)==LinacForm.Ring?"Ring cutaway schematic":"C-arm schematic";
+            if(BeamMachineInfo.UsesLocalRingHint(beam))schematic+=" (Hal name hint)";
             patientHost.Children.Clear();var orientation=PatientOrientation.ToIec(beam?.PatientPosition);
             if(orientation==null){BuildCouch(-1.05,.7);note.Text=schematic+" · patient position unavailable / unsupported";return;}
             bool noncoplanar=planNoncoplanar??beam.ControlPoints.Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);

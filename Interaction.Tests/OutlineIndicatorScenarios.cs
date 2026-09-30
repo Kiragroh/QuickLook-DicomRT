@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +17,7 @@ internal static class OutlineIndicatorScenarios
   using(var viewer=new ViewerControl()){
    var ptv=new StructureRoi{Name="Target",FrameUid="test-frame",InterpretedType="PTV",Red=255,Green=80,Blue=140,Visible=true};
    var organ=new StructureRoi{Name="Organ",FrameUid="test-frame",InterpretedType="ORGAN",Visible=true};
-   var other=new StructureRoi{Name="CTV",FrameUid="test-frame",InterpretedType="CTV",Visible=true};
+   var other=new StructureRoi{Name="Helper",FrameUid="test-frame",InterpretedType="AVOIDANCE",Visible=true};
    var unmatched=new StructureRoi{Name="Unmatched",FrameUid="other-frame",InterpretedType="PTV",Visible=true};
    ((List<StructureSet>)Get(viewer,"structures")).Add(new StructureSet{Entry=new DicomEntry{SopUid="test-set"},Rois=new List<StructureRoi>{ptv,organ,other,unmatched}});
    Set(viewer,"selectedPlan",new PlanData{FrameUid="test-frame",StructureSopUid="test-set",Entry=new DicomEntry{SopUid="test-plan"}});
@@ -27,7 +27,7 @@ internal static class OutlineIndicatorScenarios
    check(((Button)Get(rows[0],"Name")).FontWeight==FontWeights.SemiBold&&((TextBlock)Get(rows[0],"Indicator")).Text=="Outline","Active outline has bold colored name and explicit label");
    var mlc=(MlcPlaybackControl)Get(viewer,"centralPlayback");((CheckBox)Get(mlc,"showOrgans")).IsChecked=true;
    check(state(1)==4&&ReferenceEquals(first,rows[0]),"Category toggle updates indicators in place without rebuilding list");
-   ((CheckBox)Get(mlc,"showOther")).IsChecked=true;check(state(2)==4,"Other group activates CTV indicator");
+   ((CheckBox)Get(mlc,"showOther")).IsChecked=true;check(state(2)==4,"Other group activates helper indicator");
    var list=(StackPanel)Get(viewer,"roiList");var toggle=((DockPanel)list.Children[0]).Children.OfType<CheckBox>().Single();toggle.IsChecked=false;
    check(!ptv.Visible&&state(0)==1&&!mlc.IsOutlineEnabled(ptv),"Individual checkbox removes both effective projection and active indicator");
    toggle.IsChecked=true;((CheckBox)Get(mlc,"showPtv")).IsChecked=false;check(state(0)==3&&ptv.Visible,"Group off preserves individual selection and explains inactivity");

@@ -14,7 +14,7 @@ Other Enhanced device types, nonzero offsets, arbitrary orientations, binary/sin
 
 ## Machine display
 
-Beam TreatmentMachineName, Manufacturer and ManufacturerModelName are retained. Recognition uses the model tag, not file names, station aliases or layer counts. Accela/TrueBeam/Clinac and other recognized C-arm models use the C-arm illustration. Halcyon/Ethos use a translucent cutaway ring. Unknown metadata keeps a generic schematic. These are not machine CAD models or collision checks. Meshes are reused across control points.
+Beam TreatmentMachineName, Manufacturer and ManufacturerModelName are retained. Explicit model tags take precedence. Accela/TrueBeam/Clinac/ARTISTE and other recognized C-arm models use the C-arm illustration; Halcyon/Ethos use a translucent cutaway ring. Since 0.2.34, the user-confirmed local `Hal*` machine-name convention provides a visibly labeled ring fallback when model metadata is unrecognized. It does not establish a manufacturer/model, modify beam coordinates or infer anything from layer count. Other unknown metadata keeps a generic schematic. These are not machine CAD models or collision checks. Meshes are reused across control points. [Legacy archive and ROI grouping checks](linac-compatibility.md).
 
 ## Evidence and limits
 

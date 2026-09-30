@@ -16,7 +16,7 @@ namespace QuickLook.DicomRT
         public event Action<bool> FieldsVisibilityChanged;
         public void SetFieldsVisible(bool enabled){showFieldArrangement.IsChecked=enabled;UpdateArrangement();}
         readonly CheckBox showDrr=new CheckBox{Content="DRR",IsChecked=false,Margin=new Thickness(5)};
-        readonly CheckBox showPtv=new CheckBox{Content="PTV outlines",IsChecked=true,Margin=new Thickness(5)};
+        readonly CheckBox showPtv=new CheckBox{Content="Target outlines",IsChecked=true,Margin=new Thickness(5)};
         readonly CheckBox showOrgans=new CheckBox{Content="Organ outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly CheckBox showOther=new CheckBox{Content="Other outlines",IsChecked=false,Margin=new Thickness(5)};
         readonly TextBlock projectionStatus=Theme.Text("DRR needs an associated CT",10,Theme.Muted);
@@ -29,8 +29,8 @@ namespace QuickLook.DicomRT
         public bool IsOutlineEnabled(StructureRoi roi)
         {
             if(roi==null||!roi.Visible)return false;
-            string type=roi.InterpretedType?.Trim().ToUpperInvariant();
-            return type=="PTV"?showPtv.IsChecked==true:type=="ORGAN"?showOrgans.IsChecked==true:showOther.IsChecked==true;
+            var category=RoiClassification.Category(roi,plan);
+            return category==RoiCategory.Target?showPtv.IsChecked==true:category==RoiCategory.Organ?showOrgans.IsChecked==true:showOther.IsChecked==true;
         }
         RoiOverlay[] SelectedOutlines()=>(anatomy?.Structures??new System.Collections.Generic.List<RoiOverlay>()).Where(r=>IsOutlineEnabled(r.Roi)).ToArray();
         readonly FieldArrangementControl fieldArrangement=new FieldArrangementControl{Width=300,Height=230};

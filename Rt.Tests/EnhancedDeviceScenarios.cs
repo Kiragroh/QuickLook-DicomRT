@@ -29,7 +29,13 @@ internal static class EnhancedDeviceScenarios
         check(BeamMachineInfo.Form(beam)==LinacForm.CArm&&BeamMachineInfo.Label(beam)=="TEST · Accela","Accela dual layer retains C-arm identity");
         beam.ManufacturerModelName="Halcyon 4.0";check(BeamMachineInfo.Form(beam)==LinacForm.Ring,"Halcyon model selects ring");
         beam.ManufacturerModelName="Ethos";check(BeamMachineInfo.Form(beam)==LinacForm.Ring,"Ethos model selects ring");
-        beam.ManufacturerModelName="";beam.TreatmentMachineName="Halcyon_alias";check(BeamMachineInfo.Form(beam)==LinacForm.Unknown,"Machine alias and two layers cannot establish ring identity");
+        beam.ManufacturerModelName="";beam.TreatmentMachineName=" Hal01 ";check(BeamMachineInfo.Form(beam)==LinacForm.Ring&&BeamMachineInfo.UsesLocalRingHint(beam),"User-confirmed Hal prefix selects local ring schematic");
+        check(BeamMachineInfo.Detail(beam).Contains("Local machine-name rule"),"Local fallback provenance remains explicit");
+        beam.ManufacturerModelName="Accela";check(BeamMachineInfo.Form(beam)==LinacForm.CArm&&!BeamMachineInfo.UsesLocalRingHint(beam),"Explicit C-arm model overrides conflicting local alias");
+        beam.ManufacturerModelName="";beam.TreatmentMachineName="DUAL-LAYER";check(BeamMachineInfo.Form(beam)==LinacForm.Unknown,"Dual layer count alone does not infer ring identity");
+        beam.TreatmentMachineName="OTHER-Hal01";check(BeamMachineInfo.Form(beam)==LinacForm.Unknown,"Local ring prefix must start the machine name");
+        beam.TreatmentMachineName="hal02";check(BeamMachineInfo.Form(beam)==LinacForm.Ring,"Local machine prefix is case insensitive");
+        beam.ManufacturerModelName="ARTISTE";check(BeamMachineInfo.Form(beam)==LinacForm.CArm,"ARTISTE model from legacy archive overrides local name hint");
         Action<Action,string> reject=(run,label)=>{bool failed=false;try{run();}catch(ArgumentException){failed=true;}catch(NotSupportedException){failed=true;}check(failed,label);};
         reject(()=>Load(new[]{Definition(1),Definition(1)},Cp(Opening(1,5))),"Duplicate device rejected");
         reject(()=>Load(new[]{Definition(1)},Cp(Opening(2,5))),"Unknown device reference rejected");

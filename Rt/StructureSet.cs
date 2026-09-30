@@ -5,7 +5,7 @@ using Dicom;
 namespace QuickLook.DicomRT
 {
     public sealed class Contour { public List<Vec3> Points=new List<Vec3>(); public string GeometricType; public List<string> ReferencedSops=new List<string>(); }
-    public sealed class StructureRoi { public int Number; public string Name,FrameUid,InterpretedType; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true; }
+    public sealed class StructureRoi { public int Number; public string Name,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true; }
     public sealed class StructureSet
     {
         public DicomEntry Entry; public List<StructureRoi> Rois=new List<StructureRoi>(); public HashSet<string> ReferencedSeries=new HashSet<string>();
@@ -17,6 +17,7 @@ namespace QuickLook.DicomRT
             {
                 int n=RtDicom.Int(item,DicomTag.ROINumber,-1); if(n<0 || rois.ContainsKey(n)) continue;
                 var roi=new StructureRoi {Number=n,Name=RtDicom.Text(item,DicomTag.ROIName,"ROI "+n),FrameUid=RtDicom.Text(item,DicomTag.ReferencedFrameOfReferenceUID),Red=255,Green=210,Blue=70};
+                roi.StructureSopUid=RtDicom.Text(d,DicomTag.SOPInstanceUID,entry.SopUid);
                 rois.Add(n,roi); result.Rois.Add(roi);
             }
             foreach(var observation in RtDicom.Items(d,DicomTag.RTROIObservationsSequence))

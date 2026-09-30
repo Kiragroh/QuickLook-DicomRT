@@ -24,6 +24,13 @@ internal static class AccelaMachineScenarios
                 check(ReferenceEquals(host.Children[0],expected)&&ReferenceEquals(patient,Get<Model3DGroup>(widget,"patientHost").Children[0]),"120 CP changes retain "+model+" machine and patient meshes");
                 check(Get<AxisAngleRotation3D>(widget,"collimatorRotation").Angle==238,"Collimator marker physically rotates on "+model+" head");
             }
+            var local=new PlanBeam{TreatmentMachineName="Hal01",PatientPosition="HFS"};
+            set.Invoke(widget,new object[]{local,"HEAD",false});
+            check(ReferenceEquals(Get<Model3DGroup>(widget,"machineHost").Children[0],Get<Model3DGroup>(widget,"ring")),"Hal prefix switches an unspecified model to ring");
+            check(Get<TextBlock>(widget,"note").Text.Contains("Hal name hint"),"Local ring hint is visibly distinguished from model metadata");
+            var explicitModel=new PlanBeam{TreatmentMachineName="Hal01",ManufacturerModelName="Accela",PatientPosition="HFS"};
+            set.Invoke(widget,new object[]{explicitModel,"HEAD",false});
+            check(ReferenceEquals(Get<Model3DGroup>(widget,"machineHost").Children[0],Get<Model3DGroup>(widget,"cArm")),"Explicit model overrides the local prefix in the live widget");
         }
     }
 }

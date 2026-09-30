@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using QuickLook.DicomRT;
@@ -18,7 +18,7 @@ class Program
  roi.Contours[0].GeometricType="OPEN_PLANAR";Check(ThreeDGeometry.VoxelizeRoi(roi,Matrix4.Identity,32,CancellationToken.None,out why)==null,"open contour rejects volumetric surface");Check(!string.IsNullOrEmpty(why),"fallback explains limitation");
  var excessive=new StructureRoi();for(int i=0;i<2050;i++)excessive.Contours.Add(Square(0,10,i%2));Check(ThreeDGeometry.VoxelizeRoi(excessive,Matrix4.Identity,32,CancellationToken.None,out why)==null,"contour input allocation bound");
  bool cancelled=false;try{ThreeDGeometry.Isosurface(v,p=>v.Sample(p),.5,16,new CancellationToken(true));}catch(OperationCanceledException){cancelled=true;}Check(cancelled,"mesh cancellation");
- SurfaceDetailTests.Run();QualityTests.Run();AbsoluteDoseTests.Run();ContextTests.Run();FocusInteractionTests.Run();SliceGuideTests.Run();PreloadWorkspaceTests.Run();IsocenterOverlayTests.Run();BeamFieldTests.Run();PopupSmoke.Run();UiSmoke.Run();Check(true,"WPF 3D background build and composition");
+ SurfaceDetailTests.Run();QualityTests.Run();AbsoluteDoseTests.Run();ContextTests.Run();FocusInteractionTests.Run();SliceGuideTests.Run();PreloadWorkspaceTests.Run();TargetGroupingTests.Run();IsocenterOverlayTests.Run();BeamFieldTests.Run();PopupSmoke.Run();UiSmoke.Run();Check(true,"WPF 3D background build and composition");
  Console.WriteLine("PASS 3D checks: "+count);return 0;
  }catch(Exception e){Console.WriteLine("FAIL 3D: "+e.Message);return 1;}}
 }

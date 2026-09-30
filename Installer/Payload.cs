@@ -18,7 +18,7 @@ namespace QuickLook.DicomRT.Installer
     }
     public static class Payload
     {
-        public const string Version="0.2.33";
+        public const string Version="0.2.34";
         const long MaxFileBytes=32L*1024*1024, MaxPackageBytes=64L*1024*1024;
         public static readonly string[] RequiredNames={"Dicom.Core.dll","QuickLook.DicomRT.Core.dll","QuickLook.DicomRT.Rt.dll","QuickLook.DicomRT.Viewer.dll","QuickLook.Plugin.DicomRT.dll","QuickLook.Plugin.Metadata.config","README.md","THIRD_PARTY.md","fo-dicom-MS-PL.html","Cyotek.Drawing.BitmapFont.dll","HelixToolkit.dll","HelixToolkit.Wpf.SharpDX.dll","Microsoft.Extensions.Logging.Abstractions.dll","SharpDX.dll","SharpDX.D3DCompiler.dll","SharpDX.Direct2D1.dll","SharpDX.Direct3D11.dll","SharpDX.Direct3D9.dll","SharpDX.DXGI.dll","SharpDX.Mathematics.dll","System.Buffers.dll","System.Memory.dll","System.Numerics.Vectors.dll","System.Runtime.CompilerServices.Unsafe.dll","HelixToolkit-LICENSE.txt","SharpDX-LICENSE.txt","Cyotek-LICENSE.txt","Microsoft-Logging-LICENSE.txt","Microsoft-Runtime-LICENSE.txt","Microsoft-Runtime-NOTICES.txt","Microsoft-Logging-NOTICES.txt"};
         static readonly HashSet<string> Allowed=new HashSet<string>(RequiredNames.Concat(new[]{"Dicom.Native.dll","Dicom.Native64.dll","manifest.json"}),StringComparer.OrdinalIgnoreCase);

@@ -17,7 +17,7 @@ internal static class ContextTests
  public static void Run()
  {
   foreach(string name in new[]{"BODY"," external "})Check(!ThreeDGeometry.DisplayRoi(new StructureRoi{Name=name},true),"untyped external fallback excluded");
-  Check(ThreeDGeometry.DisplayRoi(new StructureRoi{Name="BODY",InterpretedType="ORGAN"},true),"explicit non-external type wins over name");
+  Check(!ThreeDGeometry.DisplayRoi(new StructureRoi{Name="BODY",InterpretedType="ORGAN"},true),"named whole-body contour remains excluded from organ group");
   Check(!ThreeDGeometry.DisplayRoi(new StructureRoi{Name="Brain",InterpretedType="ORGAN"},false),"organ requires explicit type switch");
   Check(ThreeDGeometry.RoiOpacityScale("PTV",new Vec3(100,100,100),new Vec3(1,1,1),true)==1,"target opacity unchanged");
   Check(ThreeDGeometry.RoiOpacityScale("ORGAN",new Vec3(100,100,100),new Vec3(20,20,20),true)==.18,"large enclosing organ is faint");

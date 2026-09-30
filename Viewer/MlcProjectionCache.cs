@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -20,7 +20,7 @@ namespace QuickLook.DicomRT
         readonly object gate=new object();
         readonly ProjectionMemoryCache<BitmapSource> drrs=new ProjectionMemoryCache<BitmapSource>(160,image=>image.PixelWidth*image.PixelHeight*2);
         readonly ProjectionMemoryCache<MlcProjectionFrame> targets=new ProjectionMemoryCache<MlcProjectionFrame>(96,f=>f.EstimatedBytes),others=new ProjectionMemoryCache<MlcProjectionFrame>(128,f=>f.EstimatedBytes);
-        ProjectionMemoryCache<MlcProjectionFrame> Store(RoiOverlay roi)=>string.Equals(roi.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?targets:others;
+        ProjectionMemoryCache<MlcProjectionFrame> Store(RoiOverlay roi)=>roi.Category==RoiCategory.Target?targets:others;
         readonly MlcProjectionRenderer foreground=new MlcProjectionRenderer(),background=new MlcProjectionRenderer(),drrBackground=new MlcProjectionRenderer();
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
         string context,nearbyKey,playbackContext;bool disposed;
@@ -80,7 +80,7 @@ namespace QuickLook.DicomRT
         public void Configure(PlanData plan,RenderScene scene,Matrix4 map)
         {
             var ct=scene?.Entry?.Modality=="CT"?scene.Volume:null;
-            var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase)?0:string.Equals(r.Roi.InterpretedType,"ORGAN",StringComparison.OrdinalIgnoreCase)?1:2).ToArray();
+            var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>r.Category==RoiCategory.Target?0:r.Category==RoiCategory.Organ?1:2).ToArray();
             string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;playbackContext=null;playbackBuffer=null;
             warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;var progress=new PreparationProgress();Progress=progress;
             lock(gate){nearby=null;nearbyDrr=null;}
@@ -124,7 +124,7 @@ namespace QuickLook.DicomRT
             }return views.ToArray();
         }
         void TakeNearby(bool image,CancellationToken token){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}job?.Invoke(token);}
-        static bool IsTarget(RoiOverlay r)=>string.Equals(r.Roi.InterpretedType,"PTV",StringComparison.OrdinalIgnoreCase);
+        static bool IsTarget(RoiOverlay r)=>r.Category==RoiCategory.Target;
         static Task StartWarm(Task previous,CancellationToken token,Action work)=>Task.Run(async()=>{
             try{await previous.ConfigureAwait(false);}catch(OperationCanceledException){}catch(Exception){}
             token.ThrowIfCancellationRequested();await Task.Factory.StartNew(()=>{

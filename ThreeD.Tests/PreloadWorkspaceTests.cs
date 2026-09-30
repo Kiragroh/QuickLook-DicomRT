@@ -21,7 +21,7 @@ internal static class PreloadWorkspaceTests
  {
   SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
   using(var early=new ThreeDControl()){early.PreloadScene(new RenderScene{Entry=new DicomEntry{Modality="RTPLAN"},Doses=new List<DoseOverlay>{new DoseOverlay{Dose=new DoseGrid{Maximum=20,Units="GY"}}}});Check(Get<CheckBox>(early,"dose").IsChecked==false,"incremental RTPLAN dose discovery does not enable a dose surface before images/structures arrive");}
-  var rois=new[]{"PTV","ORGAN","SUPPORT","EXTERNAL","CTV"}.Select(t=>{var r=QualityTests.Sphere();r.InterpretedType=t;r.FrameUid="test";return r;}).ToArray();
+  var rois=new[]{"PTV","ORGAN","SUPPORT","EXTERNAL","AVOIDANCE"}.Select(t=>{var r=QualityTests.Sphere();r.InterpretedType=t;r.FrameUid="test";return r;}).ToArray();
   using(var viewer=new ViewerControl())
   {
    Set(viewer,"volume",new VolumeData{Width=24,Height=24,Depth=24,Origin=new Vec3(-12,-12,-12),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1),SpacingX=1,SpacingY=1,SpacingZ=1,Values=new float[24*24*24]});

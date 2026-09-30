@@ -209,8 +209,12 @@ internal static class Program
     }
     public static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--linac-archive")return LinacArchiveAudit.Run(args[1]);
+        if(args.Length==2&&args[0]=="--linac-plan-candidates")return LinacArchiveAudit.Run(args[1],true);
+        if(args.Length==2&&args[0]=="--roi-name-candidates")return RoiArchiveAudit.Run(args[1]);
         if(args.Length==2&&args[0]=="--accela-fixtures")return EnhancedDeviceScenarios.Inspect(args[1]);
         EnhancedDeviceScenarios.Run(Assert);
+        RoiClassificationScenarios.Run(Assert);
         if(args.Length==2 && args[0]=="--private-beam"){try{BeamProjectionScenarios.Private(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private beam: "+ex.GetType().Name);return 1;}}
         if(args.Length==2 && args[0]=="--private-mlc") {try {PrivateMlcAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private MLC: "+ex.GetType().Name);return 1;}}
         if(args.Length==2 && args[0]=="--private") {try {PrivateAcceptance(args[1]);return 0;}catch(Exception ex){Console.WriteLine("FAIL private acceptance: "+ex.GetType().Name);return 1;}}

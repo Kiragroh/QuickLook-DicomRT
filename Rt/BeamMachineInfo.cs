@@ -5,16 +5,21 @@ namespace QuickLook.DicomRT
     public enum LinacForm { Unknown, CArm, Ring }
     public static class BeamMachineInfo
     {
-        // Model identity is independent of MLC layer count. Local station aliases
-        // and filenames do not establish a manufacturer/model.
-        public static LinacForm Form(PlanBeam beam)
+        // Prefer explicit model metadata. The user-confirmed local Hal* convention
+        // is a schematic fallback only: never infer manufacturer/model or MLC geometry.
+        static LinacForm ModelForm(PlanBeam beam)
         {
             var model=(beam?.ManufacturerModelName??"").ToUpperInvariant();
             var tokens=model.Split(new[]{' ','-','_','/',','},StringSplitOptions.RemoveEmptyEntries);
             if(tokens.Any(t=>t=="HALCYON"||t=="ETHOS"))return LinacForm.Ring;
-            if(tokens.Any(t=>t=="ACCELA"||t=="TRUEBEAM"||t=="CLINAC"||t=="VERSA"||t=="SYNERGY"))return LinacForm.CArm;
+            if(tokens.Any(t=>t=="ACCELA"||t=="TRUEBEAM"||t=="CLINAC"||t=="VERSA"||t=="SYNERGY"||t=="ARTISTE"))return LinacForm.CArm;
             return LinacForm.Unknown;
         }
+        public static bool UsesLocalRingHint(PlanBeam beam) => beam!=null && ModelForm(beam)==LinacForm.Unknown &&
+            (beam.TreatmentMachineName??"").Trim().StartsWith("Hal",StringComparison.OrdinalIgnoreCase);
+        public static LinacForm Form(PlanBeam beam) => UsesLocalRingHint(beam)?LinacForm.Ring:ModelForm(beam);
+        public static string FormBasis(PlanBeam beam) => UsesLocalRingHint(beam)?"Local machine-name rule: Hal prefix (ring schematic)":
+            Form(beam)==LinacForm.Unknown?"Model not recognized: generic schematic":"Model-based "+(Form(beam)==LinacForm.Ring?"ring":"C-arm")+" schematic";
         public static string Label(PlanBeam beam)
         {
             if(beam==null)return "Machine not specified";
@@ -28,7 +33,7 @@ namespace QuickLook.DicomRT
             return Label(beam)+"\nManufacturer: "+(string.IsNullOrWhiteSpace(beam.Manufacturer)?"not specified":beam.Manufacturer)+
                 "\n"+layers+" MLC layer(s) · "+(beam.EnhancedDevices?"Enhanced indexed devices":"Classic devices")+
                 (beam.DynamicCollimator?"\nDynamic collimator · CP preview, not delivery timing":"")+
-                "\n"+(Form(beam)==LinacForm.Unknown?"Model not recognized: generic schematic":"Model-based "+(Form(beam)==LinacForm.Ring?"ring":"C-arm")+" schematic")+"; not machine dimensions";
+                "\n"+FormBasis(beam)+"; not machine dimensions";
         }
     }
 }

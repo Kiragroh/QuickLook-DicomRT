@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
 namespace QuickLook.DicomRT
 {
- public sealed class RoiOverlay { public StructureRoi Roi {get;set;} public Matrix4 RoiToImage {get;set;} = Matrix4.Identity; }
+ public sealed class RoiOverlay { public StructureRoi Roi {get;set;} public PlanData ClassificationPlan {get;set;} public RoiCategory Category=>RoiClassification.Category(Roi,ClassificationPlan); public Matrix4 RoiToImage {get;set;} = Matrix4.Identity; }
  public sealed class DoseOverlay { public DoseGrid Dose {get;set;} public Matrix4 ImageToDose {get;set;} = Matrix4.Identity; }
  public sealed class RenderScene
  {
@@ -23,7 +23,7 @@ namespace QuickLook.DicomRT
   public double[] IsoLevels {get;set;} = new double[]{10,20,30,40,50,60,70,80,90,100};
   public bool AbsoluteIsodoses {get;set;} public double IsoColorMaximum {get;set;} = 100;
   public Dictionary<double,int> IsoColors {get;set;} = new Dictionary<double,int>();
-  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());return s; }
+  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,ClassificationPlan=x.ClassificationPlan,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());return s; }
   // A pending scroll keeps the complete previous frame, including its own geometry and labels.
   internal bool SameImageSource(RenderScene other)
   {

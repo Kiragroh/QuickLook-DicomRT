@@ -57,6 +57,7 @@ class Program
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             AccelaMachineScenarios.Run(Check);
+            RoiGroupingScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);
             AbsoluteIsodoseScenarios.Run(Check);TagDetailScenarios.Run(Check);IsodosePreferenceScenarios.Run(Check,preferenceScope.DirectoryPath);
