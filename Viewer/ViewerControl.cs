@@ -18,7 +18,7 @@ namespace QuickLook.DicomRT
         private readonly ComboBox series = Theme.Combo(), planes = Theme.Combo(150), tagSource = Theme.Combo(), plans = Theme.Combo();
         private readonly TextBox tagSearch = new TextBox { Margin = new Thickness(0, 8, 0, 8), Padding = new Thickness(7), MinHeight = 30, ToolTip = "Search tag number, name, value or sequence path" };
         private readonly TextBox roiSearch = new TextBox { Margin = new Thickness(0, 6, 0, 6), Padding = new Thickness(6), MinHeight = 28, ToolTip = "Filter structures" };
-        private readonly TextBlock status = Theme.Text("Opening DICOM file …"), position = Theme.Text(""), registrationStatus = Theme.Text(""), rtSummary = Theme.Text("");
+        private readonly TextBlock status = Theme.Text("Opening DICOM file …"), position = Theme.Text(""), registrationStatus = Theme.Text(""), rtSummary = Theme.Text(""), machineSummary=Theme.Text("",11,Theme.Accent);
         private readonly TextBlock tagStatus = Theme.Text("", 11, Theme.Muted);
         private readonly StackPanel roiList = new StackPanel(), doseList = new StackPanel(), sumMembers = new StackPanel();
         private TabControl rtTabs;
@@ -105,7 +105,7 @@ namespace QuickLook.DicomRT
         private UIElement BuildRtPanel()
         {
             var outer = new DockPanel(); var top = new StackPanel();
-            top.Children.Add(BuildPlanPicker());top.Children.Add(BuildViewButtons());top.Children.Add(rtSummary); top.Children.Add(registrationStatus); DockPanel.SetDock(top, Dock.Top); outer.Children.Add(top);
+            top.Children.Add(BuildPlanPicker());top.Children.Add(BuildViewButtons());top.Children.Add(rtSummary);top.Children.Add(machineSummary); top.Children.Add(registrationStatus); DockPanel.SetDock(top, Dock.Top); outer.Children.Add(top);
             var tabs = rtTabs = new TabControl { Background = Theme.Panel, BorderThickness = new Thickness(0), Margin = new Thickness(0, 8, 0, 0) };
             var roiPanel = new DockPanel(); var filters = new StackPanel(); filters.Children.Add(Theme.Text("Find structures", 10, Theme.Muted)); filters.Children.Add(roiSearch); var toggles = new WrapPanel();
             Button all = Theme.Button("All"), none = Theme.Button("None"); all.Click += (s, e) => SetRois(true); none.Click += (s, e) => SetRois(false); toggles.Children.Add(all); toggles.Children.Add(none); filters.Children.Add(toggles); filters.Children.Add(Theme.Text("Click a name to locate the structure", 10, Theme.Muted)); DockPanel.SetDock(filters, Dock.Top); roiPanel.Children.Add(filters); roiPanel.Children.Add(new ScrollViewer { Content = roiList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });

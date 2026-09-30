@@ -28,6 +28,10 @@ namespace QuickLook.DicomRT
         private void RefreshRt()
         {
             if (disposed) return;
+            var machines=selectedPlan?.Beams.Select(BeamMachineInfo.Label).Distinct().ToArray()??new string[0];
+            machineSummary.Text=string.Join(" / ",machines);machineSummary.TextWrapping=TextWrapping.Wrap;
+            machineSummary.Visibility=!sumMode&&machines.Length>0?Visibility.Visible:Visibility.Collapsed;
+            machineSummary.ToolTip=string.Join("\n\n",selectedPlan?.Beams.Select(BeamMachineInfo.Detail).Distinct()??Enumerable.Empty<string>());
             BuildRoiList(); BuildDoseList(); UpdateOverlayChoices(); if(workspaceMode=="DVH"){UpdateDvhChoices();UpdateDvh();} if(!sumMode&&workspaceMode=="MLC"&&selectedPlan!=centralPlan)SetWorkspace("MLC");
             int regFiles = catalog?.Files.Count(f => f.Modality == "REG") ?? 0;
             var frames = SelectedStructures.SelectMany(s => s.Rois).Select(r => r.FrameUid).Concat(SelectedDoses.Select(d => d.FrameUid)).Where(f => !string.IsNullOrEmpty(f)).Distinct().ToArray();

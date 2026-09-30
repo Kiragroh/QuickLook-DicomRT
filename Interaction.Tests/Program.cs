@@ -17,6 +17,7 @@ class Program
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--accela-phantom")return AccelaPhantomAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-load")return PrivateLoadAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-sum")return PrivateSumAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--playback-buffer")return PlaybackBufferBenchmark.Run(args[1]);
@@ -55,6 +56,7 @@ class Program
             PlaybackReplayScenarios.Run(Check);InteractiveContourScenarios.Run(Check);ProjectionWorkScenarios.Run(Check);NavigationProgressScenarios.Run(Check);AvatarScenarios.Run(Check);ThreeDLinacScenarios.Run(Check);DrrWindowScenarios.Run(Check);BeamMetersetInfoScenarios.Run(Check);FieldPlaybackCacheScenarios.Run(Check);DvhCurveScenarios.Run(Check);OutlineIndicatorScenarios.Run(Check);SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
+            AccelaMachineScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);
             AbsoluteIsodoseScenarios.Run(Check);TagDetailScenarios.Run(Check);IsodosePreferenceScenarios.Run(Check,preferenceScope.DirectoryPath);

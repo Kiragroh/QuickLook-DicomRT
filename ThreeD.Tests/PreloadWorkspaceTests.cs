@@ -54,8 +54,10 @@ internal static class PreloadWorkspaceTests
     Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"layout change retains exact prepared geometry without rebuild");
     Check(Get<CheckBox>(control,"organs").IsChecked==true&&Math.Abs(Get<Slider>(control,"opacity").Value-.43)<1e-8&&Get<ComboBox>(control,"doseLevel").SelectedIndex==2,"MPR retains filter, opacity and dose level");
     Check(Get<double>(control,"yaw")==.73&&Get<double>(control,"distance")==234,"layout change retains manual camera");
-    foreach(string field in new[]{"structures","organs","allRois","bone","skin","dose"})Check(Get<CheckBox>(control,field).IsVisible,"same "+field+" control available in MPR");
+    var settingsPopup=Get<System.Windows.Controls.Primitives.Popup>(control,"compactSettings");Check(!settingsPopup.IsOpen,"MPR settings start collapsed");settingsPopup.IsOpen=true;window.UpdateLayout();
+    foreach(string field in new[]{"structures","organs","allRois","bone","skin","dose"})Check(Get<CheckBox>(control,field).IsVisible,"same "+field+" control available in MPR settings popup");
     foreach(string field in new[]{"support","external"})Check(!Get<CheckBox>(control,field).IsVisible,field+" remains absent in MPR");
+    settingsPopup.IsOpen=false;
     Call(viewer,"SetWorkspace","3D");Ready(control);Check(ReferenceEquals(prepared,Get<object>(control,"prepared"))&&generation==Get<int>(control,"generation"),"return to full view retains meshes");
     Call(viewer,"SetWorkspace","Bild");Get<ComboBox>(viewer,"planes").SelectedItem="Native";Call(viewer,"SetWorkspace","3D");Ready(control);Check(ReferenceEquals(prepared,Get<object>(control,"prepared")),"leaving MPR for native image and returning retains meshes");
    }

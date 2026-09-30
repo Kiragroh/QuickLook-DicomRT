@@ -10,6 +10,7 @@ namespace QuickLook.DicomRT
 {
     public class DicomCatalog
     {
+        static DicomCatalog(){DicomRtDictionary.EnsureLoaded();}
         public List<DicomEntry> Files = new List<DicomEntry>();
         public List<DicomEntry> DeferredImages = new List<DicomEntry>();
         public List<ImageStack> Stacks = new List<ImageStack>();

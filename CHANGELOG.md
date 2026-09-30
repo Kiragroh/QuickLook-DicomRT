@@ -2,6 +2,13 @@
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
+## 0.2.33 — Machine-aware dual-layer previews
+
+- **Machine identity:** treatment machine name/model in the RT panel, MLC details and orientation model.
+- **Ring and C-arm models:** translucent Halcyon/Ethos cutaway ring and open C-arm gantry for Accela and other recognized models. The moving head and collimator marker follow the shared CP in MLC, 3D and 2 × 2 without rebuilding meshes.
+- **Enhanced dual-layer RTPLAN:** indexed variable paired leaves in IEC X/Y, including Implicit-VR files and dynamic collimator rotation. Nonzero offsets and unsupported device types are explicitly rejected.
+- **Complete test phantom:** synthetic CT, seven structures, two dynamic dual-layer arcs and analytic display dose. Tested alongside ten reconstructed/synthetic plan fixtures. These are not original Accela exports or clinically calculated doses. [Scope and tests](docs/accela-support.md).
+
 ## 0.2.32 — Visible playback preparation
 
 - The selected beam prepares the complete sequence of intermediate DRR/outline views, rather than relying only on a short lookahead. Initial playback waits for this field buffer instead of repeatedly stopping to compute each new angle.

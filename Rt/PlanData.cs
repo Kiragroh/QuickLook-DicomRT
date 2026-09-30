@@ -23,6 +23,8 @@ namespace QuickLook.DicomRT
     }
     public sealed class PlanBeam
     {
+        public string TreatmentMachineName="",Manufacturer="",ManufacturerModelName="";
+        public bool EnhancedDevices,DynamicCollimator;
         public int Number; public string Name; public Vec3 Isocenter; public double Gantry,Collimator,Couch,Meterset;
         // Empty when the referenced setup is absent or ambiguous; never assume HFS.
         public string PatientPosition="",TreatmentDeliveryType="";
@@ -45,12 +47,18 @@ namespace QuickLook.DicomRT
             {int number=RtDicom.Int(beam,DicomTag.ReferencedBeamNumber,-1);double value=RtDicom.Number(beam,DicomTag.BeamMeterset); if(!metersets.ContainsKey(number))metersets[number]=new List<double>();metersets[number].Add(value);}
             foreach(var item in RtDicom.Items(d,DicomTag.BeamSequence))
             {
-                if(RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES")throw new NotSupportedException("Enhanced beam limiting device geometry is not supported.");
+                bool enhanced=RtDicom.Text(item,new DicomTag(0x3008,0x00a3))=="YES";
+                if(!enhanced&&item.Contains(new DicomTag(0x3008,0x00a1)))throw new NotSupportedException("Enhanced devices require a readable YES definition flag.");
                 int number=RtDicom.Int(item,DicomTag.BeamNumber,-1);
                 var beam=new PlanBeam {Number=number,Name=RtDicom.Text(item,DicomTag.BeamName,"Beam "+number),PrimaryDosimeterUnit=RtDicom.Text(item,DicomTag.PrimaryDosimeterUnit),SourceAxisDistance=RtDicom.Number(item,DicomTag.SourceAxisDistance),Meterset=double.NaN,FinalCumulativeMetersetWeight=RtDicom.Number(item,DicomTag.FinalCumulativeMetersetWeight),PatientPosition=PatientSetupPosition(d,item),TreatmentDeliveryType=RtDicom.Text(item,DicomTag.TreatmentDeliveryType)};
                 List<double> mu; if(metersets.TryGetValue(number,out mu) && mu.Count>0 && mu.All(v=>RtDicom.Finite(v) && Math.Abs(v-mu[0])<1e-6))beam.Meterset=mu[0];
+                beam.TreatmentMachineName=RtDicom.Text(item,DicomTag.TreatmentMachineName);
+                beam.Manufacturer=RtDicom.Text(item,DicomTag.Manufacturer);
+                beam.ManufacturerModelName=RtDicom.Text(item,DicomTag.ManufacturerModelName);
+                beam.EnhancedDevices=enhanced;
                 var leafDefinitions=new List<MlcLayer>();
-                foreach(var device in RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))
+                if(enhanced)leafDefinitions=EnhancedParallelDevices.Definitions(item);
+                foreach(var device in enhanced?Enumerable.Empty<DicomDataset>():RtDicom.Items(item,DicomTag.BeamLimitingDeviceSequence))
                 {
                     string type=RtDicom.Text(device,DicomTag.RTBeamLimitingDeviceType);
                     if(IsMlc(type))
@@ -74,7 +82,8 @@ namespace QuickLook.DicomRT
                         GantryRotationDirection=RtDicom.Text(cp,DicomTag.GantryRotationDirection,previous?.GantryRotationDirection??""),
                         CollimatorRotationDirection=RtDicom.Text(cp,DicomTag.BeamLimitingDeviceRotationDirection,previous?.CollimatorRotationDirection??""),
                         CouchRotationDirection=RtDicom.Text(cp,DicomTag.PatientSupportRotationDirection,previous?.CouchRotationDirection??"")};
-                    var updates=RtDicom.Items(cp,DicomTag.BeamLimitingDevicePositionSequence).ToArray();
+                    if(enhanced)EnhancedParallelDevices.Apply(cp,current.MlcLayers,previous==null);
+                    var updates=(enhanced?Enumerable.Empty<DicomDataset>():RtDicom.Items(cp,DicomTag.BeamLimitingDevicePositionSequence)).ToArray();
                     var occurrences=new Dictionary<string,int>();
                     foreach(var device in updates)
                     {
@@ -107,6 +116,7 @@ namespace QuickLook.DicomRT
                 if(beam.ControlPoints.Count>0)
                 {var first=beam.ControlPoints[0];beam.Isocenter=first.Isocenter;beam.Gantry=first.Gantry;beam.Collimator=first.Collimator;beam.Couch=first.Couch;}
                 else {beam.Isocenter=new Vec3(double.NaN,double.NaN,double.NaN);beam.Gantry=beam.Collimator=beam.Couch=double.NaN;}
+                beam.DynamicCollimator=beam.ControlPoints.Zip(beam.ControlPoints.Skip(1),(a,b)=>RtDicom.Finite(a.Collimator)&&RtDicom.Finite(b.Collimator)&&(Math.Abs(((b.Collimator-a.Collimator)%360+540)%360-180)>1e-6||a.CollimatorRotationDirection=="CW"||a.CollimatorRotationDirection=="CC")).Any(x=>x);
                 result.Beams.Add(beam);
             }
             return result;

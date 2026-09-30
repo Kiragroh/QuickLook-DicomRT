@@ -16,6 +16,6 @@ namespace QuickLook.DicomRT
         { double[] value; return d != null && d.TryGetValues(tag,out value) ? value : new double[0]; }
         public static bool Finite(double n) => !double.IsNaN(n) && !double.IsInfinity(n);
         public static Vec3 Vector(double[] a, Vec3 fallback) => a.Length==3 && Finite(a[0]) && Finite(a[1]) && Finite(a[2]) ? new Vec3(a[0],a[1],a[2]) : fallback;
-        public static DicomDataset Full(DicomEntry entry) => string.IsNullOrEmpty(entry.Path) ? entry.Dataset : DicomFile.Open(entry.Path).Dataset;
+        public static DicomDataset Full(DicomEntry entry) {DicomRtDictionary.EnsureLoaded();return string.IsNullOrEmpty(entry.Path) ? entry.Dataset : DicomFile.Open(entry.Path).Dataset;}
     }
 }

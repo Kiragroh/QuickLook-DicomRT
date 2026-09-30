@@ -14,7 +14,9 @@ namespace QuickLook.DicomRT
         readonly Viewport3D viewport=new Viewport3D();
         readonly AxisAngleRotation3D gantryRotation=new AxisAngleRotation3D(new Vector3D(0,1,0),0);
         readonly AxisAngleRotation3D couchRotation=new AxisAngleRotation3D(new Vector3D(0,0,1),0);
-        readonly TextBlock angles,note;
+        readonly TextBlock angles,note,machineLabel;
+        readonly Model3DGroup machineHost=new Model3DGroup(),cArm=new Model3DGroup(),ring=new Model3DGroup();
+        readonly AxisAngleRotation3D collimatorRotation=new AxisAngleRotation3D(new Vector3D(0,0,1),0);
         readonly Model3DGroup patientHost=new Model3DGroup();
         readonly Model3DGroup couchTop=new Model3DGroup();
         readonly CollimatorIndicator collimator=new CollimatorIndicator();
@@ -25,7 +27,7 @@ namespace QuickLook.DicomRT
             System.ComponentModel.PropertyChangedEventManager.AddHandler(avatarPreferences,AvatarChanged,"Selected");
             IsHitTestVisible=false;CornerRadius=new CornerRadius(8);Background=Theme.Brush("#B8111314");Padding=new Thickness(9,5,9,5);
             var root=new Grid();root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});root.RowDefinitions.Add(new RowDefinition());root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});Child=root;
-            angles=Theme.Text("LINAC · IEC",10,Theme.Muted);var heading=new StackPanel();heading.Children.Add(angles);heading.Children.Add(collimator);root.Children.Add(heading);Grid.SetRow(viewport,1);root.Children.Add(viewport);
+            angles=Theme.Text("LINAC · IEC",10,Theme.Muted);var heading=new StackPanel();machineLabel=Theme.Text("Machine not specified",10,Theme.Accent);machineLabel.TextTrimming=TextTrimming.CharacterEllipsis;heading.Children.Add(machineLabel);heading.Children.Add(angles);heading.Children.Add(collimator);root.Children.Add(heading);Grid.SetRow(viewport,1);root.Children.Add(viewport);
             var footer=new StackPanel();Grid.SetRow(footer,2);root.Children.Add(footer);
             var legend=new TextBlock{FontSize=8,HorizontalAlignment=HorizontalAlignment.Center};
             legend.Inlines.Add(new System.Windows.Documents.Run("L hand / foot"){Foreground=Theme.Brush(PatientOrientationGlyph.LeftColor)});
@@ -38,11 +40,12 @@ namespace QuickLook.DicomRT
             scene.Children.Add(new DirectionalLight(Color.FromRgb(99,126,146),new Vector3D(1,-.3,-.2)));
             System.Windows.Media.Media3D.Material steel=Material("#607484"),edge=Material("#8C9DA9"),dark=Material("#293943"),accent=Material("#70B6C9"),gold=Material("#F2CB6A");
             // Fixed rear support and ground plinth.
-            Box(scene,new Point3D(0,1.28,-1.24),.94,.73,.14,dark);
-            Box(scene,new Point3D(0,1.34,-.65),.56,.50,1.08,steel);
-            Box(scene,new Point3D(0,1.05,-.26),.67,.12,.53,edge);
-            Sphere(scene,new Point3D(0,1.23,0),.33,.18,.33,dark);
-            var gantry=new Model3DGroup{Transform=new RotateTransform3D(gantryRotation)};scene.Children.Add(gantry);
+            scene.Children.Add(machineHost);machineHost.Children.Add(cArm);
+            Box(cArm,new Point3D(0,1.28,-1.24),.94,.73,.14,dark);
+            Box(cArm,new Point3D(0,1.34,-.65),.56,.50,1.08,steel);
+            Box(cArm,new Point3D(0,1.05,-.26),.67,.12,.53,edge);
+            Sphere(cArm,new Point3D(0,1.23,0),.33,.18,.33,dark);
+            var gantry=new Model3DGroup{Transform=new RotateTransform3D(gantryRotation)};cArm.Children.Add(gantry);
             Box(gantry,new Point3D(0,1.28,.51),.39,.35,1.16,steel);
             Box(gantry,new Point3D(0,.69,1.06),.46,1.28,.35,steel);
             Box(gantry,new Point3D(0,.17,1.025),.62,.57,.44,edge);
@@ -51,6 +54,31 @@ namespace QuickLook.DicomRT
             // Dashed central ray passes exactly through the isocenter; no field cone.
             var beam=Material("#FFE16B",false);
             for(double z=-.18;z<.75;z+=.105)Rod(gantry,new Point3D(0,0,z),new Point3D(0,0,Math.Min(z+.060,.75)),.012,beam);
+            AddCollimatorMarker(gantry,.74);
+            // Low-poly cutaway housing: the upper front sector stays open,
+            // with a translucent rear shell. Build once, rotate only the head.
+            var shell=Material("#266FB9F4",false);var rim=Material("#7189A8BC",false);
+            for(int i=0;i<48;i++){
+                double a=i*Math.PI/24,b=(i+1)*Math.PI/24;
+                foreach(double y in new[]{-.36,.38}){
+                    if(y<0&&i<14)continue;
+                    Rod(ring,new Point3D(1.28*Math.Sin(a),y,1.28*Math.Cos(a)),new Point3D(1.28*Math.Sin(b),y,1.28*Math.Cos(b)),.025,rim);
+                }
+                if(i<14)continue;
+                var mesh=new MeshGeometry3D();
+                mesh.Positions.Add(new Point3D(1.30*Math.Sin(a),-.36,1.30*Math.Cos(a)));
+                mesh.Positions.Add(new Point3D(1.30*Math.Sin(b),-.36,1.30*Math.Cos(b)));
+                mesh.Positions.Add(new Point3D(1.30*Math.Sin(b),.38,1.30*Math.Cos(b)));
+                mesh.Positions.Add(new Point3D(1.30*Math.Sin(a),.38,1.30*Math.Cos(a)));
+                foreach(int vertex in new[]{0,1,2,0,2,3})mesh.TriangleIndices.Add(vertex);Add(ring,mesh,shell);
+            }
+            Box(ring,new Point3D(0,.10,-1.33),1.6,.9,.18,dark);
+            var ringHead=new Model3DGroup{Transform=new RotateTransform3D(gantryRotation)};ring.Children.Add(ringHead);
+            Box(ringHead,new Point3D(0,0,1.04),.45,.42,.31,edge);
+            Box(ringHead,new Point3D(0,0,.86),.28,.25,.05,accent);
+            Box(ringHead,new Point3D(0,0,-1.05),.65,.20,.10,dark);
+            for(double z=-.18;z<.83;z+=.105)Rod(ringHead,new Point3D(0,0,z),new Point3D(0,0,Math.Min(z+.060,.83)),.012,beam);
+            AddCollimatorMarker(ringHead,.82);
             for(int i=0;i<36;i++)
             {double a=i*Math.PI/18,b=a+.080;Rod(scene,new Point3D(1.16*Math.Sin(a),0,1.16*Math.Cos(a)),new Point3D(1.16*Math.Sin(b),0,1.16*Math.Cos(b)),.009,accent);}
             var support=new Model3DGroup{Transform=new RotateTransform3D(couchRotation)};scene.Children.Add(support);
@@ -64,8 +92,13 @@ namespace QuickLook.DicomRT
         {
             if(contextSet&&ReferenceEquals(contextBeam,beam)&&contextRegion==bodyRegion&&contextPosition==beam?.PatientPosition&&contextNoncoplanar==planNoncoplanar)return;
             contextSet=true;contextBeam=beam;contextRegion=bodyRegion;contextPosition=beam?.PatientPosition;contextNoncoplanar=planNoncoplanar;
+            machineLabel.Text=BeamMachineInfo.Label(beam)+(beam?.DynamicCollimator==true?" · Dynamic collimator":"");
+            machineLabel.ToolTip=BeamMachineInfo.Detail(beam);
+            var machine=BeamMachineInfo.Form(beam)==LinacForm.Ring?ring:cArm;
+            if(machineHost.Children.Count!=1||!ReferenceEquals(machineHost.Children[0],machine)){machineHost.Children.Clear();machineHost.Children.Add(machine);}
+            string schematic=BeamMachineInfo.Form(beam)==LinacForm.Unknown?"Generic schematic":BeamMachineInfo.Form(beam)==LinacForm.Ring?"Ring cutaway schematic":"C-arm schematic";
             patientHost.Children.Clear();var orientation=PatientOrientation.ToIec(beam?.PatientPosition);
-            if(orientation==null){BuildCouch(-1.05,.7);note.Text="Schematic · patient position unavailable / unsupported";return;}
+            if(orientation==null){BuildCouch(-1.05,.7);note.Text=schematic+" · patient position unavailable / unsupported";return;}
             bool noncoplanar=planNoncoplanar??beam.ControlPoints.Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);
             string cue;double anchor=PatientOrientation.SchematicAnchor(bodyRegion,noncoplanar,out cue);
             var head=orientation.Transform(new Vec3(0,0,.70-anchor));var feet=orientation.Transform(new Vec3(0,0,-1.05-anchor));BuildCouch(Math.Min(head.Y,feet.Y),Math.Max(head.Y,feet.Y));
@@ -74,7 +107,7 @@ namespace QuickLook.DicomRT
             var m=orientation.Values;
             transform.Children.Add(new MatrixTransform3D(new Matrix3D(m[0],m[4],m[8],0,m[1],m[5],m[9],0,m[2],m[6],m[10],0,0,0,0,1)));
             patient.Transform=transform;patientHost.Children.Add(patient);
-            note.Text="Schematic · "+beam.PatientPosition+" · "+cue;
+            note.Text=schematic+" · "+beam.PatientPosition+" · "+cue;
         }
         void BuildCouch(double low,double high)
         {
@@ -84,7 +117,16 @@ namespace QuickLook.DicomRT
             Box(couchTop,new Point3D(0,middle,-.80),.34,.38,1.08,Material("#607484"));
             Box(couchTop,new Point3D(0,middle,-1.25),.76,.72,.13,Material("#293943"));
         }
-        public void SetCollimator(double angle)=>collimator.Angle=angle;
+        void AddCollimatorMarker(Model3DGroup host,double z){
+            var marker=new Model3DGroup{Transform=new RotateTransform3D(collimatorRotation)};
+            var color=Material("#FFE16B",false);
+            Rod(marker,new Point3D(-.12,-.08,z),new Point3D(.12,-.08,z),.009,color);
+            Rod(marker,new Point3D(.12,-.08,z),new Point3D(.12,.08,z),.009,color);
+            Rod(marker,new Point3D(.12,.08,z),new Point3D(-.12,.08,z),.009,color);
+            Rod(marker,new Point3D(-.12,.08,z),new Point3D(-.12,-.08,z),.009,color);
+            Rod(marker,new Point3D(.12,0,z),new Point3D(.19,0,z),.014,color);host.Children.Add(marker);
+        }
+        public void SetCollimator(double angle){collimator.Angle=angle;collimatorRotation.Angle=BeamProjection.Finite(angle)?angle:0;}
         public void Set(double gantry,double couch)
         {
             bool valid=!(double.IsNaN(gantry)||double.IsInfinity(gantry)||double.IsNaN(couch)||double.IsInfinity(couch));
