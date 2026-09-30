@@ -36,7 +36,7 @@ namespace QuickLook.DicomRT
         async void SelectImageMode(string mode)
         {
             if(mode=="3D"){SetWorkspace("3D");return;}
-            if(mode!="Native"&&volume==null){status.Text="This view needs a loaded image volume.";return;}
+            if(mode!="Native"&&volume==null)status.Text="Waiting for a matching image volume · navigation remains available.";
             planes.SelectedItem=mode;SetWorkspace("Bild");if(mode=="Native"&&currentStack!=null)await MoveFocusAsync(focus);
         }
         void UpdateImageModeButtons()

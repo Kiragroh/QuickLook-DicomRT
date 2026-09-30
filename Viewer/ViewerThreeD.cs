@@ -5,7 +5,7 @@ namespace QuickLook.DicomRT
 {
  public sealed partial class ViewerControl
  {
-  private void OpenMpr(){if(volume==null){status.Text="MPR + 3D requires a loaded image volume.";return;}planes.SelectedItem="MPR + 3D";SetWorkspace("Bild");}
+  private void OpenMpr(){SelectImageMode("MPR + 3D");}
   private void EnsureThreeDView()
   {
    if(threeDView!=null)return;

@@ -14,7 +14,7 @@ try {
     Copy-Item README.md,THIRD_PARTY.md -Destination $stage
     Copy-Item -LiteralPath (Join-Path $projectRoot 'licenses\fo-dicom-MS-PL.html') -Destination (Join-Path $stage 'fo-dicom-MS-PL.html')
     $files=Get-ChildItem -LiteralPath $stage -File | ForEach-Object {[ordered]@{name=$_.Name;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash;bytes=$_.Length}}
-    [ordered]@{version='0.2.34';builtAt=(Get-Date -Format o);files=@($files);clinicalApproval=$false} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stage 'manifest.json') -Encoding utf8
+    [ordered]@{version='0.2.35';builtAt=(Get-Date -Format o);files=@($files);clinicalApproval=$false} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stage 'manifest.json') -Encoding utf8
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive=Join-Path $projectRoot 'artifacts\QuickLook.Plugin.DicomRT.qlplugin'
     if(Test-Path -LiteralPath $archive){$archive=Join-Path $projectRoot ('artifacts\QuickLook.Plugin.DicomRT.'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.qlplugin')}

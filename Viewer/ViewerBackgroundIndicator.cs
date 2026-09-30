@@ -28,6 +28,7 @@ namespace QuickLook.DicomRT {
    if(backgroundIndicator==null||disposed)return;var jobs=new List<string>();
    if(elapsed.IsRunning&&!LoadCompletion.IsCompleted)jobs.Add(!scanComplete?"Finding RT / images":"Loading image context");
    if(folderSearch!=null||imageSearch!=null)jobs.Add("Searching folders");
+   if(RtLoadsPending)jobs.Add($"RT objects {System.Threading.Volatile.Read(ref rtCompleted)}/{System.Threading.Volatile.Read(ref rtQueued)} · navigation available");
    if(backgroundOverlayLoads>0)jobs.Add("Image fusion");
    if(backgroundDoseSums>0)jobs.Add("Dose sum");
    if(backgroundImageLoads>0)jobs.Add("CT / MR slices");

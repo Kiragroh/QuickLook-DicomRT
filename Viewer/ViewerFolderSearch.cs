@@ -31,6 +31,7 @@ namespace QuickLook.DicomRT
                 },initialEntry,root,true,imageFilter:e=>false),token);
                 token.ThrowIfCancellationRequested();
                 MergeDiscoveredCatalog(found);
+                await RtLoadsCompletion;token.ThrowIfCancellationRequested();
                 var links=await Task.Run(()=>RegistrationReader.Read(catalog),token);token.ThrowIfCancellationRequested();registrations=links;loadRevision++;sumResult=null;
                 RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();
                 activity.Text=$"✓ Subfolder search complete · {planData.Count} plans · {doses.Count} doses"+(found.SkippedFiles>0?" · some files/folders skipped":"");

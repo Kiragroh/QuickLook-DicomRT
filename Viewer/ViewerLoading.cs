@@ -12,6 +12,12 @@ namespace QuickLook.DicomRT
     {
         private readonly TextBlock activity = Theme.Text("● Searching for DICOM RT …",11,Theme.Accent);
         private readonly HashSet<string> loadedRt = new HashSet<string>();
+        private readonly object rtLoadGate = new object();
+        private readonly HashSet<string> queuedRt = new HashSet<string>();
+        private Task rtLoadTail = Task.CompletedTask;
+        private int rtQueued, rtCompleted;
+        private Task RtLoadsCompletion { get { lock(rtLoadGate)return rtLoadTail; } }
+        private bool RtLoadsPending => Volatile.Read(ref rtCompleted)<Volatile.Read(ref rtQueued);
         private bool scanComplete, sumMode, userSelectedPlan;
         private int rtFailures, loadRevision, summedRevision=-1;
         private CancellationTokenSource sumLoad;
@@ -50,14 +56,12 @@ namespace QuickLook.DicomRT
             if(choice==null&&!userSelectedPlan){selectedPlan=null;selectedDose=null;selectedStructure=null;sumMode=false;}
             if(choice!=null){selectedPlan=choice.Plan;selectedDose=choice.Dose;selectedStructure=choice.Structure;sumMode=choice.Sum;if(choice.Sum)sumGroup=choice.Doses;}
             bool prior=changing;changing=true;plans.ItemsSource=choices;plans.SelectedItem=choice;plans.ToolTip=choice?.ToString()??"Select a plan, individual dose or structure set";changing=prior;
-            if(viewButtons.ContainsKey("MLC"))viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
         }
         private static string StructureLabel(StructureSet set){var label=set.Entry.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.StructureSetLabel,"");return !string.IsNullOrWhiteSpace(label)?label:!string.IsNullOrWhiteSpace(set.Entry.Description)?set.Entry.Description:"RTSTRUCT · "+set.Rois.Count+" ROIs";}
         private async Task SelectPlanChoiceAsync()
         {
             if(changing)return;var choice=plans.SelectedItem as PlanChoice;if(choice==null)return;
             int selection=++planSelectionRevision;userSelectedPlan=true;initialIsocenterApplied=true;imageSearch?.Cancel();sumLoad?.Cancel();sumMode=choice.Sum;selectedPlan=choice.Plan;selectedDose=choice.Dose;selectedStructure=choice.Structure;sumGroup=choice.Doses;
-            viewButtons["MLC"].IsEnabled=!sumMode&&selectedPlan!=null;
             if(sumMode&&rtTabs!=null)rtTabs.SelectedIndex=1;
             if(sumMode&&workspaceMode=="MLC")SetWorkspace("Bild");
             if(!sumMode&&scanComplete)activity.Visibility=Visibility.Collapsed;
@@ -70,7 +74,7 @@ namespace QuickLook.DicomRT
         private async Task BuildSumAsync()
         {
             if(!sumMode||disposed)return;
-            if(!scanComplete){sumResult=null;activity.Text="● Plan sum is waiting for the RT scan to finish …";return;}
+            if(!scanComplete||RtLoadsPending){sumResult=null;activity.Text="● Plan sum is waiting for the RT scan to finish …";return;}
             var sources=(sumGroup??new List<DoseGrid>()).Where(d=>!sumExcluded.Contains(d.PlanUid)).ToList();
             string selection=string.Join("|",sources.Select(d=>d.Entry.SopUid).OrderBy(x=>x));
             if(sources.Count<2){activity.Text="Select at least two plans and generate the sum.";activity.Visibility=Visibility.Visible;BuildDoseList();return;}
@@ -107,19 +111,33 @@ namespace QuickLook.DicomRT
             return panel;
         }
         private void MarkSumPending(){activity.Visibility=Visibility.Visible;activity.Text="Selection changed · click Generate sum to update";sumLoad?.Cancel();}
-        // Called by the scanner on its worker thread. Only matching patient's RT objects are decoded.
+        // Discovery never waits for decoding or the dispatcher. A single worker bounds
+        // RT memory/CPU pressure while image discovery and navigation continue independently.
         private void OnEntryFound(DicomEntry entry)
         {
-            if(!(entry.Modality.StartsWith("RT")||entry.Modality=="REG")||loadedRt.Contains(entry.SopUid))return;
+            if(!(entry.Modality.StartsWith("RT")||entry.Modality=="REG"))return;
             bool same=initialEntry.PatientKey!="|"&&!string.IsNullOrEmpty(initialEntry.PatientKey)?entry.PatientKey==initialEntry.PatientKey:!string.IsNullOrEmpty(initialEntry.StudyUid)&&entry.StudyUid==initialEntry.StudyUid;
             if(!same&&!SamePath(entry.Path,initialEntry.Path))return;lifetime.Token.ThrowIfCancellationRequested();
+            lock(rtLoadGate)
+            {
+                if(!queuedRt.Add(entry.SopUid))return;
+                Interlocked.Increment(ref rtQueued);
+                rtLoadTail=rtLoadTail.ContinueWith(async previous=>
+                {
+                    try { previous.GetAwaiter().GetResult();lifetime.Token.ThrowIfCancellationRequested();await DecodeRtEntryAsync(entry).ConfigureAwait(false); }
+                    finally { Interlocked.Increment(ref rtCompleted); }
+                },CancellationToken.None,TaskContinuationOptions.None,TaskScheduler.Default).Unwrap();
+            }
+        }
+        private async Task DecodeRtEntryAsync(DicomEntry entry)
+        {
             StructureSet structure=null;DoseGrid dose=null;PlanData plan=null;bool failed=false;
             try
             {
                 switch(entry.Modality){case "RTSTRUCT":structure=StructureSet.Load(entry);break;case "RTDOSE":dose=DoseGrid.Load(entry);break;case "RTPLAN":plan=PlanData.Load(entry);break;case "REG":break;}
             }
             catch(Exception){failed=true;}
-            Dispatcher.Invoke(new Action(()=>
+            await Dispatcher.InvokeAsync(new Action(()=>
             {
                 if(disposed||!loadedRt.Add(entry.SopUid))return;
                 if(structure!=null||dose!=null||plan!=null)AutoOpenRtPanel();
@@ -131,7 +149,7 @@ namespace QuickLook.DicomRT
                 if(!userSelectedPlan&&plan!=null&&entry.SopUid==initialEntry.SopUid){selectedPlan=plan;sumMode=false;}
                 RefreshPlanChoices();rtSummary.Text=$"{structures.Sum(s=>s.Rois.Count)} structures · {doses.Count} doses · {planData.Count} plans";
                 RefreshRt();activity.Text=$"● RT available: {planData.Count} plans · {doses.Count} doses · scanning remaining files …";
-            }));
+            }),System.Windows.Threading.DispatcherPriority.Background,lifetime.Token).Task.ConfigureAwait(false);
         }
     }
 }

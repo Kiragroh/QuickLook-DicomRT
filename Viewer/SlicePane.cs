@@ -40,7 +40,7 @@ namespace QuickLook.DicomRT
   {
    if(disposed)return;
    int mine=++generation;pending?.Cancel();var cancel=new CancellationTokenSource();pending=cancel;
-   if(scene==null||(scene.Native==null&&scene.Volume==null)){frame=null;status="Select an image";InvalidateVisual();cancel.Dispose();if(pending==cancel)pending=null;return;}
+   if(scene==null||(scene.Native==null&&scene.Volume==null)||(scene.Plane!="Native"&&scene.Volume==null)){frame=null;status=scene!=null&&scene.Plane!="Native"?"Waiting for a matching image volume":"Select an image";InvalidateVisual();cancel.Dispose();if(pending==cancel)pending=null;return;}
    var copy=scene.Snapshot();var rect=ImageRect(SliceGeometry.Create(copy));int w=Math.Max(2,(int)Math.Ceiling(rect.Width)),h=Math.Max(2,(int)Math.Ceiling(rect.Height));if(copy.InteractionPreview){w=Math.Min(224,w);h=Math.Min(224,h);}
    // Keep pixels, overlays, geometry and crosshair together until the next complete frame is ready.
    // A genuinely different primary source must never display the previous series while loading.

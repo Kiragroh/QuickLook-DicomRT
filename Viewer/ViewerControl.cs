@@ -88,7 +88,7 @@ namespace QuickLook.DicomRT
             rightPanel=BuildRight();Grid.SetColumn(rightPanel,4);body.Children.Add(rightPanel);UpdatePanels();
             var footer=new DockPanel {Margin=new Thickness(12,3,12,6)};DockPanel.SetDock(searchMoreImages,Dock.Right);footer.Children.Add(searchMoreImages);searchMoreImages.Click+=async(s,e)=>await SearchMoreImagesAsync();DockPanel.SetDock(searchSubfolders,Dock.Right);footer.Children.Add(searchSubfolders);searchSubfolders.Click+=async(s,e)=>await SearchSubfoldersAsync();activity.Margin=new Thickness(0,2,12,2);activity.MaxWidth=360;activity.TextWrapping=TextWrapping.NoWrap;activity.TextTrimming=TextTrimming.CharacterEllipsis;DockPanel.SetDock(activity,Dock.Right);footer.Children.Add(activity);status.Foreground=Theme.Muted;footer.Children.Add(status);Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
             series.SelectionChanged += async (s, e) => { if (!changing && series.SelectedItem is ImageStack stack) {userNavigatedImage=true;await SelectStackAsync(stack);} };
-            planes.SelectionChanged += (s, e) => { if (!changing) { if ((string)planes.SelectedItem != "Native" && volume == null) { changing = true; planes.SelectedItem = "Native"; changing = false; status.Text = "MPR becomes available once a volume with suitable geometry has loaded."; } RebuildPanes(); } };
+            planes.SelectionChanged += (s, e) => { if (!changing) RebuildPanes(); };
             tagSource.SelectionChanged += (s, e) => UpdateTags();
             tagSearch.TextChanged += (s, e) => { tagTimer.Stop(); tagTimer.Start(); };
             tagTimer.Tick += (s, e) => { tagTimer.Stop(); FilterTags(); };

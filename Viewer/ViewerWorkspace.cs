@@ -119,9 +119,10 @@ namespace QuickLook.DicomRT
             if(centralPlayback==null){centralPlayback=new MlcPlaybackControl{Visibility=Visibility.Collapsed};centralPlayback.MprRequested+=OpenMpr;centralPlayback.OutlineSelectionChanged+=UpdateRoiOutlineIndicators;centralPlayback.PlaybackStateChanged+=playing=>{threeDView?.SetPlaying(playing);SetFieldPlaying(playing);};centralPlayback.FieldsVisibilityChanged+=SetSharedFieldsVisibility;centralPlayback.SetFieldsVisible(showFields.IsChecked==true);centralPlayback.FrameChanged+=(b,cp)=>{if(centralPlayback.IsVisible)neutralFields=false;activeField=b;activeFieldPoint=cp;SyncFieldControls();UpdateFieldOverlays();};centralPlayback.IsocenterSelected+=async point=>{var map=TransformToImage(selectedPlan?.FrameUid);if(map!=null){SetWorkspace(HasImage?"Bild":"3D");await MoveFocusAsync(map.Transform(point));}};workspace.Children.Add(centralPlayback);}
             if(centralPlan!=selectedPlan){activeField=null;activeFieldPoint=null;centralPlan=selectedPlan;centralPlayback.SetPlan(selectedPlan);}
         }
+        private int workspaceRevision;
         private void SetWorkspace(string mode)
         {
-            if(disposed)return;CloseDosePopups();if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
+            if(disposed)return;workspaceRevision++;CloseDosePopups();if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false;workspaceMode=mode;
             foreach(var pair in viewButtons)pair.Value.Foreground=pair.Key==mode?Theme.Accent:Theme.Foreground;
             foreach(UIElement child in workspace.Children)child.Visibility=Visibility.Collapsed;
             if(imageHeader!=null)imageHeader.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;

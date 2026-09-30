@@ -19,6 +19,7 @@ namespace QuickLook.DicomRT
         private async Task LoadAsync(string path)
         {
             var token = lifetime.Token;
+            int openingViewRevision=workspaceRevision;
             try
             {
                 initialEntry = await Task.Run(() => DicomCatalog.ReadEntry(path), token);
@@ -29,8 +30,9 @@ namespace QuickLook.DicomRT
                 if(initialEntry.Modality.StartsWith("RT"))
                 {
                     AutoOpenRtPanel();
-                    await Task.Run(()=>OnEntryFound(initialEntry),token);
-                    SetWorkspace(initialEntry.Modality=="RTPLAN"?"MLC":"3D");
+                    if(openingViewRevision==workspaceRevision)SetWorkspace(initialEntry.Modality=="RTPLAN"?"MLC":"3D");
+                    OnEntryFound(initialEntry);
+                    await RtLoadsCompletion;
                 }
                 // The selected image is available before the containing folder is indexed.
                 if (initialEntry.Rows > 0 && initialEntry.Columns > 0 && initialEntry.Modality != "RTDOSE")
@@ -50,15 +52,25 @@ namespace QuickLook.DicomRT
                 catalog = await Task.Run(() => DicomCatalog.Scan(path,token,null,OnEntryFound,(phase,count,total)=>
                 {
                     if(progressClock.ElapsedMilliseconds<120&&count!=total)return;progressClock.Restart();
-                    Dispatcher.BeginInvoke(new Action(()=>{if(disposed||scanComplete)return;activity.Text=phase=="headers"?$"● Searching RT files · {count}/{total} headers":$"● RT ready · scanning image series {count}/{total}";}));
-                },initialEntry,imageFilter:e=>{if(openingImages==null)openingImages=Dispatcher.Invoke(()=>InitialImagePredicate());return openingImages(e);}),token);
-                IndexMilliseconds=elapsed.Elapsed.TotalMilliseconds;scanComplete=true;activity.Visibility=System.Windows.Visibility.Collapsed;activity.Text=$"✓ Scan complete · {planData.Count} plans · {doses.Count} doses · {catalog.Files.Count} files"+(rtFailures>0?$" · {rtFailures} unreadable RT files":"");
+                    Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,new Action(()=>{if(disposed||scanComplete)return;activity.Text=phase=="headers"?$"● Searching RT files · {count}/{total} headers":$"● Scanning image series {count}/{total}";}));
+                },initialEntry,imageFilter:e=>
+                {
+                    if(openingImages==null)
+                    {
+                        // An RT-file preview needs its referenced structure set before
+                        // choosing image series. Only this scan worker waits; never the UI.
+                        if(initialEntry.Modality.StartsWith("RT"))RtLoadsCompletion.GetAwaiter().GetResult();
+                        openingImages=Dispatcher.Invoke(()=>InitialImagePredicate());
+                    }
+                    return openingImages(e);
+                }),token);
+                IndexMilliseconds=elapsed.Elapsed.TotalMilliseconds;scanComplete=true;
                 if (token.IsCancellationRequested) return;
                 Func<DicomEntry,bool> samePatient = e => initialEntry.PatientKey != "|" && !string.IsNullOrEmpty(initialEntry.PatientKey) ? e.PatientKey == initialEntry.PatientKey : !string.IsNullOrEmpty(initialEntry.StudyUid) && e.StudyUid == initialEntry.StudyUid;
                 catalog.DeferredImages=catalog.DeferredImages.Where(samePatient).ToList();catalog.Files = catalog.Files.Where(samePatient).ToList(); catalog.Stacks = catalog.Stacks.Where(s => s.Entries.All(samePatient)).ToList();
                 registrations=await Task.Run(()=>RegistrationReader.Read(catalog),token);loadRevision++;sumResult=null;
                 changing = true; series.ItemsSource = catalog.Stacks; changing = false;
-                var rtTask = Task.CompletedTask;
+                var rtTask = RtLoadsCompletion;
                 var first = catalog.Stacks.FirstOrDefault(s => s.Entries.Any(e => SamePath(e.Path, path)));
                 if (first != null)
                 {
@@ -80,6 +92,7 @@ namespace QuickLook.DicomRT
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
                 RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
+                if(!sumMode){activity.Visibility=System.Windows.Visibility.Collapsed;activity.Text=$"✓ Scan complete · {planData.Count} plans · {doses.Count} doses · {catalog.Files.Count} files"+(rtFailures>0?$" · {rtFailures} unreadable RT files":"");}
                 searchSubfolders.Visibility=searchMoreImages.Visibility=System.Windows.Visibility.Visible;
             }
             catch (OperationCanceledException) { }
@@ -119,7 +132,7 @@ namespace QuickLook.DicomRT
             currentStack = stack; volume = null;
             // Completing the scan of the already displayed series must not blank its pane.
             if(!sameImageSeries){currentEntry=null;native=null;pixelCache.Clear();pixelOrder.Clear();}
-            changing = true; planes.SelectedItem = "Native";
+            changing = true;
             sliceSlider.Maximum = Math.Max(0, stack.Entries.Count - 1);
             int selected = stack.Entries.FindIndex(e => initialEntry != null && SamePath(e.Path, initialEntry.Path));
             sliceIndex = preservedFocus.HasValue ? Enumerable.Range(0,stack.Entries.Count).OrderBy(i=>Math.Abs((stack.Entries[i].Origin-preservedFocus.Value).Dot(stack.Entries[i].AxisX.Cross(stack.Entries[i].AxisY)))).First() : selected >= 0 ? selected : stack.Entries.Count / 2; requestedSliceIndex = sliceIndex; sliceSlider.Value = sliceIndex; changing = false;
