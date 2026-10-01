@@ -4,7 +4,7 @@ Feature highlights for DICOM RT for QuickLook. [Download the latest Windows inst
 
 ## 0.2.35 — Switch views while RT loads
 
-- **LINAC compatibility overview:** [model/manufacturer table](docs/linac-compatibility.md) with evidence levels for Accela, Halcyon, Ethos and ARTISTE, plus recognized names still awaiting model-specific export evidence. Documentation added 1 October 2026.
+- **LINAC compatibility overview:** [short model/manufacturer list](docs/linac-compatibility.md), including Accela. The 1 October 2026 archive recheck adds Clinac model-tag evidence and parser evidence for TrueBeam, Ethos, PRIMUS, Synergy and Versa identified through device names. [Test details](docs/linac-test-evidence.md).
 
 - **Navigate immediately:** Image, MLC, DVH, 3D and the 2 × 2 overview remain selectable while RT objects and image volumes are loading. A missing image volume shows a placeholder in the requested plane until matching pixels arrive.
 - **Keep your chosen view:** selecting an image plane before volume completion no longer resets to Native. Opening an RT file does not override a workspace selected while its metadata was loading.

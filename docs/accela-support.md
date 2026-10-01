@@ -18,7 +18,7 @@ Beam TreatmentMachineName, Manufacturer and ManufacturerModelName are retained. 
 
 ## Evidence and limits
 
-Ten local RTPLAN fixtures were inspected: six reconstructions from public delivery data and four wholly synthetic plans. None is an original Accela TPS export. They contain 3,277 control points; 6,008 encoded leaf-position arrays compare exactly after parsing. Native Accela export compatibility still requires a genuine export or conformance statement.
+Ten local RTPLAN fixtures were inspected: six reconstructions from public delivery data and four wholly synthetic plans. None is an original Accela TPS export. They contain 3,277 control points; 6,008 encoded leaf-position arrays compare exactly after parsing. Native Accela export compatibility still requires a genuine export or conformance statement. Other machines are covered in the [short compatibility list](linac-compatibility.md) and [archive test evidence](linac-test-evidence.md).
 
 A separate wholly synthetic phantom contains 73 CT slices, seven ROIs, two dynamic arcs (242 control points, 46/47 leaf pairs per layer), and matching analytic RTDOSE. Integration tests check exact CT/RT references, 240 intermediate geometries, PTV DVHs/surfaces, and actual viewer DRR/outline rendering at three poses. The analytic dose is **not calculated from the beams**; machine tags explicitly say synthetic. No patient material is used. These captures must not be presented as clinical examples.
 

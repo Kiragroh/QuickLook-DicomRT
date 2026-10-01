@@ -6,7 +6,7 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 **Switch views while loading:** Image, MLC, DVH, 3D and 2 × 2 remain selectable while RT and image data arrive. Your chosen workspace and image plane stay selected; unavailable content shows a placeholder. RT decoding runs separately from image discovery, and the rotating gear reports pending RT objects.
 
-**[LINAC compatibility list — model, manufacturer and test coverage](docs/linac-compatibility.md):** Accela, Halcyon, Ethos and ARTISTE, with the evidence and limits for each. Additional recognized model names are listed separately from tested export support.
+**[Tested LINACs](docs/linac-compatibility.md):** Accela, Halcyon, Ethos, TrueBeam, Clinac, ARTISTE, PRIMUS, Synergy and Versa — with manufacturer and a brief test status.
 
 **Machine-aware previews:** treatment machine name and model are shown in the RT panel and MLC details. Accela/TrueBeam use a C-arm schematic; Halcyon/Ethos use a translucent cutaway ring with a visible moving head. Both share the current gantry, couch and collimator state in MLC, 3D and 2 × 2. Unknown models use a generic schematic; two MLC layers alone never imply a ring.
 
