@@ -4,6 +4,8 @@ Feature highlights for DICOM RT for QuickLook. [Download the latest Windows inst
 
 ## 0.2.35 — Switch views while RT loads
 
+- **LINAC compatibility overview:** [model/manufacturer table](docs/linac-compatibility.md) with evidence levels for Accela, Halcyon, Ethos and ARTISTE, plus recognized names still awaiting model-specific export evidence. Documentation added 1 October 2026.
+
 - **Navigate immediately:** Image, MLC, DVH, 3D and the 2 × 2 overview remain selectable while RT objects and image volumes are loading. A missing image volume shows a placeholder in the requested plane until matching pixels arrive.
 - **Keep your chosen view:** selecting an image plane before volume completion no longer resets to Native. Opening an RT file does not override a workspace selected while its metadata was loading.
 - **Independent background loading:** RT decoding uses a bounded serial worker, separate from the folder scan and CT/MR volume loading. UI publication yields to input, duplicate discoveries are decoded once, and the gear includes the RT object completion count. Closing the preview cancels pending publication.

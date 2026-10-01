@@ -6,6 +6,8 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 **Switch views while loading:** Image, MLC, DVH, 3D and 2 × 2 remain selectable while RT and image data arrive. Your chosen workspace and image plane stay selected; unavailable content shows a placeholder. RT decoding runs separately from image discovery, and the rotating gear reports pending RT objects.
 
+**[LINAC compatibility list — model, manufacturer and test coverage](docs/linac-compatibility.md):** Accela, Halcyon, Ethos and ARTISTE, with the evidence and limits for each. Additional recognized model names are listed separately from tested export support.
+
 **Machine-aware previews:** treatment machine name and model are shown in the RT panel and MLC details. Accela/TrueBeam use a C-arm schematic; Halcyon/Ethos use a translucent cutaway ring with a visible moving head. Both share the current gantry, couch and collimator state in MLC, 3D and 2 × 2. Unknown models use a generic schematic; two MLC layers alone never imply a ring.
 
 **Enhanced dual-layer test support:** indexed paired-leaf RTPLAN devices can be read alongside classic MLCX/MLCY and vendor MLCX1/MLCX2 forms, including dynamic collimator rotation and Implicit-VR files. Supported Enhanced geometry is variable paired leaves in IEC X/Y with zero device offsets; other geometries are explicitly rejected. Tested against reconstructed public delivery parameters and synthetic fixtures, **not an original Accela TPS export**. [Test scope and reproducible phantom](docs/accela-support.md).

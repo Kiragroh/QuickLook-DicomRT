@@ -1,4 +1,40 @@
-# Machine hints and structure groups — 0.2.34
+# LINAC compatibility and test coverage
+
+Last reviewed: **1 October 2026** · Viewer **0.2.35**.
+
+This list records the machines and export features exercised so far. Compatibility depends on the exported DICOM geometry and the TPS/export version as well as the LINAC. The status column distinguishes real-file inspection, parser checks and synthetic tests; it is not a certification of every technique or software version.
+
+## Machines with test evidence
+
+| LINAC / model | Manufacturer | Test evidence | Scope and remaining limits |
+|---|---|---|---|
+| **Accela** | **Siemens Healthineers / Varian** | **Reconstructed delivery data + synthetic integration tests** | Dual-layer C-arm, indexed paired leaves, dynamic collimator and interpolated arc geometry. Ten reconstructed/synthetic RTPLAN fixtures: 3,277 CPs and 6,008 leaf-position arrays checked. Complete synthetic CT/RTSTRUCT/RTDOSE/RTPLAN set exercised DRRs, target outlines, DVHs and surfaces. **No original Accela TPS export tested yet.** [Detailed evidence](accela-support.md#evidence-and-limits). |
+| **Halcyon** | **Varian (Siemens Healthineers)** | **User-identified real viewer cases + automated ring-model tests** | Dual-layer MLC inspection and ring orientation display exercised. The archive also contained 80 beams with the user-confirmed local `Hal*` naming convention; that alias alone does not establish the exact model or export version. Automated tests verify ring selection and gantry/collimator updates. |
+| **Ethos** | **Varian (Siemens Healthineers)** | **Synthetic model/display tests** | Model-tag recognition, cutaway ring selection and gantry/collimator updates tested. The retained reports do not independently identify a genuine Ethos export, so full native-export compatibility is not claimed. |
+| **ARTISTE** | **Siemens Healthcare / Siemens Healthineers** | **Real archive parser coverage + model-recognition tests** | 28 beams with explicit ARTISTE metadata encountered in the legacy archive audit. C-arm model recognition checked. Archive results are aggregate parser/projection evidence, not an ARTISTE-specific rendered-frame or TPS comparison. |
+
+For Halcyon, Ethos and Accela, automated orientation-widget checks exercise 120 angle updates per named model while retaining the machine meshes. See [machine-display tests](../Interaction.Tests/AccelaMachineScenarios.cs), [device/parser tests](../Rt.Tests/EnhancedDeviceScenarios.cs) and [complete phantom integration](../Interaction.Tests/AccelaPhantomAcceptance.cs).
+
+## Recognized names awaiting model-specific export evidence
+
+These names select a C-arm illustration in the current code. They are listed separately because recognizing a model name is not a compatibility test of its DICOM exports.
+
+| LINAC / model | Manufacturer | Current evidence status |
+|---|---|---|
+| TrueBeam | Varian (Siemens Healthineers) | Model-name recognition implemented; no separately attributable TrueBeam export result in the retained audit. |
+| Clinac | Varian (Siemens Healthineers) | Model-name recognition implemented; no separately attributable Clinac export result in the retained audit. |
+| Versa / Versa HD | Elekta | `Versa` model-name recognition implemented; model-specific export testing not documented yet. |
+| Synergy | Elekta | Model-name recognition implemented; model-specific export testing not documented yet. |
+
+Other/unspecified machines are handled through their DICOM geometry with a generic illustration. The archive contained many such beams; they cannot reliably be assigned to commercial model names. An unlisted machine is **not automatically incompatible**. Robot, helical and ion delivery must not be inferred from successful conventional RTPLAN parsing.
+
+Product/manufacturer references: [Accela](https://www.siemens-healthineers.com/press/releases/accela), [Varian Halcyon, Ethos and TrueBeam](https://www.varian.com/about-varian/newsroom/press-releases/together-siemens-healthineers-varian-showcases-comprehensive-0), [Siemens legacy LINACs / ARTISTE](https://www.siemens-healthineers.com/br/radiation-oncology/early-ro-systems), [Elekta Versa HD](https://www.elekta.com/products/radiation-therapy/versa-hd/), [Elekta Synergy](https://ir.elekta.com/investors/press-releases/2013/elekta-receives-us-fda-510k-clearance-following-launch-of-new-versa-hd-radiation-therapy-system-for-cancer-treatment/). These identify the products, not endorsement or validation of this viewer.
+
+## Add a tested machine
+
+Record manufacturer/model, TPS and export version when known, viewer version, tested objects/techniques, observed result and limitations. Distinguish original exports from reconstructed or synthetic fixtures. Only publish aggregate findings or approved anonymized test material; keep patient identifiers and internal paths out of issues and compatibility reports.
+
+## Machine illustration rules
 
 The viewer reads beam geometry independently of its schematic machine illustration. Explicit beam ManufacturerModelName is the preferred indication of machine form. A local machine-name convention, `Hal*`, is used only as a labeled ring fallback. Recognized C-arm metadata overrides a conflicting alias. Unrecognized equipment remains a generic schematic; neither two leaf layers nor the top-level TPS manufacturer identifies a ring accelerator.
 
