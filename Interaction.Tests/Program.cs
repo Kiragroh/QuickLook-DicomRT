@@ -17,6 +17,7 @@ class Program
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--private-plan-export")return PlanExportScenarios.Inspect(args[1]);
         if(args.Length==2&&args[0]=="--loading-navigation")return LoadingNavigationAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--accela-phantom")return AccelaPhantomAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-load")return PrivateLoadAcceptance.Run(args[1]);
@@ -60,6 +61,8 @@ class Program
             AccelaMachineScenarios.Run(Check);
             RoiGroupingScenarios.Run(Check);
             LoadingNavigationScenarios.Run(Check);
+            RoiVolumeScenarios.Run(Check);
+            PlanExportScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);
             AbsoluteIsodoseScenarios.Run(Check);TagDetailScenarios.Run(Check);IsodosePreferenceScenarios.Run(Check,preferenceScope.DirectoryPath);

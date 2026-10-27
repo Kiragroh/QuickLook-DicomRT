@@ -18,6 +18,7 @@ namespace QuickLook.DicomRT
         private readonly MlcAperture aperture = new MlcAperture { MinHeight = 180, MinWidth = 160, Margin = new Thickness(0, 8, 0, 8) };
         private readonly LinacOrientationControl orientation = new LinacOrientationControl {Width=300,Height=260};
         private readonly ComboBox layerView=Theme.Combo();
+        private readonly CheckBox centerCollimator=new CheckBox{Content="Center collimator",IsChecked=false,Margin=new Thickness(5),ToolTip="Keep leaf axes horizontal/vertical. Off: follow the actual collimator angle, including dynamic rotation."};
         private readonly Canvas markers = new Canvas { Height = 12, Margin = new Thickness(13,0,13,0) };
         private PlanBeam beam; private PlanData plan; private PlanBeam[] playbackBeams=new PlanBeam[0]; private int[] counts = new int[0]; private bool selecting;
         private readonly System.Collections.Generic.Dictionary<PlanBeam,double> extents=new System.Collections.Generic.Dictionary<PlanBeam,double>();
@@ -37,7 +38,7 @@ namespace QuickLook.DicomRT
         public MlcPlaybackControl()
         {
             Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};var quad=ViewButtons.Create("MPR + 3D");quad.HorizontalAlignment=HorizontalAlignment.Right;quad.ToolTip="Open the linked 2 × 2 overview";quad.Click+=(s,e)=>MprRequested?.Invoke();settings.Children.Add(quad);beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
-            layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};layerView.Width=100;layerView.ToolTip="Choose MLC layer";settings.Children.Add(layerView);
+            layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};layerView.Width=100;layerView.ToolTip="Choose MLC layer";settings.Children.Add(layerView);centerCollimator.Foreground=Theme.Foreground;settings.Children.Add(centerCollimator);centerCollimator.Checked+=(s,e)=>aperture.CenterCollimator=true;centerCollimator.Unchecked+=(s,e)=>aperture.CenterCollimator=false;
             var bottom=new StackPanel();bottom.Children.Add(details);
             var controls=new WrapPanel();controls.Children.Add(play);var restart=Theme.Button("↺");restart.ToolTip="Go to plan start";restart.Click+=(s,e)=>cursor.Value=0;controls.Children.Add(restart);
             controls.Children.Add(Theme.Text("CP/s",11,Theme.Muted));speed.ItemsSource=new[]{1,2,5,10,20};speed.SelectedItem=5;controls.Children.Add(speed);bottom.Children.Add(controls);
@@ -86,6 +87,9 @@ namespace QuickLook.DicomRT
             (drrPreset=="Auto"?drrDisplays:customDrrDisplays??(customDrrDisplays=new System.Runtime.CompilerServices.ConditionalWeakTable<System.Windows.Media.Imaging.BitmapSource,System.Windows.Media.Imaging.BitmapSource>())).GetValue(source,s=>DrrWindow.Apply(s,drrPreset,drrCenter,drrWidth));
         double drrLeafOpacity=.75;
         public double DrrLeafOpacity {get=>drrLeafOpacity;set{drrLeafOpacity=Math.Max(.1,Math.Min(1,value));InvalidateVisual();}}
+        private bool centerCollimator;
+        public bool CenterCollimator {get=>centerCollimator;set{centerCollimator=value;InvalidateVisual();}}
+        internal double DisplayAngle=>centerCollimator||Compact||first==null?0:-MlcTimeline.Angle(first.Collimator,second.Collimator,fraction,first.CollimatorRotationDirection,false);
         public bool Compact {get;set;}
         public double Extent {get;set;}=100;
         public int LayerIndex {get=>layerIndex;set {layerIndex=value;InvalidateVisual();}}
@@ -101,17 +105,22 @@ namespace QuickLook.DicomRT
             catch(ArgumentException){Label(dc,"Incompatible control points",5,8);return;}
             if(layers.Length==0&&xj.Length==0&&yj.Length==0){Label(dc,"No supported aperture data",5,8);return;}
             double extent=Extent;
-            double scale=Math.Max(1,Math.Min(ActualWidth-(Compact?8:24),ActualHeight-(Compact?8:54)))/(extent*2);double cx=ActualWidth/2,cy=ActualHeight/2+(Compact?0:8);
+            double angle=DisplayAngle;if(!BeamProjection.Finite(angle))angle=0;
+            // Constant diagonal clearance prevents zoom pulsing as the collimator turns.
+            double clearance=!CenterCollimator&&!Compact?Math.Sqrt(2):1;
+            double scale=Math.Max(1,Math.Min(ActualWidth-(Compact?8:24),ActualHeight-(Compact?8:54)))/(extent*2*clearance);double cx=ActualWidth/2,cy=ActualHeight/2+(Compact?0:8);
             Func<double,double,Point> point=(x,y)=>new Point(cx+x*scale,cy-y*scale);
             Action<double,double,double,double,Brush> rect=(x1,y1,x2,y2,brush)=>dc.DrawRectangle(brush,null,new Rect(point(Math.Min(x1,x2),Math.Max(y1,y2)),point(Math.Max(x1,x2),Math.Min(y1,y2))));
             var imageRect=new Rect(point(-extent,extent),point(extent,-extent));
+            if(!Compact){double collimator=MlcTimeline.Angle(first.Collimator,second.Collimator,fraction,first.CollimatorRotationDirection,false);Label(dc,"Source view · "+(CenterCollimator?"collimator centered":"collimator rotation")+" · "+(BeamProjection.Finite(collimator)?collimator.ToString("0.0")+"°":"angle unavailable"),6,4);}
+            dc.PushTransform(new RotateTransform(angle,cx,cy));
             rect(-extent,-extent,extent,extent,Theme.Brush("#172430"));
             if(projection?.Drr!=null)dc.DrawImage(DisplayDrr(projection.Drr),imageRect);
             for(int index=0;index<layers.Length;index++)
             {
                 if(layerIndex>=0&&index!=layerIndex)continue;
                 var layer=layers[index];var positions=layer.Positions;var bounds=layer.Boundaries;int n=bounds.Length-1;bool mlcY=layer.IsY;
-                if(n<1||positions.Length!=n*2){Label(dc,"Missing layer geometry",5,8);return;}
+                if(n<1||positions.Length!=n*2){dc.Pop();Label(dc,"Missing layer geometry",5,8);return;}
                 var leaf=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),18,25,32)):Theme.Brush(index%2==0?"#BF416178":"#BF876C43");var edge=new Pen(Theme.Brush(index%2==0?"#A9C6D6":"#EAC28A"),.6);
                 for(int k=0;k<n;k++)
                 {
@@ -124,15 +133,15 @@ namespace QuickLook.DicomRT
                 if(mlcY){rect(-extent,-extent,bounds[0],extent,leaf);rect(bounds[n],-extent,extent,extent,leaf);}
                 else{rect(-extent,-extent,extent,bounds[0],leaf);rect(-extent,bounds[n],extent,extent,leaf);}
             }
-            if(!Compact){Label(dc,first.Blocks.Count>0?"Custom block aperture":layers.Length==0?"Jaws":string.Join(" + ",layers.Where((l,k)=>layerIndex<0||layerIndex==k).Select(l=>l.Type+" · "+(l.Boundaries.Length-1)+" pairs")),6,4);
-            Label(dc,"IEC beam limiting device plane · isocenter projection",6,18);}
             var jaw=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),20,25,30)):Theme.Brush("#D927313E");
             if(xj.Length==2){rect(-extent,-extent,xj[0],extent,jaw);rect(xj[1],-extent,extent,extent,jaw);}
             if(yj.Length==2){rect(-extent,-extent,extent,yj[0],jaw);rect(-extent,yj[1],extent,extent,jaw);}
             if(blockAperture!=null){var opening=blockAperture.Clone();opening.Transform=new MatrixTransform(scale,0,0,-scale,cx,cy);var blocked=Geometry.Combine(new RectangleGeometry(imageRect),opening,GeometryCombineMode.Exclude,null);dc.DrawGeometry(jaw,null,blocked);dc.DrawGeometry(null,new Pen(Brushes.Gold,1.2),opening);}
             if(projection!=null){dc.PushClip(new RectangleGeometry(imageRect));dc.PushTransform(new MatrixTransform(imageRect.Width,0,0,imageRect.Height,imageRect.Left,imageRect.Top));foreach(var outline in projection.Outlines){dc.DrawGeometry(null,new Pen(Brushes.Black,3.5/imageRect.Width),outline.Boundary);dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromRgb(outline.Roi.Red,outline.Roi.Green,outline.Roi.Blue)),1.7/imageRect.Width),outline.Boundary);}dc.Pop();dc.Pop();}
             var cross=new Pen(Theme.Brush("#EE8068"),1);dc.DrawLine(cross,point(-6,0),point(6,0));dc.DrawLine(cross,point(0,-6),point(0,6));
-            if(!Compact){Label(dc,"+Y",cx+3,34);Label(dc,"+X",Math.Max(0,ActualWidth-25),cy+3);Label(dc,$"±{extent:0} mm",6,Math.Max(0,ActualHeight-18));}
+            if(!Compact){var yp=point(0,extent);var xp=point(extent,0);Label(dc,"+Y",yp.X+3,yp.Y);Label(dc,"+X",xp.X-18,xp.Y+3);}
+            dc.Pop();
+            if(!Compact)Label(dc,$"±{extent:0} mm · isocenter plane",6,Math.Max(0,ActualHeight-18));
         }
         private void Label(DrawingContext dc,string text,double x,double y)
         {dc.DrawText(new FormattedText(text,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,Theme.Foreground,VisualTreeHelper.GetDpi(this).PixelsPerDip),new Point(x,y));}

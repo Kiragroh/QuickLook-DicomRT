@@ -19,6 +19,7 @@ internal static class OutlineIndicatorScenarios
    var organ=new StructureRoi{Name="Organ",FrameUid="test-frame",InterpretedType="ORGAN",Visible=true};
    var other=new StructureRoi{Name="Helper",FrameUid="test-frame",InterpretedType="AVOIDANCE",Visible=true};
    var unmatched=new StructureRoi{Name="Unmatched",FrameUid="other-frame",InterpretedType="PTV",Visible=true};
+   foreach(var roi in new[]{ptv,organ,other,unmatched})roi.Contours.Add(new Contour{GeometricType="POINT",Points=new List<Vec3>{new Vec3(0,0,0)}});
    ((List<StructureSet>)Get(viewer,"structures")).Add(new StructureSet{Entry=new DicomEntry{SopUid="test-set"},Rois=new List<StructureRoi>{ptv,organ,other,unmatched}});
    Set(viewer,"selectedPlan",new PlanData{FrameUid="test-frame",StructureSopUid="test-set",Entry=new DicomEntry{SopUid="test-plan"}});
    Call(viewer,"SetWorkspace","MLC");Call(viewer,"BuildRoiList");

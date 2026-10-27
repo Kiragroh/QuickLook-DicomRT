@@ -50,18 +50,26 @@ namespace QuickLook.DicomRT
         sealed class Plane { public double Z; public List<Polygon> Polygons = new List<Polygon>(); }
         struct Interval { public double A, B; public Interval(double a,double b){A=a;B=b;} }
         public static DvhResult Calculate(StructureRoi roi, DoseGrid dose, Matrix4 roiToDose, CancellationToken token)
+            => CalculateCore(roi,dose,roiToDose,token,false);
+        // Same slab and fill rules as the DVH, without dose sampling or registration.
+        public static DvhResult EstimateVolume(StructureRoi roi,CancellationToken token)
+            => CalculateCore(roi,null,Matrix4.Identity,token,true);
+        static DvhResult CalculateCore(StructureRoi roi,DoseGrid dose,Matrix4 roiToDose,CancellationToken token,bool volumeOnly)
         {
             token.ThrowIfCancellationRequested();
             var result = new DvhResult { DoseUnits = dose?.Units ?? "UNKNOWN" };
-            if (roi == null || dose == null || roiToDose == null) return Fail(result, DvhStatus.Unsupported, "No unambiguous structure/dose association.");
-            if (dose.Units != "GY" && dose.Units != "RELATIVE") return Fail(result,DvhStatus.Unsupported,"Unknown dose unit.");
-            if (!Finite(dose.Maximum) || dose.Maximum < 0) return Fail(result,DvhStatus.Unsupported,"Invalid dose values.");
+            if (roi == null || !volumeOnly && (dose == null || roiToDose == null)) return Fail(result, DvhStatus.Unsupported, "No unambiguous structure/dose association.");
+            if (!volumeOnly && dose.Units != "GY" && dose.Units != "RELATIVE") return Fail(result,DvhStatus.Unsupported,"Unknown dose unit.");
+            if (!volumeOnly && (!Finite(dose.Maximum) || dose.Maximum < 0)) return Fail(result,DvhStatus.Unsupported,"Invalid dose values.");
             var m=roiToDose.Values;
             var a=new Vec3(m[0],m[4],m[8]);var b=new Vec3(m[1],m[5],m[9]);var c=new Vec3(m[2],m[6],m[10]);
             if (Math.Abs(a.Length-1)>1e-4 || Math.Abs(b.Length-1)>1e-4 || Math.Abs(c.Length-1)>1e-4 || Math.Abs(a.Dot(b))+Math.Abs(a.Dot(c))+Math.Abs(b.Dot(c))>1e-4)
                 return Fail(result,DvhStatus.Unsupported,"DVH supports rigid registrations only.");
             if (roi.Contours == null || roi.Contours.Count == 0) return Fail(result,DvhStatus.Empty,"No contours.");
-            if (roi.Contours.Count>4000 || roi.Contours.Sum(p=>(long)p.Points.Count)>200000) return Fail(result,DvhStatus.BudgetExceeded,"Contours exceed the preview budget.");
+            // Volume-only integration sums scanline spans, not every 3D dose sample.
+            // Dense body contours can therefore use a larger bounded geometry budget.
+            long pointBudget=volumeOnly?2000000:200000;
+            if (roi.Contours.Count>4000 || roi.Contours.Sum(p=>(long)p.Points.Count)>pointBudget) return Fail(result,DvhStatus.BudgetExceeded,"Contours exceed the preview budget.");
             bool xor=roi.Contours[0].GeometricType=="CLOSEDPLANAR_XOR";
             if (roi.Contours.Any(p=>p.Points.Count<3 || p.GeometricType!=(xor?"CLOSEDPLANAR_XOR":"CLOSED_PLANAR")))
                 return Fail(result,DvhStatus.Unsupported,"All contours must consistently use CLOSED_PLANAR or CLOSEDPLANAR_XOR.");
@@ -108,7 +116,7 @@ namespace QuickLook.DicomRT
             result.SamplingStepMm=step;
             double dx=extentX/nx,dy=extentY/ny;var histogram=new double[Bins+1];
             double weightedDose=0,minSample=double.PositiveInfinity,maxSample=double.NegativeInfinity;
-            double total=0,covered=0,maxDose=Math.Max(1e-9,dose.Maximum);
+            double total=0,covered=0,maxDose=Math.Max(1e-9,dose?.Maximum??0);
             for(int k=0;k<planes.Count;k++)
             {
                 double low=Lower(planes,k),dz=(Upper(planes,k)-low)/nz[k],weight=dx*dy*dz/1000;
@@ -121,6 +129,7 @@ namespace QuickLook.DicomRT
                     foreach(var range in intervals)
                     {
                         int x0=Math.Max(0,(int)Math.Ceiling((range.A-minX)/dx-.5)),x1=Math.Min(nx,(int)Math.Ceiling((range.B-minX)/dx-.5));
+                        if(volumeOnly){total+=Math.Max(0,x1-x0)*weight*nz[k];continue;}
                         for(int x=x0;x<x1;x++)for(int z=0;z<nz[k];z++)
                         {
                             if((x&127)==0)token.ThrowIfCancellationRequested();
@@ -135,6 +144,7 @@ namespace QuickLook.DicomRT
             }
             result.EstimatedVolumeCc=total;result.SampledVolumeCc=covered;
             if(total==0)return Fail(result,DvhStatus.Empty,"Structure is smaller than the sampling grid or has no interior volume.");
+            if(volumeOnly){result.Status=DvhStatus.Complete;result.Message="Approximate contour volume · same sampling and half-spacing end caps as the DVH; independent of dose.";return result;}
             if(covered==0)return Fail(result,DvhStatus.PartialCoverage,"No sample points inside the dose grid; no curve.");
             result.DoseValues=new double[Bins+2];result.CumulativeVolumePercent=new double[Bins+2];double cumulative=0;
             for(int i=Bins;i>=0;i--){cumulative+=histogram[i];result.DoseValues[i]=maxDose*i/Bins;result.CumulativeVolumePercent[i]=Math.Min(100*covered/total,100*cumulative/total);}

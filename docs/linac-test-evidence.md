@@ -2,6 +2,12 @@
 
 [Short compatibility list](linac-compatibility.md) · reviewed **1 October 2026**, viewer **0.2.35**.
 
+## Dynamic collimator and matched export — 27 October 2026, viewer 0.2.37
+
+A user-supplied original DICOM example contains two plans: one single-beam dynamic-collimator plan (155-degree angle span) and one six-beam comparison plan with fixed collimator angles. Parsing identifies the dynamic beam. For each plan, the reference-based export selects 100 shared CT images and exactly one associated RTSTRUCT, RTDOSE and RTPLAN. Both ZIPs were read back and compared byte for byte with their source instances. No patient data, identifiers or source paths are published here.
+
+Separate automated display checks verify collimator interpolation, the zero-degree wrap, the fixed-axis checkbox and consistency between the rotated projection and fixed source-view coordinates. Synthetic export tests cover unrelated series/plans, combined-plan doses, missing structures, component selection, cancellation, changed source identity and original-byte preservation. This is parser, geometry and export testing; it does not establish TPS display equivalence or clinical delivery validation, and does not add a newly verified machine model to the compatibility list.
+
 ## Read-only archive recheck
 
 The archive contains 244,481 files. The bounded recheck inspected 648 RP-prefix/RTPLAN-name candidates: 645 were RTPLANs and 644 parsed successfully. One plan failed parsing; three candidates could not be read by the inventory reader. Other filenames and packed archives were not exhaustively tested. No source files were changed or published.

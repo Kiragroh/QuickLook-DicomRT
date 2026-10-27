@@ -32,6 +32,7 @@ internal static class Program
     [STAThread] static void Main(string[] args)
     {
         if(args.Length==2 && args[0]=="--private"){PrivateSmoke(args[1]);return;}
+        if(args.Length==2 && args[0]=="--private-volumes"){PrivateVolumes(args[1]);return;}
         SumTests();
         var dose=Dose();var result=Calc(Roi(),dose);
         Assert(result.Status==DvhStatus.Complete,"constant full coverage");Near(result.EstimatedVolumeCc,.4,"half-spacing slab volume");Near(result.SampledVolumeCc,.4,"covered cc");Near(result.CoverageFraction,1,"coverage");
@@ -58,6 +59,27 @@ internal static class Program
         invalid=Roi();invalid.Contours[1].Points[0]=new Vec3(0,0,5);Assert(Calc(invalid,dose).Status==DvhStatus.Unsupported,"nonparallel rejected");
         Assert(Calc(Roi(),Dose(units:"RELATIVE")).DoseUnits=="RELATIVE","relative units retained");
         var gradient=Calc(Roi(),Dose(true));Near(gradient.Dmean,5,"gradient mean uses weighted samples");Near(gradient.Dmin,.25,"sample minimum");Near(gradient.Dmax,9.75,"sample maximum");Assert(gradient.D98<=gradient.Dmedian&&gradient.Dmedian<=gradient.D2,"quantiles ordered by cumulative volume");int threshold=Array.FindIndex(gradient.DoseValues,x=>x>=5);Near(gradient.CumulativeVolumePercent[threshold],50,"linear gradient V5");
+        foreach(var shape in new[]{Roi(),holes,rotated,irregular,union,keyhole,Roi(30)})
+        {
+            var volume=DvhCalculator.EstimateVolume(shape,CancellationToken.None);
+            Assert(volume.Status==DvhStatus.Complete,"standalone contour volume without dose");
+            Near(volume.EstimatedVolumeCc,Calc(shape,dose).EstimatedVolumeCc,"standalone volume matches DVH contour integration");
+            Assert(volume.DoseValues.Length==0&&double.IsNaN(volume.Dmean),"volume calculation invents no dose metrics");
+        }
+        var emptyVolume=DvhCalculator.EstimateVolume(new StructureRoi(),CancellationToken.None);
+        Assert(emptyVolume.Status==DvhStatus.Empty&&emptyVolume.EstimatedVolumeCc==0,"empty contour volume");
+        Assert(DvhCalculator.EstimateVolume(one,CancellationToken.None).Status==DvhStatus.Unsupported,"single plane volume remains unknown, not zero");
+        var dense=new StructureRoi();
+        for(int z=0;z<402;z++)
+        {
+            var contour=new Contour{GeometricType="CLOSED_PLANAR"};
+            for(int i=0;i<600;i++){double theta=2*Math.PI*i/600;contour.Points.Add(new Vec3(100*Math.Cos(theta),100*Math.Sin(theta),z*2));}
+            dense.Contours.Add(contour);
+        }
+        var denseVolume=DvhCalculator.EstimateVolume(dense,CancellationToken.None);
+        Assert(denseVolume.Status==DvhStatus.Complete,"dense external above DVH point budget still gets standalone volume");
+        Assert(Math.Abs(denseVolume.EstimatedVolumeCc/(Math.PI*100*100*804/1000)-1)<.01,"dense cylinder volume within one percent of analytic reference");
+        Assert(Calc(dense,dose).Status==DvhStatus.BudgetExceeded,"standalone volume does not expand dose-sampling budget");
         var cancelled=new CancellationTokenSource();cancelled.Cancel();bool threw=false;try{DvhCalculator.Calculate(Roi(),dose,Matrix4.Identity,cancelled.Token);}catch(OperationCanceledException){threw=true;}Assert(threw,"cancellation observed");
         var large=Calc(Roi(0,200000),dose);Assert(large.SamplingStepMm>1,"adaptive bounded grid");
         Assert(result.DoseValues.Length==2050,"2048 dose intervals plus inclusive maximum and zero tail");
@@ -190,5 +212,25 @@ internal static class Program
         }
         catch(OperationCanceledException){Console.WriteLine("Private smoke exceeded its 90 second aggregate budget.");Environment.ExitCode=2;}
         catch(Exception){Console.WriteLine("Private smoke failed; details intentionally suppressed.");Environment.ExitCode=1;}
+    }
+    static void PrivateVolumes(string folder)
+    {
+        // Read-only diagnostics: aggregate counts and volume, never identities or filenames.
+        try
+        {
+            int externalCount=0;
+            foreach(var file in Directory.EnumerateFiles(folder,"*.dcm"))
+            {
+                var entry=DicomCatalog.ReadEntry(file);if(entry.Modality!="RTSTRUCT")continue;
+                foreach(var roi in StructureSet.Load(entry).Rois.Where(r=>r.InterpretedType=="EXTERNAL"||string.Equals(r.Name,"External",StringComparison.OrdinalIgnoreCase)))
+                {
+                    externalCount++;var watch=Stopwatch.StartNew();var result=DvhCalculator.EstimateVolume(roi,CancellationToken.None);
+                    Console.WriteLine("External: contours="+roi.Contours.Count+", points="+roi.Contours.Sum(c=>c.Points.Count)+", status="+result.Status+", volume_cc="+result.EstimatedVolumeCc.ToString("F2",System.Globalization.CultureInfo.InvariantCulture)+", elapsed_ms="+watch.ElapsedMilliseconds+", note="+result.Message);
+                    if(result.Status!=DvhStatus.Complete)Environment.ExitCode=1;
+                }
+            }
+            if(externalCount==0){Console.WriteLine("No external ROI found.");Environment.ExitCode=2;}
+        }
+        catch(Exception){Console.WriteLine("Private volume diagnostic failed; details suppressed.");Environment.ExitCode=1;}
     }
 }

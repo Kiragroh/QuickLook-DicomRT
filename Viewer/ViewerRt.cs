@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -48,14 +48,17 @@ namespace QuickLook.DicomRT
             roiOutlineRows.Clear();roiList.Children.Clear(); string query = roiSearch.Text.Trim();
             foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => query.Length == 0 || r.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
             {
+                bool empty = !roi.Contours.Any(c=>c.Points.Count>0);
                 var transform = TransformToImage(roi.FrameUid); var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
-                var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = workspaceMode=="DVH" || transform != null, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
+                var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = !empty && (workspaceMode=="DVH" || transform != null), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
                 toggle.Checked += (s, e) => { roi.Visible = true; RoiVisibilityChanged(); }; toggle.Unchecked += (s, e) => { roi.Visible = false; RoiVisibilityChanged(); }; DockPanel.SetDock(toggle, Dock.Left); row.Children.Add(toggle);
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
-                var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Left; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = workspaceMode=="DVH" || transform != null; jump.ToolTip = transform == null ? "No matching registration to the displayed series" : "Go to structure\n" + RoiClassification.Explain(roi,selectedPlan);
+                var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Stretch; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = !empty && (workspaceMode=="DVH" || transform != null); jump.Content=new TextBlock{Text=roi.Name,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=roi.Name}; jump.ToolTip = empty ? "Empty structure · no contour points" : transform == null ? "No matching registration to the displayed series" : "Go to structure\n" + RoiClassification.Explain(roi,selectedPlan);
                 jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null){bool in3D=workspaceMode=="3D"||workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D";if(in3D&&!roi.Visible){roi.Visible=true;BuildRoiList();}await MoveFocusAsync(map.Transform(roi.Center));if(in3D){if(workspaceMode=="3D")threeDView?.FocusStructure(roi);else mprThreeD?.FocusStructure(roi);}} };
                 var indicator=Theme.Text("",9,Theme.Muted);indicator.VerticalAlignment=VerticalAlignment.Center;indicator.Margin=new Thickness(5,0,3,0);DockPanel.SetDock(indicator,Dock.Right);row.Children.Add(indicator);
-                roiOutlineRows.Add(new RoiOutlineRow{Roi=roi,Name=jump,Stripe=color,Indicator=indicator,Color=color.Background,Tint=new SolidColorBrush(Color.FromArgb(35,roi.Red,roi.Green,roi.Blue))});
+                var volumeLabel=Theme.Text(empty?"0 cm³":"…",10,Theme.Muted);volumeLabel.TextWrapping=TextWrapping.NoWrap;volumeLabel.VerticalAlignment=VerticalAlignment.Center;volumeLabel.TextAlignment=TextAlignment.Right;volumeLabel.Margin=new Thickness(6,0,4,0);DockPanel.SetDock(volumeLabel,Dock.Right);row.Children.Add(volumeLabel);
+                var outlineRow=new RoiOutlineRow{Roi=roi,Name=jump,Stripe=color,Indicator=indicator,Color=color.Background,Tint=new SolidColorBrush(Color.FromArgb(35,roi.Red,roi.Green,roi.Blue)),Volume=volumeLabel,Empty=empty};
+                roiOutlineRows.Add(outlineRow);if(!empty)UpdateRoiVolumeAsync(outlineRow);
                 row.Children.Add(jump); roiList.Children.Add(row);
             }
             UpdateRoiOutlineIndicators();
@@ -63,7 +66,7 @@ namespace QuickLook.DicomRT
         }
         private sealed class RoiOutlineRow
         {
-            public StructureRoi Roi;public Button Name;public Border Stripe;public TextBlock Indicator;public Brush Color,Tint;public int State=-1;
+            public StructureRoi Roi;public Button Name;public Border Stripe;public TextBlock Indicator,Volume;public bool Empty;public Brush Color,Tint;public int State=-1;
         }
         private readonly List<RoiOutlineRow> roiOutlineRows=new List<RoiOutlineRow>();
         private void UpdateRoiOutlineIndicators()
@@ -71,16 +74,17 @@ namespace QuickLook.DicomRT
             bool mlc=workspaceMode=="MLC";
             foreach(var row in roiOutlineRows)
             {
-                int state=!mlc?0:!row.Roi.Visible?1:TransformToImage(row.Roi.FrameUid)==null?2:centralPlayback?.IsOutlineEnabled(row.Roi)==true?4:3;
+                int state=row.Empty?5:!mlc?0:!row.Roi.Visible?1:TransformToImage(row.Roi.FrameUid)==null?2:centralPlayback?.IsOutlineEnabled(row.Roi)==true?4:3;
                 if(row.State==state)continue;row.State=state;
                 row.Indicator.Visibility=mlc?Visibility.Visible:Visibility.Collapsed;
-                row.Indicator.Text=state==4?"Outline":state==3?"Group off":state==2?"No match":"Hidden";
+                row.Indicator.Text=state==5?"Empty":state==4?"Outline":state==3?"Group off":state==2?"No match":"Hidden";
                 row.Indicator.Foreground=state==4?row.Color:Theme.Muted;
                 row.Indicator.ToolTip=(state==4?"Outline enabled in MLC. Uncheck this structure to hide its projection.":state==3?"Structure selected, but its Target / Organ / Other outline group is off in the MLC toolbar.":state==2?"No matching registration for this structure.":"Structure hidden by its individual checkbox.")+"\n"+RoiClassification.Explain(row.Roi,selectedPlan);
-                row.Name.FontWeight=state==4?FontWeights.SemiBold:FontWeights.Normal;
-                row.Stripe.Opacity=!mlc||state==4?1:.25;
+                row.Name.FontWeight=!row.Empty&&state==4?FontWeights.SemiBold:FontWeights.Normal;
+                row.Stripe.Opacity=row.Empty?.25:!mlc||state==4?1:.25;
                 if(mlc){row.Name.Background=state==4?row.Tint:Theme.Panel;row.Name.Foreground=state==4?row.Color:Theme.Muted;row.Name.BorderBrush=state==4?row.Color:Theme.Brush("#30383D");}
                 else{row.Name.ClearValue(Control.BackgroundProperty);row.Name.ClearValue(Control.ForegroundProperty);row.Name.ClearValue(Control.BorderBrushProperty);}
+                if(row.Empty)row.Name.Foreground=Theme.Muted;
             }
         }
         private void BuildDoseList()

@@ -1,1 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup><ItemGroup><ProjectReference Include="..\Viewer\Viewer.csproj"/></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup><ItemGroup><Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/><ProjectReference Include="..\Viewer\Viewer.csproj"/></ItemGroup></Project>

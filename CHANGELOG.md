@@ -1,4 +1,14 @@
-﻿# Changelog
+# Changelog
+
+## 0.2.37 — Rotating collimators and matched DICOM export
+
+- **Dynamic collimator in MLC view:** the aperture follows the current collimator angle, including RapidArc Dynamic control points. DRR and projected contours share the same display rotation. Enable **Center collimator** to keep the leaf axes fixed. Rotation reuses prepared projections and keeps a constant display scale during playback.
+- **Export the selected plan:** the upper **ZIP** button opens a component picker for CT, RD, RS and RP, with file counts. Associations follow explicit plan, structure-set and image references. Unrelated plans and combined-plan doses are excluded. Only files already discovered are available; missing components stay visible as unavailable.
+- **Original DICOM files:** ZIP contents retain the original bytes and patient information, grouped into component folders. The suggested filename includes patient and plan identity. Export runs in the background with progress and cancellation; incomplete ZIPs do not replace an existing archive.
+
+## 0.2.36 — Structure volumes at a glance
+
+- **Structure-list volumes:** right-aligned contour-volume estimates in cm³, cached in the background independently of CT and dose. Empty structures have muted names and zero volume; unsupported volumes show a dash with an explanation. Dense External contours use a separate bounded volume-only budget. Volume and unit remain visible beside the scrollbar; long structure names reveal their full text on hover.
 
 Feature highlights for DICOM RT for QuickLook. [Download the latest Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest) · [Project home](https://github.com/Kiragroh/QuickLook-DicomRT)
 
