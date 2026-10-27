@@ -17,6 +17,19 @@ namespace QuickLook.DicomRT
   sealed class Frame {public BitmapSource Bitmap;public SlicePixels Raster;public RenderScene Scene;public bool InterpolatedContours,ContourFallback;public List<OverlayLines> Lines=new List<OverlayLines>();}
   RenderScene scene; Frame frame; CancellationTokenSource pending; int generation; bool disposed; Point dragStart; double dragCenter,dragWidth; string status="Select an image";
   public RenderScene Scene {get=>scene;set{scene=value;if(picking&&value?.InteractionPreview==true){UpdateCrosshair(value.Focus);return;}Refresh();}}
+  public event Action<double> IsodoseToggled;
+  readonly List<KeyValuePair<Rect,double>> isodoseHitAreas=new List<KeyValuePair<Rect,double>>();
+  internal void UpdateIsodoseVisibility(IEnumerable<double> hidden)
+  {
+   if(scene!=null)scene.HiddenIsoLevels=new HashSet<double>(hidden);
+   if(frame!=null)frame.Scene.HiddenIsoLevels=new HashSet<double>(hidden);
+   InvalidateVisual();
+  }
+  internal bool ToggleIsodoseAt(Point point)
+  {
+   foreach(var item in isodoseHitAreas)if(item.Key.Contains(point)){IsodoseToggled?.Invoke(item.Value);return true;}
+   return false;
+  }
   // Position-only navigation: orthogonal panes keep their pixels and contours.
   internal void Navigate(Vec3 focus)
   {
@@ -66,7 +79,7 @@ namespace QuickLook.DicomRT
      }
      return result;
     },cancel.Token);
-    if(disposed||mine!=generation)return;copy.Focus=scene.Focus;frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair":null;InvalidateVisual();
+    if(disposed||mine!=generation)return;copy.Focus=scene.Focus;copy.HiddenIsoLevels=new HashSet<double>(scene.HiddenIsoLevels);frame=next;if(!picking&&!copy.InteractionPreview)immediateFocus=null;status=copy.InteractionPreview?"Moving crosshair":null;InvalidateVisual();
    }
    catch(OperationCanceledException){}
    catch(Exception){if(!disposed&&mine==generation){status=frame==null?"Image display unavailable":"Update failed; showing previous view";InvalidateVisual();}}
@@ -81,6 +94,7 @@ namespace QuickLook.DicomRT
   protected override void OnRender(DrawingContext dc)
   {
    base.OnRender(dc);dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(8,12,17)),null,new Rect(0,0,ActualWidth,ActualHeight));
+   isodoseHitAreas.Clear();
    DrawCrosshair();
    if(frame==null){Text(dc,status??"Rendering…",new Point(12,12),Brushes.LightSlateGray);return;}
    var f=frame;var g=f.Raster.Geometry;var rect=ImageRect(g);
@@ -88,6 +102,7 @@ namespace QuickLook.DicomRT
    foreach(var item in f.Lines)foreach(var line in item.Lines)dc.DrawLine(item.Pen,Project(line.A,g,rect),Project(line.B,g,rect));
    var isoPens=new Dictionary<double,Pen>();foreach(var line in f.Raster.Isolines)
    {
+    if(f.Scene.HiddenIsoLevels.Contains(line.DosePercent))continue;
     Pen pen;if(!isoPens.TryGetValue(line.DosePercent,out pen))
     {double red,green,blue;SliceRaster.IsodoseColor(f.Scene,line.DosePercent,out red,out green,out blue);pen=new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),.9);isoPens.Add(line.DosePercent,pen);}
     dc.DrawLine(pen,Project(line.A,g,rect),Project(line.B,g,rect));
@@ -124,8 +139,10 @@ namespace QuickLook.DicomRT
     for(int i=0;i<levels.Length;i++)
     {
      double level=levels[i],lx=x+(i/rows)*100,ly=y+16+(i%rows)*16,red,green,blue;SliceRaster.IsodoseColor(f.Scene,level,out red,out green,out blue);
-     dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),3),new Point(lx+2,ly+7),new Point(lx+22,ly+7));
-     Text(dc,level.ToString("0.##",CultureInfo.InvariantCulture)+(f.Scene.AbsoluteIsodoses?" Gy":" %"),new Point(lx+30,ly),Brushes.LightGray,10);
+     bool hidden=f.Scene.HiddenIsoLevels.Contains(level);
+     dc.DrawLine(new Pen(hidden?Brushes.DimGray:new SolidColorBrush(Color.FromRgb((byte)red,(byte)green,(byte)blue)),3),new Point(lx+2,ly+7),new Point(lx+22,ly+7));
+     Text(dc,level.ToString("0.##",CultureInfo.InvariantCulture)+(f.Scene.AbsoluteIsodoses?" Gy":" %")+(hidden?" (off)":""),new Point(lx+30,ly),hidden?Brushes.Gray:Brushes.LightGray,10);
+     isodoseHitAreas.Add(new KeyValuePair<Rect,double>(new Rect(lx,ly,columns==2?100:legendWidth-8,16),level));
     }
    }
    if(status!=null)Text(dc,status,new Point(10,55),Brushes.LightSlateGray,10);
@@ -148,7 +165,7 @@ namespace QuickLook.DicomRT
   void OnWheel(object sender,MouseWheelEventArgs e){if(e.Delta==0)return;if((Keyboard.Modifiers&ModifierKeys.Control)!=0){ZoomChanged?.Invoke(e.Delta>0?1.15:1/1.15);e.Handled=true;return;}Scrolled?.Invoke(this,e.Delta>0?1:-1);e.Handled=true;}
   void OnPick(object sender,MouseButtonEventArgs e)
   {
-   Focus();if(frame==null)return;var g=frame.Raster.Geometry;var r=ImageRect(g);var p=e.GetPosition(this);if(!r.Contains(p))return;
+   Focus();var p=e.GetPosition(this);if(ToggleIsodoseAt(p)){e.Handled=true;return;}if(frame==null)return;var g=frame.Raster.Geometry;var r=ImageRect(g);if(!r.Contains(p))return;
    picking=true;pickGeometry=g;pickRect=r;CaptureMouse();PickInteraction?.Invoke(true);PickAt(p);e.Handled=true;
   }
   void PickAt(Point p)

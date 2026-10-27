@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.38 — Toggle individual isodoses
+
+- **One-click isodose visibility:** use a checkbox beside each dose-panel legend entry, or click a level directly in an image's legend. Hidden entries remain available and are muted, so they can be enabled again.
+- **Immediate display updates:** switching a level reuses existing image, dose and contour data. Image panes share the selection; scrolling and switching native/MPR views retain it. Colorwash and line-color editing remain independent.
+- **Dose-specific Gy selection:** absolute visibility choices return with their dose selection and remain separate from relative-percentage choices. **Default** restores all levels in the current mode.
+
 ## 0.2.37 — Rotating collimators and matched DICOM export
 
 - **Dynamic collimator in MLC view:** the aperture follows the current collimator angle, including RapidArc Dynamic control points. DRR and projected contours share the same display rotation. Enable **Center collimator** to keep the leaf axes fixed. Rotation reuses prepared projections and keeps a constant display scale during playback.

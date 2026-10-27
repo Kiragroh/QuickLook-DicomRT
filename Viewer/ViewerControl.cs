@@ -158,6 +158,7 @@ namespace QuickLook.DicomRT
             {
                 var pane = new SlicePane { Margin = new Thickness(2), Tag = views[i] };
                 pane.Scrolled += async (p, steps) => await ScrollAsync((string)p.Tag, steps);
+                pane.IsodoseToggled += level=>SetIsodoseVisible(level,HiddenIsodoses.Contains(level));
                 pane.PickInteraction+=active=>{movingCrosshair=active;if(active){if(!viewportCenter.HasValue)viewportCenter=focus;focusTimer.Start();}else{focusTimer.Stop();focusDirty=false;Redraw();}};
                 pane.Picked += (p, point) => { userNavigatedImage=true;focus = point;foreach(var view in panes)view.UpdateCrosshair(point);if(movingCrosshair)focusDirty=true;else Redraw(); }; pane.WindowChanged += SetWindow;pane.ZoomChanged += factor=>{viewportCenter=focus;zoom=Math.Max(.25,Math.Min(8,zoom*factor));Redraw();};
                 var cell=new Grid();cell.Children.Add(pane);ViewerSnapshot.AttachMenu(pane,()=>cell,views[i]);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);

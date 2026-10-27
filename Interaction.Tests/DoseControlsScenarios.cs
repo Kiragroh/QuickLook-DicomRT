@@ -12,7 +12,7 @@ internal static class DoseControlsScenarios
     static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);
     static void Set(object target, string name, object value) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
     static void Invoke(object target, string name, params object[] values) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, values);
-    static string LegendText(StackPanel panel) => string.Join(" ", panel.Children.OfType<TextBlock>().Select(t => t.Text).Concat(panel.Children.OfType<DockPanel>().SelectMany(r => r.Children.OfType<TextBlock>()).Select(t => t.Text)));
+    static string LegendText(StackPanel panel) => string.Join(" ", panel.Children.OfType<TextBlock>().Select(t => t.Text).Concat(panel.Children.OfType<DockPanel>().SelectMany(r => r.Children.OfType<CheckBox>()).Select(c => ((TextBlock)c.Content).Text)));
     public static void Run(Action<bool, string> check)
     {
         var scene = new RenderScene { IsoLevels = new[] { 80d, 20d, 80d, double.NaN }, IsoColors = new Dictionary<double, int> { [80] = 0x123456, [20] = 0xabcdef } };

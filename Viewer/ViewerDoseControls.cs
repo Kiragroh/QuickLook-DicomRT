@@ -32,6 +32,25 @@ namespace QuickLook.DicomRT
     public sealed partial class ViewerControl
     {
         private readonly Dictionary<double, int> isodoseColors = new Dictionary<double, int>();
+        private readonly HashSet<double> hiddenRelativeIsodoses = new HashSet<double>();
+        private HashSet<double> HiddenIsodoses
+        {
+            get
+            {
+                if(!absoluteIsodoses)return hiddenRelativeIsodoses;
+                var saved=CurrentLocalGyLevels;
+                if(saved==null){saved=new LocalGyLevels{Doses=(DoseGrid[])isodoseContext.Clone(),Signature=isodoseContextSignature};localGyLevels.Add(saved);}
+                return saved.Hidden;
+            }
+        }
+        private void SetIsodoseVisible(double level,bool visible)
+        {
+            if(!displayedIsoLevels.Contains(level))return;
+            var hidden=HiddenIsodoses;if(visible)hidden.Remove(level);else hidden.Add(level);
+            if(latestScene!=null)latestScene.HiddenIsoLevels=new HashSet<double>(hidden);
+            foreach(var pane in panes)pane.UpdateIsodoseVisibility(hidden);
+            doseLegendKey=null;UpdateIsodoseLegend(latestScene?.Doses??new List<DoseOverlay>());
+        }
         private readonly StackPanel isodoseLegend = new StackPanel();
         private readonly Button isocenterButton = Theme.Button("ISO");
         private Popup doseColorPopup, isocenterPopup;
@@ -52,6 +71,7 @@ namespace QuickLook.DicomRT
             internal DoseGrid[] Doses;
             internal string Signature;
             internal double[] Levels;
+            internal readonly HashSet<double> Hidden = new HashSet<double>();
         }
         private bool PhysicalIsodoseContext => isodoseContext.Length > 0 && isodoseContext.All(IsodoseConfiguration.IsPhysicalGy);
         private LocalGyLevels CurrentLocalGyLevels => localGyLevels.FirstOrDefault(item => item.Signature == isodoseContextSignature && item.Doses.Length == isodoseContext.Length && item.Doses.All(isodoseContext.Contains));
@@ -79,6 +99,7 @@ namespace QuickLook.DicomRT
         }
         private void DefaultIsodoseLevels()
         {
+            HiddenIsodoses.Clear();
             if(absoluteIsodoses)
             {
                 var saved=CurrentLocalGyLevels;if(saved!=null)localGyLevels.Remove(saved);
@@ -175,12 +196,12 @@ namespace QuickLook.DicomRT
         private void UpdateIsodoseLegend(List<DoseOverlay> overlays)
         {
             var visible = overlays.Where(d => d.Dose.Maximum > 0).Select(d => d.Dose).ToArray();
-            var key = IsodoseUnit + "|" + string.Join(";", displayedIsoLevels.Select(p => p.ToString("R", CultureInfo.InvariantCulture) + ":" + IsodoseDisplayColor(p))) + "|" + string.Join(";", visible.Select(d => d.Maximum.ToString("R", CultureInfo.InvariantCulture) + ":" + d.Units));
+            var key = IsodoseUnit + "|" + string.Join(";", displayedIsoLevels.Select(p => p.ToString("R", CultureInfo.InvariantCulture) + ":" + IsodoseDisplayColor(p)+":"+HiddenIsodoses.Contains(p))) + "|" + string.Join(";", visible.Select(d => d.Maximum.ToString("R", CultureInfo.InvariantCulture) + ":" + d.Units));
             if (key == doseLegendKey) return;
             doseLegendKey = key;
             if (doseColorPopup != null) doseColorPopup.IsOpen = false;
             isodoseLegend.Children.Clear();
-            isodoseLegend.Children.Add(Theme.Text("ISODOSE LEGEND · click a color", 10, Theme.Muted));
+            isodoseLegend.Children.Add(Theme.Text("ISODOSE LEGEND · check levels to show", 10, Theme.Muted));
             isodoseLegend.Children.Add(Theme.Text(absoluteIsodoses ? "Absolute dose levels in Gy, shared by all visible physical doses. Click a swatch to change its line color." : "Relative isodose levels: percentages of each grid maximum. Click a swatch to change its line color.", 10, Theme.Muted));
             foreach (var level in displayedIsoLevels)
             {
@@ -191,8 +212,10 @@ namespace QuickLook.DicomRT
                 swatch.Click += (s, e) => OpenIsodoseColor(swatch, level);
                 DockPanel.SetDock(swatch, Dock.Left); row.Children.Add(swatch);
                 string coverage = absoluteIsodoses && visible.Length > 0 && visible.All(d => d.Maximum < level) ? " · above maximum" : "";
-                var label = Theme.Text(level.ToString("0.##", CultureInfo.InvariantCulture) + " " + IsodoseUnit + coverage, 11); label.VerticalAlignment = VerticalAlignment.Center;
-                row.Children.Add(label); isodoseLegend.Children.Add(row);
+                var label = Theme.Text(level.ToString("0.##", CultureInfo.InvariantCulture) + " " + IsodoseUnit + coverage, 11,HiddenIsodoses.Contains(level)?Theme.Muted:Theme.Foreground); label.VerticalAlignment = VerticalAlignment.Center;
+                var toggle=new CheckBox{Content=label,IsChecked=!HiddenIsodoses.Contains(level),VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4,0,0,0),ToolTip="Show / hide this isodose in all image views. Colorwash is unchanged."};
+                toggle.Checked+=(s,e)=>SetIsodoseVisible(level,true);toggle.Unchecked+=(s,e)=>SetIsodoseVisible(level,false);
+                row.Children.Add(toggle); isodoseLegend.Children.Add(row);
             }
             if (visible.Length > 1) isodoseLegend.Children.Add(Theme.Text(absoluteIsodoses ? "A level is drawn only in dose grids whose maximum reaches it." : "Multiple doses: absolute levels differ; see each dose maximum below.", 10, Theme.Muted));
             if (absoluteIsodoses && displayedIsoLevels.Length == 0) isodoseLegend.Children.Add(Theme.Text("No positive whole-Gy level below this maximum. Enter decimal Gy levels above.", 10, Theme.Muted));

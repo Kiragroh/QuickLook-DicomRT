@@ -65,6 +65,7 @@ class Program
             PlanExportScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);
+            IsodoseVisibilityScenarios.Run(Check);
             AbsoluteIsodoseScenarios.Run(Check);TagDetailScenarios.Run(Check);IsodosePreferenceScenarios.Run(Check,preferenceScope.DirectoryPath);
             Console.WriteLine("PASS: "+checks+" WPF interaction/contrast/tree/timeline checks");return 0;
         }
