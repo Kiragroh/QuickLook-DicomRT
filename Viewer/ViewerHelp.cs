@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -42,7 +42,7 @@ namespace QuickLook.DicomRT
             panel.Children.Add(ShortcutSection("IMAGE & MLC CONTROLS",new[]{
                 new[]{"Left drag","Move linked crosshair"},
                 new[]{"Right drag","Custom window / level"},
-                new[]{"Ctrl + wheel","Zoom image"},
+                new[]{"Ctrl + wheel","Zoom image / MLC aperture"},
                 new[]{"Wheel","MLC: move by 1 control point"},
                 new[]{"Shift + wheel","MLC: move by 0.1 control point"}}));
             panel.Children.Add(ShortcutSection("SAVE & EXPORT",new[]{

@@ -63,7 +63,7 @@ class Program
             RoiGroupingScenarios.Run(Check);
             LoadingNavigationScenarios.Run(Check);
             RoiVolumeScenarios.Run(Check);
-            RoiLabelsAndIdentityScenarios.Run(Check);
+            RoiLabelsAndIdentityScenarios.Run(Check);MlcZoomScenarios.Run(Check);
             PlanExportScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);

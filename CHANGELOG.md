@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.42 — Compact structure controls and MLC zoom
+
+- **One-row structure controls:** the label selector shares the All / None row and uses its remaining width, instead of wrapping onto another line.
+- **Zoom the MLC image:** Ctrl + mouse wheel zooms around the pointer, with aperture, DRR and ROI contours aligned. Zoom reuses prepared projections, remains in place while scrolling control points, and does not interrupt playback. Use **Fit** or double-click the MLC image to reset. Ctrl + wheel over the LINAC/context overlay still resizes that overlay.
+- **Shared navigation:** removed the redundant 2 × 2 button from the MLC settings row; the common view toolbar remains available.
+
 ## 0.2.41 — Two-line labels and alphabetical structure groups
 
 - **Two Both modes:** choose **Both: name first** for a larger name above a smaller description, or **Both: description first** for the reverse. The same hierarchy is used in the DVH list and curve hover. Single-field modes remain available; missing or identical fields are shown once.

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,8 +61,14 @@ namespace QuickLook.DicomRT
         }
         void OnControlPointWheel(object sender,MouseWheelEventArgs e)
         {
-            if(contextOverlay?.IsMouseOver==true&&(Keyboard.Modifiers&ModifierKeys.Control)!=0){contextOverlay.ResizeBy(e.Delta*.25);e.Handled=true;return;}
-            Pause();cursor.Value=((Keyboard.Modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder):MlcTimeline.RecordedWheelStep(cursor.Value,cursor.Maximum,e.Delta,ref wheelRemainder));e.Handled=true;
+            NavigateWheel(e.Delta,Keyboard.Modifiers,e.GetPosition(aperture),contextOverlay?.IsMouseOver==true);e.Handled=true;
+        }
+        private void NavigateWheel(int delta,ModifierKeys modifiers,Point pointer,bool overContext)
+        {
+            if(delta==0)return;
+            if(overContext&&(modifiers&ModifierKeys.Control)!=0){contextOverlay?.ResizeBy(delta*.25);return;}
+            if((modifiers&ModifierKeys.Control)!=0){aperture.ZoomAt(Math.Pow(1.15,delta/120.0),pointer);return;}
+            Pause();cursor.Value=(modifiers&ModifierKeys.Shift)!=0?MlcTimeline.WheelStep(cursor.Value,cursor.Maximum,delta,ref wheelRemainder):MlcTimeline.RecordedWheelStep(cursor.Value,cursor.Maximum,delta,ref wheelRemainder);
         }
         public void SetAnatomy(RenderScene scene,Matrix4 map)
         {

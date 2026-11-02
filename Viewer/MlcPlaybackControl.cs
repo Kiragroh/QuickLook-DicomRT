@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -25,7 +25,6 @@ namespace QuickLook.DicomRT
         private string bodyRegion;private bool planNoncoplanar;
         public void SetBodyRegion(string value){if(bodyRegion==value)return;bodyRegion=value;UpdateFrame();}
         public event Action<Vec3> IsocenterSelected;
-        public event Action MprRequested;
         public double Position => cursor.Value;
         public bool IsPlaying=>timer.IsEnabled;
         public event Action<bool> PlaybackStateChanged;
@@ -37,13 +36,13 @@ namespace QuickLook.DicomRT
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}
         public MlcPlaybackControl()
         {
-            Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};var quad=ViewButtons.Create("MPR + 3D");quad.HorizontalAlignment=HorizontalAlignment.Right;quad.ToolTip="Open the linked 2 × 2 overview";quad.Click+=(s,e)=>MprRequested?.Invoke();settings.Children.Add(quad);beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
+            Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);var fit=Theme.Button("Fit");fit.ToolTip="Reset MLC zoom (also double-click the MLC image)";fit.Click+=(s,e)=>aperture.ResetView();settings.Children.Add(fit);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
             layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};layerView.Width=100;layerView.ToolTip="Choose MLC layer";settings.Children.Add(layerView);centerCollimator.Foreground=Theme.Foreground;settings.Children.Add(centerCollimator);centerCollimator.Checked+=(s,e)=>aperture.CenterCollimator=true;centerCollimator.Unchecked+=(s,e)=>aperture.CenterCollimator=false;
             var bottom=new StackPanel();bottom.Children.Add(details);
             var controls=new WrapPanel();controls.Children.Add(play);var restart=Theme.Button("↺");restart.ToolTip="Go to plan start";restart.Click+=(s,e)=>cursor.Value=0;controls.Children.Add(restart);
             controls.Children.Add(Theme.Text("CP/s",11,Theme.Muted));speed.ItemsSource=new[]{1,2,5,10,20};speed.SelectedItem=5;controls.Children.Add(speed);bottom.Children.Add(controls);
             bottom.Children.Add(Theme.Text("PLAN TIMELINE · markers indicate beam ends",10,Theme.Muted));bottom.Children.Add(cursor);bottom.Children.Add(markers);
-            bottom.Children.Add(Theme.Text("Mouse wheel: 1 CP · Shift: 0.1 CP · MLC first · imaging last · preview, not delivery time",10,Theme.Muted));
+            bottom.Children.Add(Theme.Text("Wheel: 1 CP · Shift: 0.1 CP · Ctrl+wheel: zoom · double-click: fit · preview, not delivery time",10,Theme.Muted));
             var jump=Theme.Button("Go to isocenter");jump.Click+=(s,e)=>{if(beam?.ControlPoints.Count>0){int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);IsocenterSelected?.Invoke(beam.ControlPoints[(int)local].Isocenter);}};bottom.Children.Add(jump);
             SetDock(bottom,Dock.Bottom);Children.Add(bottom);var apertureArea=new Grid();apertureArea.Children.Add(aperture);Children.Add(apertureArea);InitializeAnatomy(settings,apertureArea);
             beams.SelectionChanged+=(s,e)=>{if(selecting)return;Pause();int index=beams.SelectedIndex;if(index>=0)cursor.Value=counts.Take(index).Sum();UpdateFrame();};
@@ -52,7 +51,7 @@ namespace QuickLook.DicomRT
             timer.Tick+=(s,e)=>AdvancePlayback();speed.SelectionChanged+=(s,e)=>RequestProjection(true);
             Unloaded+=(s,e)=>Pause();
         }
-        public void SetPlan(PlanData value){Pause();SuspendProjection();projectionSuspended=!IsVisible;interpolated=null;aperture.Projection=null;fieldArrangement.Set(null,null,null,null,null);plan=value;extents.Clear();foreach(var item in value?.Beams??new System.Collections.Generic.List<PlanBeam>())extents[item]=BeamExtent(item);playbackBeams=MlcTimeline.PlaybackOrder(plan);planNoncoplanar=playbackBeams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=playbackBeams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=playbackBeams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
+        public void SetPlan(PlanData value){if(!ReferenceEquals(plan,value))aperture.ResetView();Pause();SuspendProjection();projectionSuspended=!IsVisible;interpolated=null;aperture.Projection=null;fieldArrangement.Set(null,null,null,null,null);plan=value;extents.Clear();foreach(var item in value?.Beams??new System.Collections.Generic.List<PlanBeam>())extents[item]=BeamExtent(item);playbackBeams=MlcTimeline.PlaybackOrder(plan);planNoncoplanar=playbackBeams.SelectMany(b=>b.ControlPoints).Any(c=>!double.IsNaN(c.Couch)&&!double.IsInfinity(c.Couch)&&Math.Abs(Math.Sin(c.Couch*Math.PI/180))>.01);counts=playbackBeams.Select(b=>b.ControlPoints.Count).ToArray();selecting=true;beams.ItemsSource=playbackBeams;selecting=false;cursor.Maximum=Math.Max(0,counts.Sum()-1);cursor.Value=0;DrawMarkers();UpdateFrame();}
         private void DrawMarkers(){markers.Children.Clear();int offset=0;foreach(int count in counts){offset+=count;if(count==0)continue;var dot=new System.Windows.Shapes.Ellipse{Width=5,Height=5,Fill=Theme.Accent,ToolTip="Beam end · CP "+offset};Canvas.SetLeft(dot,Math.Max(0,markers.ActualWidth)*(offset-1)/Math.Max(1,cursor.Maximum)-2.5);Canvas.SetTop(dot,3);markers.Children.Add(dot);}}
         public void Pause(){bool playing=timer.IsEnabled;timer.Stop();play.Content="▶ Play";if(playing){PlaybackStateChanged?.Invoke(false);RequestProjection(true);}}
         public void Dispose(){Pause();SuspendProjection();}
@@ -92,6 +91,17 @@ namespace QuickLook.DicomRT
         internal double DisplayAngle=>centerCollimator||Compact||first==null?0:-MlcTimeline.Angle(first.Collimator,second.Collimator,fraction,first.CollimatorRotationDirection,false);
         public bool Compact {get;set;}
         public double Extent {get;set;}=100;
+        public double Zoom {get;private set;}=1;
+        private Vector viewOffset;
+        private Point ViewOrigin=>new Point(ActualWidth/2,ActualHeight/2+(Compact?0:8));
+        public MlcAperture(){ClipToBounds=true;ToolTip="Ctrl + mouse wheel: zoom · double-click: fit";MouseLeftButtonDown+=(s,e)=>{if(!Compact&&e.ClickCount==2){ResetView();e.Handled=true;}};}
+        public void ResetView(){Zoom=1;viewOffset=new Vector();InvalidateVisual();}
+        public void ZoomAt(double factor,Point pointer)
+        {
+            if(Compact||!BeamProjection.Finite(factor)||factor<=0)return;
+            double next=Math.Max(.25,Math.Min(8,Zoom*factor));var anchor=pointer-ViewOrigin;
+            viewOffset=anchor+(viewOffset-anchor)*(next/Zoom);Zoom=next;InvalidateVisual();
+        }
         public int LayerIndex {get=>layerIndex;set {layerIndex=value;InvalidateVisual();}}
         public void Set(ControlPoint a,ControlPoint b,double t){first=a;second=b;fraction=t;blockAperture=a?.Blocks.Count>0?BlockApertureGeometry.Create(MlcTimeline.Interpolate(a,b,t)):null;Extent=100;
             if(a!=null)foreach(var value in a.MlcLayers.Concat(b.MlcLayers).SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(a.XJaws??new double[0]).Concat(a.YJaws??new double[0]).Concat(b.XJaws??new double[0]).Concat(b.YJaws??new double[0]))Extent=Math.Max(Extent,Math.Abs(value)+10);
@@ -108,7 +118,7 @@ namespace QuickLook.DicomRT
             double angle=DisplayAngle;if(!BeamProjection.Finite(angle))angle=0;
             // Constant diagonal clearance prevents zoom pulsing as the collimator turns.
             double clearance=!CenterCollimator&&!Compact?Math.Sqrt(2):1;
-            double scale=Math.Max(1,Math.Min(ActualWidth-(Compact?8:24),ActualHeight-(Compact?8:54)))/(extent*2*clearance);double cx=ActualWidth/2,cy=ActualHeight/2+(Compact?0:8);
+            double scale=Math.Max(1,Math.Min(ActualWidth-(Compact?8:24),ActualHeight-(Compact?8:54)))/(extent*2*clearance)*Zoom;double cx=ViewOrigin.X+viewOffset.X,cy=ViewOrigin.Y+viewOffset.Y;
             Func<double,double,Point> point=(x,y)=>new Point(cx+x*scale,cy-y*scale);
             Action<double,double,double,double,Brush> rect=(x1,y1,x2,y2,brush)=>dc.DrawRectangle(brush,null,new Rect(point(Math.Min(x1,x2),Math.Max(y1,y2)),point(Math.Max(x1,x2),Math.Min(y1,y2))));
             var imageRect=new Rect(point(-extent,extent),point(extent,-extent));
@@ -141,7 +151,7 @@ namespace QuickLook.DicomRT
             var cross=new Pen(Theme.Brush("#EE8068"),1);dc.DrawLine(cross,point(-6,0),point(6,0));dc.DrawLine(cross,point(0,-6),point(0,6));
             if(!Compact){var yp=point(0,extent);var xp=point(extent,0);Label(dc,"+Y",yp.X+3,yp.Y);Label(dc,"+X",xp.X-18,xp.Y+3);}
             dc.Pop();
-            if(!Compact)Label(dc,$"±{extent:0} mm · isocenter plane",6,Math.Max(0,ActualHeight-18));
+            if(!Compact)Label(dc,$"±{extent:0} mm · isocenter plane · ×{Zoom:0.00}",6,Math.Max(0,ActualHeight-18));
         }
         private void Label(DrawingContext dc,string text,double x,double y)
         {dc.DrawText(new FormattedText(text,CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),10,Theme.Foreground,VisualTreeHelper.GetDpi(this).PixelsPerDip),new Point(x,y));}
