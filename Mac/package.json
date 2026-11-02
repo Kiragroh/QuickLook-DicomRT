@@ -1,0 +1,8 @@
+{
+  "name": "quicklookrt-macos-graphics",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {"build": "esbuild Graphics/renderer.js --bundle --format=iife --global-name=QuickLookRTGraphics --minify --outfile=Web/graphics.js"},
+  "dependencies": {"three": "0.180.0"},
+  "devDependencies": {"esbuild": "0.25.12"}
+}

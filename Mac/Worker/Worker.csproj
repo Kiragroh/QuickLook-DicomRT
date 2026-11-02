@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>QuickLookRT.Worker</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="fo-dicom.NetCore" Version="4.0.8" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+    <PackageReference Include="Clipper2" Version="2.0.0" />
+    <Compile Include="../../Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../../Rt/*.cs" Link="Rt/%(Filename)%(Extension)" />
+    <Compile Include="../../Viewer/RenderScene.cs" Link="Rendering/RenderScene.cs" />
+    <Compile Include="../../Viewer/ReformatContours.cs" Link="Rendering/ReformatContours.cs" />
+    <Compile Include="../../Viewer/MlcTimeline.cs" Link="Rendering/MlcTimeline.cs" />
+    <Compile Include="../../Viewer/ThreeDGeometry.cs" Link="Rendering/ThreeDGeometry.cs" />
+    <Compile Include="../../Viewer/RtSliceBounds.cs" Link="Rendering/RtSliceBounds.cs" />
+    <Compile Include="../../Viewer/BeamMetersetInfo.cs" Link="Rendering/BeamMetersetInfo.cs" />
+    <Compile Include="../../Viewer/PlanDicomExport.cs" Link="Export/PlanDicomExport.cs" />
+  </ItemGroup>
+</Project>

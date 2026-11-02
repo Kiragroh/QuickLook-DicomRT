@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>de.kiragroh.QuickLookRT</string>
+<key>CFBundleName</key><string>QuickLookRT</string>
+<key>CFBundleDisplayName</key><string>QuickLookRT</string>
+<key>CFBundleExecutable</key><string>QuickLookRT</string>
+<key>CFBundleIconFile</key><string>QuickLookRT</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.2.44</string>
+<key>CFBundleVersion</key><string>2026110201</string>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>DICOM</string><key>CFBundleTypeRole</key><string>Viewer</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array><string>org.nema.dicom</string><string>com.dicom.dicom</string></array>
+</dict></array>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>org.nema.dicom</string>
+<key>UTTypeDescription</key><string>DICOM medical image or radiotherapy object</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string><string>public.content</string></array>
+<key>UTTypeTagSpecification</key><dict>
+<key>public.filename-extension</key><array><string>dcm</string><string>dicom</string><string>ima</string></array>
+<key>public.mime-type</key><string>application/dicom</string>
+</dict></dict></array>
+</dict></plist>

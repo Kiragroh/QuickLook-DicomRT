@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>de.kiragroh.QuickLookRT.Preview</string>
+<key>CFBundleName</key><string>QuickLookRT Preview</string>
+<key>CFBundleDisplayName</key><string>DICOM RT Preview</string>
+<key>CFBundleExecutable</key><string>QuickLookRTPreview</string>
+<key>CFBundlePackageType</key><string>XPC!</string>
+<key>CFBundleShortVersionString</key><string>0.2.44</string>
+<key>CFBundleVersion</key><string>2026110201</string>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>NSExtension</key><dict>
+<key>NSExtensionPointIdentifier</key><string>com.apple.quicklook.preview</string>
+<key>NSExtensionPrincipalClass</key><string>QuickLookController</string>
+<key>NSExtensionAttributes</key><dict>
+<key>QLSupportedContentTypes</key><array><string>org.nema.dicom</string><string>com.dicom.dicom</string></array>
+<key>QLSupportsSearchableItems</key><false/>
+<key>QLIsDataBasedPreview</key><false/>
+</dict></dict>
+</dict></plist>

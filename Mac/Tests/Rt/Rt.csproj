@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+<ProjectReference Include="../../Worker/Worker.csproj" />
+<Compile Include="../../../Rt.Tests/*.cs" Link="%(Filename)%(Extension)" />
+</ItemGroup></Project>

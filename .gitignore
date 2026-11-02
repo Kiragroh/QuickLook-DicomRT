@@ -15,3 +15,6 @@ artifacts/
 !docs/demo/screens/*.png
 !docs/demo/media/*.png
 !docs/demo/art/*.png
+
+Mac/node_modules/
+!Mac/Web/icon.png
