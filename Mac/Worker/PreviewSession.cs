@@ -135,7 +135,7 @@ sealed partial class PreviewSession
             patientId=DicomCatalog.Text(opened.Dataset,DicomTag.PatientID),planLabel=plan?.Label??dose?.Label??"",
             title=DicomCatalog.Text(opened.Dataset,DicomTag.PatientName).Replace('^',' '),
             plan=plans.IndexOf(plan),structure=structures.IndexOf(structure),dose=doses.IndexOf(dose),series=catalog.Stacks.IndexOf(stack),
-            plans=plans.Select((p,i)=>new{id=i,label=p.Label,beams=p.Beams.Count}),
+            plans=plans.Select((p,i)=>new{id=i,label=string.IsNullOrWhiteSpace(p.Label)||p.Label.Trim().Equals("None",StringComparison.OrdinalIgnoreCase)?"RT-Plan "+(i+1)+" · "+p.Beams.Count+" Felder":p.Label,detail="DICOM-Planlabel: "+p.Label,beams=p.Beams.Count}),
             structures=structures.Select((s,i)=>new{id=i,label=DicomCatalog.Text(s.Entry.Dataset,DicomTag.StructureSetLabel),count=s.Rois.Count}),
             doses=doses.Select((d,i)=>new{id=i,label=(plans.FirstOrDefault(p=>p.Entry.SopUid==d.PlanUid)?.Label??"Standalone")+" · "+d.Label,units=d.Units,maximum=Num(d.Maximum)}),
             seriesList=catalog.Stacks.Select((s,i)=>new{id=i,label=s.ToString(),mpr=s.CanMpr}),

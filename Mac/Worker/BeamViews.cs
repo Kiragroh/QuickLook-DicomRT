@@ -10,12 +10,13 @@ sealed partial class PreviewSession
     object AdvancedBeam(JsonElement r,PlanBeam b,ControlPoint c,double cursor,BeamProjection projection,string reason)
     {
         int size=Math.Clamp(Int(r,"size",384),96,512);double extent=Math.Max(100,b.ControlPoints.SelectMany(cp=>cp.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(cp.XJaws??Array.Empty<double>()).Concat(cp.YJaws??Array.Empty<double>())).Where(double.IsFinite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
-        string key=CacheKey(plans.IndexOf(plan)+":"+plan.Beams.IndexOf(b)+":"+cursor.ToString("R",CultureInfo.InvariantCulture)+":"+size);
+        string geometryKey=CacheKey(plans.IndexOf(plan)+":"+plan.Beams.IndexOf(b)+":"+cursor.ToString("R",CultureInfo.InvariantCulture));
+        string key=geometryKey+":"+size;
         object drr=null;var outlines=new List<object>();int omitted=0;
         if(Flag(r,"drr")&&projection!=null&&volume!=null&&stack.Modality=="CT") {
             if(!rays.TryGetValue(key,out var values)) {
                 values=projection.Integrate(volume,extent,size,size<300?2:1,token,2);
-                while(rays.Count>0&&(rays.Count>=256||rays.Values.Sum(x=>(long)x.Length)*4+values.LongLength*4>64L*1024*1024))rays.TryRemove(rays.Keys.First(),out _);
+                while(rays.Count>0&&(rays.Count>=256||rays.Values.Sum(x=>(long)x.Length)*4+values.LongLength*4>64L*1024*1024)){var oldest=rays.Keys.FirstOrDefault();if(oldest==null)break;rays.TryRemove(oldest,out _);}
                 rays[key]=values;
             }
             var gray=Tone(values,Text(r,"drrPreset","High contrast"),Real(r,"drrCenter",.5),Real(r,"drrWidth",1));
@@ -27,17 +28,18 @@ sealed partial class PreviewSession
             var category=RoiClassification.Category(roi,plan).ToString();if(!categories.Contains(category))continue;
             var map=Map(roi.FrameUid,Frame);if(map==null){omitted++;continue;}
             var cached=OriginalMesh(roi);if(cached.mesh==null){omitted++;continue;}
-            string projectionKey=key+":"+RoiKey(roi);
+            string projectionKey=geometryKey+":"+RoiKey(roi);
             if(!projectionCache.TryGetValue(projectionKey,out var outline)) {
                 var boundary=ProjectionSilhouette.Build(cached.mesh,map,projection,extent,512,token);
                 outline=new{id=RoiKey(roi),color=Color(roi),boundary};
-                if(projectionCache.Count>=512)projectionCache.TryRemove(projectionCache.Keys.First(),out _);projectionCache[projectionKey]=outline;
+                if(projectionCache.Count>=512){var oldest=projectionCache.Keys.FirstOrDefault();if(oldest!=null)projectionCache.TryRemove(oldest,out _);}projectionCache[projectionKey]=outline;
             }
             outlines.Add(outline);
         }
         var modulation=BeamMetersetInfo.At(b,cursor);
         var aperture=c;string layer=Text(r,"layer","all");
         if(layer!="all")aperture=new ControlPoint{Blocks=c.Blocks,XJaws=c.XJaws,YJaws=c.YJaws,MlcLayers=c.MlcLayers.Where(x=>x.Key==layer).ToList()};
+        if(Flag(r,"drr")&&drr==null&&reason==null)reason="DRR benötigt eine zugeordnete reguläre CT-Serie.";
         return new{beam=plan.Beams.IndexOf(b),extent,cp=cursor,count=b.ControlPoints.Count,gantry=Num(c.Gantry),collimator=Num(c.Collimator),couch=Num(c.Couch),mu=Num(b.Meterset),
             weight=Num(c.MetersetWeight),rectangles=BeamAperture.Rectangles(aperture).Select(a=>new[]{a.Left,a.Bottom,a.Right,a.Top}),
             blocks=c.Blocks.Select(x=>new{type=x.Type,points=x.Outline.Select(V)}),

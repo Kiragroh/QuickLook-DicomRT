@@ -97,7 +97,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         #else
         let scanFolder = true
         #endif
-        web.evaluateJavaScript("window.loading(\(scanFolder ? "true" : "false"))", completionHandler: nil)
+        web.evaluateJavaScript("window.loading(\(String(scanFolder)))", completionHandler: nil)
         send(["id": 0, "op": "open", "path": url.path, "folder": scanFolder])
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -184,7 +184,8 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
                 self.web.evaluateJavaScript("window.receive(\(result))", completionHandler: nil)
             }
         }
-        if ["mesh", "beam", "dvh", "volume"].contains(request["op"] as? String ?? "") {
+        let apertureOnly = request["op"] as? String == "beam" && request["drr"] as? Bool != true && request["outlines"] as? Bool != true && request["tracks"] as? Bool != true
+        if !apertureOnly && ["mesh", "beam", "dvh", "volume"].contains(request["op"] as? String ?? "") {
             let operation = BlockOperation(block: work)
             operation.queuePriority = request["background"] as? Bool == true ? .low : .veryHigh
             preparation.addOperation(operation)
@@ -194,6 +195,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         web.evaluateJavaScript("window.receive({id:\(id),error:'DICOM-Prozess nicht verfügbar. App neu öffnen und Ordnerzugriff prüfen.'})", completionHandler: nil)
     }
     private func stopWorker() {
+        preparation.cancelAllOperations()
         let old = sessionID
         sessionID = UUID().uuidString
         DispatchQueue.global(qos: .userInitiated).async { old.withCString { qlrt_close($0) } }

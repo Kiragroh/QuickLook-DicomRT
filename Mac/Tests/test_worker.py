@@ -20,6 +20,9 @@ def check(value, message):
 with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
     folder = Path(folder)
     subprocess.run([sys.executable, str(root / 'scripts/CreateSynthetic.py'), str(folder)], check=True, stdout=subprocess.DEVNULL)
+    placeholder = pydicom.dcmread(str(folder / 'RTPLAN.dcm'))
+    placeholder.RTPlanLabel = 'None'
+    placeholder.save_as(str(folder / 'RTPLAN.dcm'), write_like_original=False)
     before = {p.name: p.read_bytes() for p in folder.iterdir()}
     process = subprocess.Popen([str(worker)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     serial = 0
@@ -41,6 +44,7 @@ with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
         check(m['files'] == 70 and m['failures'] == 0, 'folder including spaces indexed')
         check(m['hasImage'] and m['mpr'] and m['plan'] >= 0 and m['dose'] >= 0 and m['structure'] >= 0, 'explicit RT references resolve complete context')
         check(len(m['beams']) == 2 and len(m['rois']) == 2, 'all beams and structures retained')
+        check(m['plans'][m['plan']]['label'].lower() != 'none' and 'None' in m['plans'][m['plan']]['detail'], 'placeholder plan label remains identifiable with original metadata retained')
         for plane in ('Axial', 'Coronal', 'Sagittal'):
             f = request('render', plane=plane, focus=m['focus'], size=96, wash=True, isodoses=True)
             check(len(base64.b64decode(f['rgba'])) == f['width'] * f['height'] * 4, 'complete raster payload')
@@ -56,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
         dvh = request('dvh', roi=1)
         check(dvh['status'] == 'Complete' and dvh['coverage'] > .999 and dvh['max'] > 0, 'complete synthetic DVH with metrics')
         check(request('dvh', roi=1) == dvh, 'unchanged DVH result reused')
-        tags = request('tags')
+        tags = request('tags', source=True)
         check(any('[' in t['Path'] for t in tags), 'nested metadata retained')
         single = request('open', path=str(folder / 'RTPLAN.dcm'), folder=False)
         check(single['files'] == 1 and len(single['beams']) == 2 and not single['hasImage'], 'sandbox single-file fallback supports RT-only MLC')
