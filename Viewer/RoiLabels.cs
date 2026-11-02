@@ -7,6 +7,7 @@ namespace QuickLook.DicomRT
     {
         public static int GroupOrder(StructureRoi roi,PlanData plan)
         {
+            if(roi.HasXPrefix)return 3;
             var category=RoiClassification.Category(roi,plan);
             return category==RoiCategory.Target?0:category==RoiCategory.Organ?1:2;
         }

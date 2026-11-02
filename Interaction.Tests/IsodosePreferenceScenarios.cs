@@ -13,9 +13,10 @@ internal static class IsodosePreferenceScenarios
  {
   internal readonly string DirectoryPath=Path.Combine(Path.GetTempPath(),"dicomrt-isodose-tests-"+Guid.NewGuid().ToString("N"));
   readonly FieldInfo current=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.IsodosePreferences").GetField("Current",BindingFlags.Static|BindingFlags.NonPublic);
-  readonly object previous;
-  internal TestScope(){previous=current.GetValue(null);current.SetValue(null,Activator.CreateInstance(current.FieldType,Flags,null,new object[]{DirectoryPath},null));}
-  public void Dispose(){current.SetValue(null,previous);if(Directory.Exists(DirectoryPath)){foreach(string file in Directory.GetFiles(DirectoryPath))File.Delete(file);Directory.Delete(DirectoryPath);}}
+  readonly FieldInfo viewerCurrent=typeof(ViewerControl).Assembly.GetType("QuickLook.DicomRT.ViewerPreferences").GetField("Current",BindingFlags.Static|BindingFlags.NonPublic);
+  readonly object previous,previousViewer;
+  internal TestScope(){previousViewer=viewerCurrent.GetValue(null);viewerCurrent.SetValue(null,Activator.CreateInstance(viewerCurrent.FieldType,Flags,null,new object[]{DirectoryPath},null));previous=current.GetValue(null);current.SetValue(null,Activator.CreateInstance(current.FieldType,Flags,null,new object[]{DirectoryPath},null));}
+  public void Dispose(){viewerCurrent.SetValue(null,previousViewer);current.SetValue(null,previous);if(Directory.Exists(DirectoryPath)){foreach(string file in Directory.GetFiles(DirectoryPath))File.Delete(file);Directory.Delete(DirectoryPath);}}
  }
  static T Get<T>(object o,string n)=>(T)o.GetType().GetField(n,Flags).GetValue(o);
  static void Call(object o,string n)=>o.GetType().GetMethod(n,Flags).Invoke(o,null);

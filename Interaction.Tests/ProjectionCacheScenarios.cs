@@ -17,6 +17,7 @@ internal static class ProjectionCacheScenarios
         var scene=new RenderScene{Entry=new DicomEntry{Modality="CT"},Volume=ct};
         foreach(var kind in new[]{"PTV","ORGAN","GTV"}){var roi=new StructureRoi{Name="Fixture "+kind,InterpretedType=kind};foreach(double z in new[]{-2d,0d,2d})roi.Contours.Add(new Contour{GeometricType="CLOSED_PLANAR",Points=new System.Collections.Generic.List<Vec3>{new Vec3(-2,-2,z),new Vec3(2,-2,z),new Vec3(2,2,z),new Vec3(-2,2,z)}});scene.Structures.Add(new RoiOverlay{Roi=roi});}
 string why;var projection=BeamProjection.Create(beam,cp,Matrix4.Identity,out why);
+        type.GetField("DrrOnDemand").SetValue(cache,false);type.GetField("ProgressiveDrr").SetValue(cache,false);
         try{
             type.GetMethod("Configure").Invoke(cache,new object[]{plan,scene,Matrix4.Identity});
             ((Task)type.GetProperty("WarmCompletion").GetValue(cache)).GetAwaiter().GetResult();

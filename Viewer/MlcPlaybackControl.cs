@@ -30,7 +30,7 @@ namespace QuickLook.DicomRT
         public event Action<bool> PlaybackStateChanged;
         public void TogglePlayback(){if(IsPlaying){Pause();return;}if(cursor.Maximum<=0)return;if(cursor.Value>=cursor.Maximum)cursor.Value=0;timer.Start();play.Content="Ⅱ Pause";PlaybackStateChanged?.Invoke(true);}
         double PlaybackStep=>(int)(speed.SelectedItem??5)*timer.Interval.TotalSeconds;
-        private void AdvancePlayback(){if(cursor.Maximum<=0){Pause();return;}double next=MlcTimeline.NextPlayback(counts,cursor.Value,PlaybackStep);if(PlaybackFrameReady(next)){play.Content="Ⅱ Pause";play.ToolTip="Pause the shared plan preview";cursor.Value=next;}else {play.Content="Ⅱ Buffering…";play.ToolTip=projectionStatus.Text;}}
+        private void AdvancePlayback(){if(AdvanceProgressivePlayback())return;if(cursor.Maximum<=0){Pause();return;}double next=MlcTimeline.NextPlayback(counts,cursor.Value,PlaybackStep);if(PlaybackFrameReady(next)){play.Content="Ⅱ Pause";play.ToolTip="Pause the shared plan preview";cursor.Value=next;}else {play.Content="Ⅱ Buffering…";play.ToolTip=projectionStatus.Text;}}
 
         public void Navigate(PlanBeam selected,double local){Pause();int index=Array.IndexOf(playbackBeams,selected);if(index>=0)cursor.Value=counts.Take(index).Sum()+Math.Max(0,Math.Min(counts[index]-1,local));}
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}

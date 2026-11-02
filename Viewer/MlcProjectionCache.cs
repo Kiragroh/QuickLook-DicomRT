@@ -25,6 +25,7 @@ namespace QuickLook.DicomRT
         CancellationTokenSource warmLifetime=new CancellationTokenSource();
         string context,nearbyKey,playbackContext;bool disposed;
         MlcPlaybackBuffer playbackBuffer;
+        public bool DrrEnabled, DrrOnDemand=true, ProgressiveDrr=true, OutlinesFirst=true;
         public bool PlaybackPrepared=>playbackBuffer==null||playbackBuffer.Ready;
         public string PlaybackStatus=>playbackBuffer?.Text;
         Action<CancellationToken> nearby,nearbyDrr;int nearbyVersion;
@@ -37,6 +38,7 @@ namespace QuickLook.DicomRT
         static string Values(params double[] values)=>string.Join(",",values.Select(x=>Math.Round(x,8).ToString("R",CultureInfo.InvariantCulture)));
         static string GeometryKey(BeamProjection p,double extent)=>Values(p.Source.X,p.Source.Y,p.Source.Z,p.Iso.X,p.Iso.Y,p.Iso.Z,p.Right.X,p.Right.Y,p.Right.Z,p.Up.X,p.Up.Y,p.Up.Z,p.Sad,extent);
         static string OutlineKey(string geometry,RoiOverlay[] rois)=>geometry+"|"+string.Join(";",rois.Select(r=>Id(r.Roi)+":"+Values(r.RoiToImage.Values)));
+        public bool HasDrr(BeamProjection projection,VolumeData ct,double extent){lock(gate)return drrs.Get(Id(ct)+":"+GeometryKey(projection,extent),false)!=null;}
         public bool TryGet(BeamProjection p,VolumeData ct,RoiOverlay[] rois,double extent,bool drr,out MlcProjectionFrame frame)
         {
             string geometry=GeometryKey(p,extent);BitmapSource image=null;var shapes=new MlcProjectionFrame();bool complete=true;
@@ -79,9 +81,9 @@ namespace QuickLook.DicomRT
         }
         public void Configure(PlanData plan,RenderScene scene,Matrix4 map)
         {
-            var ct=scene?.Entry?.Modality=="CT"?scene.Volume:null;
+            var ct=scene?.Entry?.Modality=="CT"&&(!DrrOnDemand||DrrEnabled)?scene.Volume:null;
             var warmRois=(scene?.Structures??new List<RoiOverlay>()).OrderBy(r=>r.Category==RoiCategory.Target?0:r.Category==RoiCategory.Organ?1:2).ToArray();
-            string next=Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;playbackContext=null;playbackBuffer=null;
+            string next=ProgressiveDrr+":"+OutlinesFirst+":"+Id(plan)+":"+Id(ct)+":"+(map==null?"none":Values(map.Values))+":"+OutlineKey("",warmRois);if(next==context||disposed)return;context=next;nearbyKey=null;playbackContext=null;playbackBuffer=null;
             warmLifetime.Cancel();warmLifetime=new CancellationTokenSource();var token=warmLifetime.Token;var progress=new PreparationProgress();Progress=progress;
             lock(gate){nearby=null;nearbyDrr=null;}
             if(plan==null||map==null||ct==null&&warmRois.Length==0)return;
@@ -101,10 +103,10 @@ namespace QuickLook.DicomRT
                 }
                 DrainNearby(false,token);
             });
-            // DRRs no longer wait behind every organ projection in the plan.
-            drrWarm=StartWarm(previous,token,()=>{
+            // Default: outlines first. The setting can restore independent background workers.
+            drrWarm=StartWarm(OutlinesFirst?outlineWarm:previous,token,()=>{
                 var allJobs=allJobsTask.GetAwaiter().GetResult();progress.SetDrrTotal(ct==null?0:allJobs.Length);
-                foreach(var job in allJobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearbyDrr;nearbyDrr=null;}local?.Invoke(token);
+                foreach(var job in ProgressiveDrr?ProgressiveOrder(allJobs):allJobs){token.ThrowIfCancellationRequested();Action<CancellationToken> local;lock(gate){local=nearbyDrr;nearbyDrr=null;}local?.Invoke(token);
                     var p=job.Projection;
                     if(ct!=null){Render(p,ct,new RoiOverlay[0],job.Extent,true,token,true);progress.DrrDone();}
                     FrameReady?.Invoke();
@@ -122,6 +124,16 @@ namespace QuickLook.DicomRT
                     if(projection!=null&&seen.Add(GeometryKey(projection,extent)))views.Add(new WarmView{Projection=projection,Extent=extent});
                 }
             }return views.ToArray();
+        }
+        internal static WarmView[] ProgressiveOrder(WarmView[] views)
+        {
+            return ProgressiveIndices(views.Length).Select(i=>views[i]).ToArray();
+        }
+        internal static int[] ProgressiveIndices(int count)
+        {
+            if(count<=0)return new int[0];var order=new List<int>{0};if(count==1)return order.ToArray();order.Add(count-1);
+            var gaps=new Queue<Tuple<int,int>>();gaps.Enqueue(Tuple.Create(0,count-1));
+            while(gaps.Count>0){var gap=gaps.Dequeue();if(gap.Item2-gap.Item1<=1)continue;int middle=(gap.Item1+gap.Item2)/2;order.Add(middle);gaps.Enqueue(Tuple.Create(gap.Item1,middle));gaps.Enqueue(Tuple.Create(middle,gap.Item2));}return order.ToArray();
         }
         void TakeNearby(bool image,CancellationToken token){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}job?.Invoke(token);}
         static bool IsTarget(RoiOverlay r)=>r.Category==RoiCategory.Target;
@@ -147,6 +159,7 @@ namespace QuickLook.DicomRT
         public void PrepareNearby(PlanBeam beam,double local,Matrix4 map,VolumeData ct,RoiOverlay[] rois,double step=.4,bool playing=false)
         {
             if(disposed||beam==null||map==null||beam.ControlPoints.Count==0)return;
+            if(ProgressiveDrr&&ct!=null){playbackBuffer=null;playbackContext=null;return;}
             string bufferKey=Id(beam)+":"+Id(ct)+":"+Values(step)+":"+Values(map.Values)+":"+OutlineKey("",rois);
             if(bufferKey!=playbackContext){playbackContext=bufferKey;playbackBuffer=new MlcPlaybackBuffer(ct==null&&rois.Length==0?new WarmView[0]:BuildPlaybackViews(beam,map,step),ct!=null,rois.Length>0);}
             var buffer=playbackBuffer;
@@ -182,7 +195,7 @@ namespace QuickLook.DicomRT
         void ResumeNearby(CancellationToken token){
             bool outlines,images;lock(gate){outlines=nearby!=null;images=nearbyDrr!=null;}
             if(outlines&&outlineWarm.IsCompleted)outlineWarm=StartWarm(outlineWarm,token,()=>DrainNearby(false,token));
-            if(images&&drrWarm.IsCompleted)drrWarm=StartWarm(drrWarm,token,()=>DrainNearby(true,token));
+            if(images&&drrWarm.IsCompleted)drrWarm=StartWarm(OutlinesFirst?outlineWarm:drrWarm,token,()=>DrainNearby(true,token));
             ObserveWarm();
         }
         void DrainNearby(bool image,CancellationToken token){while(true){Action<CancellationToken> job;lock(gate){job=image?nearbyDrr:nearby;if(image)nearbyDrr=null;else nearby=null;}if(job==null)return;token.ThrowIfCancellationRequested();job(token);}}

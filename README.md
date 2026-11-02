@@ -1,10 +1,14 @@
 # DICOM RT for QuickLook
 
+**Preparation settings:** open the header gear to configure persistent defaults. Outlines prepare before background DRRs; DRRs start when enabled and progressively fill gaps between widely spaced recorded control points. Playback uses complete, geometrically matching views as they become available. All preparation shortcuts can be disabled individually. Default label mode, x filtering, isodose units and relative levels are saved locally; absolute Gy levels remain dose-specific.
+
+**Hide x\*:** filter on the primary displayed text, including Description-first mode. Hidden structures retain their individual visibility choices. With the filter off, x-prefixed entries sort last. The MLC dose-relevance filter skips projections with D2% at or below 10% of the highest complete structure D2% for one selected, matching dose. Unknown or partially covered structures stay eligible. This filter does not alter slice contours, 3D, DVH results or exports; `Low D2%` explains excluded MLC outlines.
+
 **MLC zoom:** use **Ctrl + mouse wheel** over the aperture to zoom around the pointer. DRR, leaf banks and outlines stay aligned without recalculating projections. **Fit** or a double-click restores the view; plain wheel still moves through control points. The shared toolbar provides the 2 × 2 view.
 
 **Structure labels and RT-only slices:** choose **Name**, **Description**, **Both: name first** or **Both: description first** above the structure list. Both modes show a larger primary line and a smaller secondary line. Targets come first, then Organs, then other structures; each group sorts alphabetically by the primary label. Search matches both fields and DVH labels follow the choice. The header shows the loaded viewer version. CT/MR is optional: scroll structures and dose on a black background in axial, coronal, sagittal or linked **2 × 2** views using the wheel, slider or crosshair. No artificial CT volume is generated.
 
-**Version 0.2.43** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
+**Version 0.2.44** brings local DICOM image, radiotherapy and metadata previews to QuickLook on Windows. Select a DICOM file in Explorer and press **Space**. Images open first; plans, structures and doses become available while scanning continues. Opening an RTPLAN goes directly to MLC, while RTSTRUCT and RTDOSE open 3D. These RT workspaces also work without a CT series; MLC does not require a dose.
 
 Source files remain unchanged. This is a research and inspection tool, not a clinically validated treatment-planning system.
 
@@ -22,7 +26,7 @@ Source files remain unchanged. This is a research and inspection tool, not a cli
 
 **Enhanced dual-layer test support:** indexed paired-leaf RTPLAN devices can be read alongside classic MLCX/MLCY and vendor MLCX1/MLCX2 forms, including dynamic collimator rotation and Implicit-VR files. Supported Enhanced geometry is variable paired leaves in IEC X/Y with zero device offsets; other geometries are explicitly rejected. Tested against reconstructed public delivery parameters and synthetic fixtures, **not an original Accela TPS export**. [Test scope and reproducible phantom](docs/accela-support.md).
 
-[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.43.exe) · [Open the presentation](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 30-second announcement](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Announcement-30s-0.2.20.mp4)
+[Download Windows installer](https://github.com/Kiragroh/QuickLook-DicomRT/releases/latest/download/QuickLook-DicomRT-Setup-0.2.44.exe) · [Open the presentation](https://kiragroh.github.io/QuickLook-DicomRT/) · [Watch the 30-second announcement](https://github.com/Kiragroh/QuickLook-DicomRT/releases/download/v0.2.20/QuickLook-DicomRT-Announcement-30s-0.2.20.mp4)
 
 ![Four linked views with dose, structures and active field geometry](docs/demo/screens/hero-quad-fields.png)
 
@@ -36,7 +40,7 @@ DRRs start with **High contrast** and offer an automatic contrast window and a c
 
 Click the small orientation character in a slice or 3D view to choose **Human, Freeza, Obelisk (Codex pet), Elsa or Saitama**. The stylized 3D character is shared with the LINAC model and saved locally; anatomical axes and left/right colors remain fixed.
 
-Background preparation uses distinct recorded beam views, prioritizes the active field and computes fractional views in a bounded playback lookahead. DRRs and contours run on separate background workers. Playback views are protected from speculative preload eviction, and repeated beams use identical intermediate positions at the same speed. The selected field prepares its complete intermediate-view buffer for the enabled DRR/outline settings before playback advances. Its DRR and outline-view counts are separate from recorded-CP preload counts; first-time preparation can take time, while prepared playback reuses the matching views. Identical fixed-field projections are reused; hidden fractional DRRs are skipped. The rotating gear shows separate DRR/ROI counts and an estimated remaining preparation time. Scrolling in 2 × 2 refreshes only the changed slice, retaining the orthogonal images and contours.
+Background preparation reuses distinct recorded beam views and prepares targets first. With progressive DRRs enabled, recorded views are prepared from coarse to dense coverage, and playback visits ready control points with aligned DRRs and contours. Disabling this setting restores the full intermediate-view buffer for the selected field before playback advances. Prepared views are reused across repeats; exact fractional views are still available through manual navigation. The rotating gear reports DRR/ROI work and dose-relevance calculation progress. Scrolling in 2 x 2 refreshes only the changed slice, retaining the orthogonal images and contours.
 
 The upper image timeline includes shared **Play/Pause**. Clicking or dragging the crosshair keeps structure contours in the preview frames. Full-volume loading reuses decoded preview slices and limits decoding to two workers.
 
@@ -85,7 +89,7 @@ The CP readout in image, MLC and 3D views includes the planned interval MU/degre
 - **MLC contrast:** adjust leaf/jaw opacity over the optional DRR, from translucent to dark. Wheel detents move 1 CP; Shift gives 0.1 CP, and the slider stays continuous.
 - **Clear field geometry:** fixed fields retain true joint jaw/MLC aperture intersections, with incoming direction arrows. Moving gantries show projected source tracks instead of leaf intersections; ticks on the selected track represent angular meterset modulation (MU per degree). The track radius is schematic, not physical source distance. Missing meterset data remain unknown; this is angular modulation, not measured temporal dose rate. SETUP/CBCT fields require explicit selection. Choose **All fields - no highlight** for an equal gray overview.
 - **Stable crosshair and contours:** left-drag crosshair movement keeps the in-plane viewport fixed. Fractional parallel MPR planes retain their nearest contour slab within local half-spacing, while gaps remain empty. Native view returns to the crosshair slice. Switching plans loads an unambiguously referenced compatible planning series when the current image frame cannot be mapped to the new plan.
-- **Windowing:** Auto starts by default; DICOM, Soft tissue, Lung, Bone, Brain and Liver presets are available. Custom reveals a sampled histogram with draggable upper/lower window limits.
+- **Windowing:** DICOM starts by default; Auto, Soft tissue, Lung, Bone, Brain and Liver presets are available. Custom reveals a sampled histogram with draggable upper/lower window limits.
 - **Compact DVH:** structure names and small volume labels remain visible; the info hover shows coverage, sampling and Dmean, Dmedian, Dmax, Dmin, D98 and D2. CSV export includes every enabled structure and these metrics. Metrics are approximate; full-structure summaries remain unavailable with partial dose coverage.
 - **Save any view:** right-click Native, Axial, Coronal, Sagittal, 3D, DVH or MLC to save a PNG, including individual 2x2 tiles. DVH additionally offers a full chart and active-curve CSV. **Ctrl+Shift+S** saves the entire viewer, including open sidebars. **Ctrl+1..6** changes image view; **Ctrl+I** jumps to ISO; **F1** opens help.
 
@@ -95,11 +99,11 @@ The DRR is a HU-derived display projection, not a calibrated treatment image. It
 
 Install and start [QuickLook for Windows](https://github.com/QL-Win/QuickLook) first. The plugin was developed against QuickLook 4.5 and targets .NET Framework 4.6.2; the .NET Framework 4.8 runtime is required. Direct3D 11 provides the main 3D renderer. QuickLook is a separate dependency and is not bundled.
 
-Download **QuickLook-DicomRT-Setup-0.2.43.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
+Download **QuickLook-DicomRT-Setup-0.2.44.exe** from Releases and choose **Install / Update**. The per-user installer verifies its embedded package, backs up the existing DICOM RT folder, updates only this plugin and restarts QuickLook. It supports a normal desktop QuickLook installation; portable and Microsoft Store hosts receive manual-package guidance. The installer is not code-signed.
 
 The installer also adds **Open with QuickLookRT** to Explorer's file, folder and folder-background context menus. On Windows 11, select **Show more options** or press **Shift + F10**. The command starts QuickLook if necessary and opens the selected file without relying on the Space shortcut. Files without an extension are supported; folders use QuickLook's folder preview. Default file associations stay unchanged. Rerun **Install / Update** to repair missing menu entries. Installing only the `.qlplugin` does not register these Explorer commands.
 
-For manual installation, download `QuickLook.Plugin.DicomRT-0.2.20.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
+For manual installation, download `QuickLook.Plugin.DicomRT-0.2.44.qlplugin`, select it in Explorer while QuickLook is running, press **Space**, choose **Install**, and restart QuickLook. This follows the [QuickLook plugin installation procedure](https://github.com/QL-Win/QuickLook/wiki/Available-Plugins#how-to-install-or-upgrade-a-plugin). Existing unrelated plugins do not need to be removed.
 
 ## Explore a dataset
 

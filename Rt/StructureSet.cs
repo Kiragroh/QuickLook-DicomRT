@@ -8,7 +8,10 @@ namespace QuickLook.DicomRT
     public enum RoiLabelMode { Name, Description, Both, DescriptionFirst }
     public sealed class StructureRoi
     {
-        public int Number; public string Name,Description,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true;
+        public int Number; public string Name,Description,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center;
+        bool selected=true; public bool HiddenByPrefix;
+        public bool Visible {get=>selected&&!HiddenByPrefix;set=>selected=value;}
+        public bool HasXPrefix=>PrimaryLabel.StartsWith("x",StringComparison.OrdinalIgnoreCase);
         public RoiLabelMode LabelMode;
         public string PrimaryLabel
         {

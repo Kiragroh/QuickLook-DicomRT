@@ -23,12 +23,25 @@ namespace QuickLook.DicomRT
         readonly DispatcherTimer projectionDelay=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(120)};
         readonly MlcProjectionCache projectionCache=new MlcProjectionCache();
         public static double BeamExtent(PlanBeam beam)=>Math.Max(100,beam.ControlPoints.SelectMany(c=>c.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(c.XJaws??new double[0]).Concat(c.YJaws??new double[0])).Where(BeamProjection.Finite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
-        public void Close(){Dispose();projectionCache.Dispose();}
-        public void Preload(PlanData value,RenderScene scene,Matrix4 map){projectionCache.Configure(value,scene,map);}
+        public void Close(){preparationClosed=true;Dispose();doseRelevance?.Dispose();projectionCache.Dispose();}
+        bool preparationClosed;PlanData preloadPlan;RenderScene preloadScene;Matrix4 preloadMap;MlcDoseRelevance doseRelevance;
+        public void Preload(PlanData value,RenderScene scene,Matrix4 map){preloadPlan=value;preloadScene=scene;preloadMap=map;ConfigurePreparation();}
+        void ConfigurePreparation()
+        {
+            if(preparationClosed)return;var prefs=ViewerPreferences.Current;
+            if(doseRelevance==null)doseRelevance=new MlcDoseRelevance(()=>{if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(preparationClosed)return;ConfigurePreparation();RequestProjection(true);OutlineSelectionChanged?.Invoke();}));});
+            doseRelevance.Configure(preloadScene,prefs.DoseRelevantOutlines&&preloadPlan!=null);
+            var scene=preloadScene?.Snapshot();if(scene!=null)scene.Structures=scene.Structures.Where(r=>!r.Roi.HiddenByPrefix&&(!prefs.DoseRelevantOutlines||doseRelevance.Allows(r.Roi))&&(!doseRelevance.Pending||r.Category==RoiCategory.Target)).ToList();
+            projectionCache.DrrEnabled=showDrr.IsChecked==true;projectionCache.DrrOnDemand=prefs.DrrOnDemand;projectionCache.ProgressiveDrr=prefs.ProgressiveDrr;projectionCache.OutlinesFirst=prefs.OutlinesFirst;
+            projectionCache.Configure(preloadPlan,scene,preloadMap);
+        }
+        public void RefreshPreparationSettings(){projectionLifetime.Cancel();projectionLifetime.Dispose();projectionLifetime=new CancellationTokenSource();ConfigurePreparation();projectionVersion++;projectionKey=null;RequestProjection(true);OutlineSelectionChanged?.Invoke();}
+        public bool IsDoseExcluded(StructureRoi roi)=>ViewerPreferences.Current.DoseRelevantOutlines&&doseRelevance!=null&&!doseRelevance.Allows(roi);
+
         public event Action OutlineSelectionChanged;
         public bool IsOutlineEnabled(StructureRoi roi)
         {
-            if(roi==null||!roi.Visible)return false;
+            if(roi==null||!roi.Visible||IsDoseExcluded(roi))return false;
             var category=RoiClassification.Category(roi,plan);
             return category==RoiCategory.Target?showPtv.IsChecked==true:category==RoiCategory.Organ?showOrgans.IsChecked==true:showOther.IsChecked==true;
         }
@@ -39,15 +52,15 @@ namespace QuickLook.DicomRT
         int wheelRemainder,projectionVersion;bool projectionBusy,projectionSuspended;
         CancellationTokenSource projectionLifetime=new CancellationTokenSource();
         string projectionKey,displayedProjectionKey;
-        internal string PreparationStatus=>!projectionCache.PlaybackPrepared?projectionCache.PlaybackStatus:projectionBusy?"Refining current DRR / contour view":projectionCache.Progress.Text;
-        internal bool IsPreparing=>!projectionCache.WarmCompletion.IsCompleted||projectionBusy;
+        internal string PreparationStatus=>doseRelevance?.Pending==true?doseRelevance.Status+" · "+projectionCache.Progress.Text:!projectionCache.PlaybackPrepared?projectionCache.PlaybackStatus:projectionBusy?"Refining current DRR / contour view":projectionCache.Progress.Text;
+        internal bool IsPreparing=>doseRelevance?.Pending==true||!projectionCache.WarmCompletion.IsCompleted||projectionBusy;
         public Task ProjectionCompletion {get;private set;}=Task.CompletedTask;
         public event Action<PlanBeam,ControlPoint> FrameChanged;
         long lastCacheNotification;
         void InitializeAnatomy(StackPanel top,Grid area)
         {
             projectionCache.FrameReady+=()=>{long now=System.Diagnostics.Stopwatch.GetTimestamp();if(now-Interlocked.Read(ref lastCacheNotification)<System.Diagnostics.Stopwatch.Frequency/20)return;Interlocked.Exchange(ref lastCacheNotification,now);if(!Dispatcher.HasShutdownStarted)Dispatcher.BeginInvoke(new Action(()=>{if(IsVisible&&!projectionSuspended)TryCached();}),DispatcherPriority.Background);};
-            var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};check.Unchecked+=(s,e)=>{RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};}
+            var row=top;showFieldArrangement.Foreground=Theme.Foreground;row.Children.Add(showFieldArrangement);showFieldArrangement.Checked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(true);};showFieldArrangement.Unchecked+=(s,e)=>{UpdateArrangement();FieldsVisibilityChanged?.Invoke(false);};UpdateArrangement();foreach(var check in new[]{showDrr,showPtv,showOrgans,showOther}){check.Foreground=Theme.Foreground;row.Children.Add(check);check.Checked+=(s,e)=>{if(check==showDrr)RefreshPreparationSettings();else RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};check.Unchecked+=(s,e)=>{if(check==showDrr)RefreshPreparationSettings();else RequestProjection(true);if(check!=showDrr)OutlineSelectionChanged?.Invoke();};}
             mlcOpacity=new Slider{Minimum=.1,Maximum=1,Value=.75,Width=70,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(4),ToolTip="MLC opacity over DRR: transparent to dark"};
             mlcOpacity.ValueChanged+=(s,e)=>aperture.DrrLeafOpacity=e.NewValue;row.Children.Add(Theme.Text("MLC",10,Theme.Muted));row.Children.Add(mlcOpacity);
             row.Children.Add(BuildDrrSettings());

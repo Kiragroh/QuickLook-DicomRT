@@ -45,9 +45,9 @@ namespace QuickLook.DicomRT
         private void RoiVisibilityChanged(){UpdateRoiOutlineIndicators();Redraw();if(workspaceMode=="DVH")UpdateDvh();}
         private void BuildRoiList()
         {
-            foreach(var item in structures.SelectMany(s=>s.Rois))item.LabelMode=(RoiLabelMode)Math.Max(0,roiLabelMode.SelectedIndex);
+            foreach(var item in structures.SelectMany(s=>s.Rois)){item.LabelMode=(RoiLabelMode)Math.Max(0,roiLabelMode.SelectedIndex);item.HiddenByPrefix=hideX.IsChecked==true&&item.HasXPrefix;}
             roiOutlineRows.Clear();roiList.Children.Clear(); string query = roiSearch.Text.Trim();
-            foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => r.MatchesLabel(query)).OrderBy(r=>RoiLabels.GroupOrder(r,selectedPlan)).ThenBy(r=>r.PrimaryLabel,StringComparer.CurrentCultureIgnoreCase).ThenBy(r=>r.Number))
+            foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => !r.HiddenByPrefix&&r.MatchesLabel(query)).OrderBy(r=>RoiLabels.GroupOrder(r,selectedPlan)).ThenBy(r=>r.PrimaryLabel,StringComparer.CurrentCultureIgnoreCase).ThenBy(r=>r.Number))
             {
                 bool empty = !roi.Contours.Any(c=>c.Points.Count>0);
                 var transform = TransformToImage(roi.FrameUid); var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
@@ -75,12 +75,12 @@ namespace QuickLook.DicomRT
             bool mlc=workspaceMode=="MLC";
             foreach(var row in roiOutlineRows)
             {
-                int state=row.Empty?5:!mlc?0:!row.Roi.Visible?1:TransformToImage(row.Roi.FrameUid)==null?2:centralPlayback?.IsOutlineEnabled(row.Roi)==true?4:3;
+                int state=row.Empty?5:!mlc?0:!row.Roi.Visible?1:TransformToImage(row.Roi.FrameUid)==null?2:centralPlayback?.IsDoseExcluded(row.Roi)==true?6:centralPlayback?.IsOutlineEnabled(row.Roi)==true?4:3;
                 if(row.State==state)continue;row.State=state;
                 row.Indicator.Visibility=mlc?Visibility.Visible:Visibility.Collapsed;
-                row.Indicator.Text=state==5?"Empty":state==4?"Outline":state==3?"Group off":state==2?"No match":"Hidden";
+                row.Indicator.Text=state==6?"Low D2%":state==5?"Empty":state==4?"Outline":state==3?"Group off":state==2?"No match":"Hidden";
                 row.Indicator.Foreground=state==4?row.Color:Theme.Muted;
-                row.Indicator.ToolTip=(state==4?"Outline enabled in MLC. Uncheck this structure to hide its projection.":state==3?"Structure selected, but its Target / Organ / Other outline group is off in the MLC toolbar.":state==2?"No matching registration for this structure.":"Structure hidden by its individual checkbox.")+"\n"+RoiClassification.Explain(row.Roi,selectedPlan);
+                row.Indicator.ToolTip=(state==6?"MLC outline skipped: D2% is at or below 10% of the highest known structure D2% for the selected dose. Disable the dose relevance filter in Settings to include it.":state==4?"Outline enabled in MLC. Uncheck this structure to hide its projection.":state==3?"Structure selected, but its Target / Organ / Other outline group is off in the MLC toolbar.":state==2?"No matching registration for this structure.":"Structure hidden by its individual checkbox.")+"\n"+RoiClassification.Explain(row.Roi,selectedPlan);
                 row.Name.FontWeight=!row.Empty&&state==4?FontWeights.SemiBold:FontWeights.Normal;
                 row.Stripe.Opacity=row.Empty?.25:!mlc||state==4?1:.25;
                 if(mlc){row.Name.Background=state==4?row.Tint:Theme.Panel;row.Name.Foreground=state==4?row.Color:Theme.Muted;row.Name.BorderBrush=state==4?row.Color:Theme.Brush("#30383D");}
@@ -167,7 +167,7 @@ namespace QuickLook.DicomRT
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
-            if(selectedPlan!=null||centralPlayback!=null){EnsurePlayback();centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);var preload=latestScene.Snapshot();preload.Structures=allRoiOverlays;centralPlayback.Preload(selectedPlan,preload,latestScene.PlanToImage);SyncFieldControls();}
+            if(selectedPlan!=null||centralPlayback!=null){EnsurePlayback();centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);var preload=latestScene.Snapshot();preload.Structures=allRoiOverlays;preload.Doses=SelectedDoses.Select(d=>new DoseOverlay{Dose=d,ImageToDose=RegistrationReader.Resolve(registrations,SceneFrameUid,d.FrameUid)}).Where(d=>d.ImageToDose!=null).ToList();centralPlayback.Preload(selectedPlan,preload,latestScene.PlanToImage);SyncFieldControls();}
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.RtBounds!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
             if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);

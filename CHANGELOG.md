@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.44 - Preparation settings and structure filtering
+
+- **Hide x\*:** a compact structure-list switch hides structures whose primary displayed label begins with x, case-insensitively. Description-first modes use the description; missing fields retain the usual fallback. With the filter off, x-prefixed structures sort at the bottom. Individual visibility choices are retained.
+- **Outlines first, DRRs on demand:** background outline preparation has priority by default. Plan-wide DRRs begin when DRR is enabled; already prepared views remain reusable.
+- **Progressive DRR playback:** prepare widely spaced recorded control points, then fill the gaps. Playback visits fully prepared control points without waiting for every intermediate view. Aperture, DRR and contours always share the same exact geometry; manual fractional navigation remains available.
+- **Dose-aware MLC outlines:** by default, skip projections with a structure D2% at or below 10% of the highest complete structure D2% for the selected dose. A `Low D2%` list indicator explains exclusions. Unknown, partial or unsupported results remain eligible, as do cases without one unambiguous matching dose. Slice contours, 3D and DVH calculations/exports are unaffected by this scheduling filter.
+- **Persistent viewer settings:** the header gear provides independent switches for these preparation options and defaults for label mode, x filtering, isodose units and relative isodose levels. Absolute Gy levels remain dose-specific. Turning off progressive DRRs restores the full intermediate playback buffer.
+
 ## 0.2.43 — Open directly from Explorer
 
 - **Open with QuickLookRT:** the Windows installer adds a per-user right-click command for files, folders and folder backgrounds. This also works with extensionless DICOM files. On Windows 11, use **Show more options** or **Shift + F10**.
