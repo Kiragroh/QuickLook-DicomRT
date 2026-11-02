@@ -39,15 +39,29 @@ internal static class RoiLabelsAndIdentityScenarios
             var image=new DicomEntry{PatientKey="TEST|",StudyUid="study",Modality="CT"};check(patientImage(image),"Image discovery uses the same missing-issuer rule");
             ((List<StructureSet>)Get(viewer,"structures")).Add(set);roi.Visible=false;
             Call(viewer,"BuildRoiList");var modes=(ComboBox)Get(viewer,"roiLabelMode");modes.SelectedIndex=2;
-            var rows=(IList)Get(viewer,"roiOutlineRows");var label=(TextBlock)((Button)Get(rows[0],"Name")).Content;
-            check(label.Text=="PTV · Target description"&&!roi.Visible,"Label selector updates the row without changing visibility");
+            var rows=(IList)Get(viewer,"roiOutlineRows");var label=(StackPanel)((Button)Get(rows[0],"Name")).Content;
+            check(((TextBlock)label.Children[0]).Text=="PTV"&&((TextBlock)label.Children[1]).Text=="Target description"&&!roi.Visible,"Label selector updates the row without changing visibility");
             ((TextBox)Get(viewer,"roiSearch")).Text="description";modes.SelectedIndex=0;
             check(((IList)Get(viewer,"roiOutlineRows")).Count==1,"Description search still finds name-only rows");
+            ((TextBox)Get(viewer,"roiSearch")).Text="";
+            var organA=new StructureRoi{Name="Alpha",Description="Zulu",InterpretedType="ORGAN"};
+            var organZ=new StructureRoi{Name="Zulu",Description="Alpha",InterpretedType="ORGAN"};
+            var targetZ=new StructureRoi{Name="PTV_Z",Description="A target"};
+            var helper=new StructureRoi{Name="AAA helper"};set.Rois.AddRange(new[]{organZ,helper,targetZ,organA});
+            modes.SelectedIndex=2;
+            Func<StructureRoi[]> order=()=>((IList)Get(viewer,"roiOutlineRows")).Cast<object>().Select(r=>(StructureRoi)Get(r,"Roi")).ToArray();
+            check(order().SequenceEqual(new[]{roi,targetZ,organA,organZ,helper}),"Name-first sorting: targets, organs, other; each group alphabetical");
+            modes.SelectedIndex=3;
+            check(order().SequenceEqual(new[]{targetZ,roi,organZ,organA,helper}),"Description-first change immediately resorts within the same clinical display groups");
+            var secondRow=((IList)Get(viewer,"roiOutlineRows"))[1];var pair=(StackPanel)((Button)Get(secondRow,"Name")).Content;
+            var primary=(TextBlock)pair.Children[0];var secondary=(TextBlock)pair.Children[1];
+            check(primary.Text==roi.Description&&secondary.Text==roi.Name&&primary.FontSize>secondary.FontSize,"Description-first both mode has large description above smaller name");
+            check(!roi.Visible,"Resorting preserves individual structure visibility");
             using(var dvh=new DvhControl())
             {
                 var button=new Button{Content=roi.Name};((Dictionary<StructureRoi,Button>)Get(dvh,"legendNames"))[roi]=button;
                 dvh.FocusStructure(roi);int calculations=dvh.CalculationCount;roi.LabelMode=RoiLabelMode.Description;dvh.RefreshLabels();
-                check((string)button.Content==roi.Description&&ReferenceEquals(dvh.FocusedStructure,roi)&&dvh.CalculationCount==calculations,"DVH relabeling retains focus and never recalculates curves");
+                check(((TextBlock)button.Content).Text==roi.Description&&ReferenceEquals(dvh.FocusedStructure,roi)&&dvh.CalculationCount==calculations,"DVH relabeling retains focus and never recalculates curves");
             }
         }
         var rsEntry=new DicomEntry{PatientKey=rt.PatientKey,StudyUid="study",SopUid="set",Modality="RTSTRUCT",Dataset=new DicomDataset()};

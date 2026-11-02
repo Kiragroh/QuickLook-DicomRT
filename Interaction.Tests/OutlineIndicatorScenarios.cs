@@ -23,7 +23,7 @@ internal static class OutlineIndicatorScenarios
    ((List<StructureSet>)Get(viewer,"structures")).Add(new StructureSet{Entry=new DicomEntry{SopUid="test-set"},Rois=new List<StructureRoi>{ptv,organ,other,unmatched}});
    Set(viewer,"selectedPlan",new PlanData{FrameUid="test-frame",StructureSopUid="test-set",Entry=new DicomEntry{SopUid="test-plan"}});
    Call(viewer,"SetWorkspace","MLC");Call(viewer,"BuildRoiList");
-   var rows=(IList)Get(viewer,"roiOutlineRows");Func<int,int> state=i=>(int)Get(rows[i],"State");var first=rows[0];
+   var rows=(IList)Get(viewer,"roiOutlineRows");var originalOrder=new[]{ptv,organ,other,unmatched};Func<int,int> state=i=>(int)Get(rows.Cast<object>().Single(r=>ReferenceEquals(Get(r,"Roi"),originalOrder[i])),"State");var first=rows[0];
    check(state(0)==4&&state(1)==3&&state(2)==3&&state(3)==2,"MLC list marks enabled PTV, disabled groups and unregistered ROI distinctly");
    check(((Button)Get(rows[0],"Name")).FontWeight==FontWeights.SemiBold&&((TextBlock)Get(rows[0],"Indicator")).Text=="Outline","Active outline has bold colored name and explicit label");
    var mlc=(MlcPlaybackControl)Get(viewer,"centralPlayback");((CheckBox)Get(mlc,"showOrgans")).IsChecked=true;

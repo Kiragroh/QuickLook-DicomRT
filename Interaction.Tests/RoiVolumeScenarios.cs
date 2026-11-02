@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -30,18 +31,18 @@ internal static class RoiVolumeScenarios
                 var single=new StructureRoi{Name="Single plane",FrameUid="volume-test",Contours=new List<Contour>{filled.Contours[0]}};
                 ((List<StructureSet>)Get(viewer,"structures")).Add(new StructureSet{Entry=new DicomEntry(),Rois=new List<StructureRoi>{filled,empty,single}});
                 Call(viewer,"BuildRoiList");
-                var rows=(IList)Get(viewer,"roiOutlineRows");
+                var rows=(IList)Get(viewer,"roiOutlineRows");Func<StructureRoi,object> rowFor=roi=>rows.Cast<object>().Single(r=>ReferenceEquals(Get(r,"Roi"),roi));
                 var timer=Stopwatch.StartNew();
-                while(((TextBlock)Get(rows[0],"Volume")).Text=="…"||((TextBlock)Get(rows[2],"Volume")).Text=="…")
+                while(((TextBlock)Get(rowFor(filled),"Volume")).Text=="…"||((TextBlock)Get(rowFor(single),"Volume")).Text=="…")
                 {
                     if(timer.ElapsedMilliseconds>5000)throw new Exception("ROI volumes did not complete");
                     var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);
                     Thread.Sleep(5);
                 }
-                check(((TextBlock)Get(rows[0],"Volume")).Text==(.4).ToString("0.##")+" cm³","Sidebar shows contour volume without CT or dose");
-                check(((TextBlock)Get(rows[1],"Volume")).Text=="0 cm³"&&!((Button)Get(rows[1],"Name")).IsEnabled,"Empty structure has zero volume and cannot jump to invalid coordinates");
-                check(Equals(((Button)Get(rows[1],"Name")).Foreground,((TextBlock)Get(rows[1],"Volume")).Foreground),"Empty structure name is muted");
-                check(((TextBlock)Get(rows[2],"Volume")).Text=="—"&&((Button)Get(rows[2],"Name")).IsEnabled,"Unknown thickness is not misrepresented as an empty structure");
+                check(((TextBlock)Get(rowFor(filled),"Volume")).Text==(.4).ToString("0.##")+" cm³","Sidebar shows contour volume without CT or dose");
+                check(((TextBlock)Get(rowFor(empty),"Volume")).Text=="0 cm³"&&!((Button)Get(rowFor(empty),"Name")).IsEnabled,"Empty structure has zero volume and cannot jump to invalid coordinates");
+                check(Equals(((Button)Get(rowFor(empty),"Name")).Foreground,((TextBlock)Get(rowFor(empty),"Volume")).Foreground),"Empty structure name is muted");
+                check(((TextBlock)Get(rowFor(single),"Volume")).Text=="—"&&((Button)Get(rowFor(single),"Name")).IsEnabled,"Unknown thickness is not misrepresented as an empty structure");
                 var cache=(IDictionary)Get(viewer,"roiVolumes");var cached=cache[filled];
                 Call(viewer,"BuildRoiList");
                 check(ReferenceEquals(cached,cache[filled])&&cache.Count==2,"Rebuilding the list reuses completed volume work");
@@ -51,9 +52,9 @@ internal static class RoiVolumeScenarios
                 foreach(double width in new[]{290d,430d})
                 {
                     ((ColumnDefinition)Get(viewer,"leftColumn")).Width=new GridLength(width);
-                    ((TextBlock)Get(rows[0],"Volume")).Text="40030,24 cm³";
+                    ((TextBlock)Get(rowFor(filled),"Volume")).Text="40030,24 cm³";
                     viewer.Measure(new Size(1200,650));viewer.Arrange(new Rect(0,0,1200,650));viewer.UpdateLayout();
-                    var label=(TextBlock)Get(rows[0],"Volume");
+                    var label=(TextBlock)Get(rowFor(filled),"Volume");
                     DependencyObject ancestor=label;while(ancestor!=null&&!(ancestor is ScrollContentPresenter))ancestor=VisualTreeHelper.GetParent(ancestor);
                     var viewport=(ScrollContentPresenter)ancestor;
                     var bounds=label.TransformToAncestor(viewport).TransformBounds(new Rect(label.RenderSize));

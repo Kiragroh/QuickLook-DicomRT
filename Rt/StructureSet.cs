@@ -5,21 +5,20 @@ using Dicom;
 namespace QuickLook.DicomRT
 {
     public sealed class Contour { public List<Vec3> Points=new List<Vec3>(); public string GeometricType; public List<string> ReferencedSops=new List<string>(); }
-    public enum RoiLabelMode { Name, Description, Both }
+    public enum RoiLabelMode { Name, Description, Both, DescriptionFirst }
     public sealed class StructureRoi
     {
         public int Number; public string Name,Description,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true;
         public RoiLabelMode LabelMode;
-        public string DisplayName
+        public string PrimaryLabel
         {
-            get
-            {
-                var name=(Name??"").Trim();var description=(Description??"").Trim();
-                if(name.Length==0)return description.Length>0?description:"ROI "+Number;
-                if(description.Length==0||string.Equals(name,description,StringComparison.Ordinal))return name;
-                return LabelMode==RoiLabelMode.Description?description:LabelMode==RoiLabelMode.Both?name+" · "+description:name;
-            }
+            get {var first=LabelMode==RoiLabelMode.Description||LabelMode==RoiLabelMode.DescriptionFirst?Description:Name;var second=LabelMode==RoiLabelMode.Description||LabelMode==RoiLabelMode.DescriptionFirst?Name:Description;return !string.IsNullOrWhiteSpace(first)?first.Trim():!string.IsNullOrWhiteSpace(second)?second.Trim():"ROI "+Number;}
         }
+        public string SecondaryLabel
+        {
+            get {if(LabelMode!=RoiLabelMode.Both&&LabelMode!=RoiLabelMode.DescriptionFirst)return "";var text=(LabelMode==RoiLabelMode.DescriptionFirst?Name:Description)??"";return string.IsNullOrWhiteSpace(text)||text.Trim()==PrimaryLabel?"":text.Trim();}
+        }
+        public string DisplayName=>PrimaryLabel+(SecondaryLabel.Length>0?" · "+SecondaryLabel:"");
         public bool MatchesLabel(string query)=>string.IsNullOrEmpty(query)||(Name??"").IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0||(Description??"").IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0;
     }
     public sealed class StructureSet

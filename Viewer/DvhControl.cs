@@ -26,7 +26,7 @@ namespace QuickLook.DicomRT
         readonly Dictionary<StructureRoi,bool> visibility=new Dictionary<StructureRoi,bool>();
         readonly Dictionary<StructureRoi,Button> legendNames=new Dictionary<StructureRoi,Button>();
         readonly Dictionary<StructureRoi,CheckBox> legendChecks=new Dictionary<StructureRoi,CheckBox>();
-        public void RefreshLabels(){foreach(var item in legendNames)item.Value.Content=item.Key.DisplayName;foreach(var item in legendChecks)System.Windows.Automation.AutomationProperties.SetName(item.Value,"Show "+item.Key.DisplayName);plot.HideHover();}
+        public void RefreshLabels(){foreach(var item in legendNames)item.Value.Content=RoiLabels.Content(item.Key);foreach(var item in legendChecks)System.Windows.Automation.AutomationProperties.SetName(item.Value,"Show "+item.Key.DisplayName);plot.HideHover();}
         readonly Dictionary<StructureRoi,Border> legendRows=new Dictionary<StructureRoi,Border>();
         public StructureRoi FocusedStructure => plot.FocusedStructure;
         public int CalculationCount { get; private set; }
@@ -114,7 +114,7 @@ namespace QuickLook.DicomRT
                     System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.DisplayName);
                     DockPanel.SetDock(box,Dock.Left);heading.Children.Add(box);
                     var info=Theme.Button("i");info.Padding=new Thickness(5,0,5,0);info.Margin=new Thickness(3,0,0,0);info.ToolTip=MetricDetails(result);ToolTipService.SetShowDuration(info,60000);DockPanel.SetDock(info,Dock.Right);heading.Children.Add(info);
-                    var name=new Button {Content=work.Roi.DisplayName,Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
+                    var name=new Button {Content=RoiLabels.Content(work.Roi),Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
                     legendNames[work.Roi]=name;legendChecks[work.Roi]=box;
                     name.Click+=(s,e)=>{FocusStructure(work.Roi);e.Handled=true;};heading.Children.Add(name);
                     box.Checked+=(s,e)=>{visibility[work.Roi]=curve.Visible=true;plot.InvalidateVisual();};

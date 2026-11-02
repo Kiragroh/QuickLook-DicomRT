@@ -36,7 +36,7 @@ namespace QuickLook.DicomRT
                 var hit=FindCurve(point);if(hit==null){HideHover();return;}
                 Cursor=Cursors.Hand;if(ReferenceEquals(hit,hovered))return;hovered=hit;
                 var content=new StackPanel {MaxWidth=330};
-                content.Children.Add(new TextBlock {Text=hit.Roi.DisplayName,Foreground=hit.Color,FontWeight=FontWeights.SemiBold,FontSize=14,TextWrapping=TextWrapping.Wrap});
+                var label=RoiLabels.Content(hit.Roi);System.Windows.Documents.TextElement.SetForeground(label,hit.Color);content.Children.Add(label);
                 content.Children.Add(new TextBlock {Text=$"{hit.Result.EstimatedVolumeCc:0.##} cm³\n\n"+MetricDetails(hit.Result),Foreground=Theme.Foreground,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,5,0,0)});
                 content.Children.Add(new TextBlock {Text="Click to focus · click again to show all",Foreground=Theme.Accent,Margin=new Thickness(0,8,0,0)});
                 curveTip.Content=content;curveTip.PlacementTarget=this;curveTip.IsOpen=true;

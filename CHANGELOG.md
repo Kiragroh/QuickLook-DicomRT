@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.41 — Two-line labels and alphabetical structure groups
+
+- **Two Both modes:** choose **Both: name first** for a larger name above a smaller description, or **Both: description first** for the reverse. The same hierarchy is used in the DVH list and curve hover. Single-field modes remain available; missing or identical fields are shown once.
+- **Automatic structure sorting:** Targets first, then Organs, then other structures. Each group sorts alphabetically by the primary displayed label and immediately reorders when the label mode changes. Visibility, ROI identity and cached calculations are preserved.
+
 ## 0.2.40 — Visible installed version
 
 - **Version in the viewer header:** the top bar always displays the DICOM RT version from the loaded viewer assembly, including in MLC, DVH and 3D workspaces.
