@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -24,6 +24,9 @@ namespace QuickLook.DicomRT
         DoseGrid cachedDose;
         readonly Dictionary<StructureRoi,CachedResult> cache=new Dictionary<StructureRoi,CachedResult>();
         readonly Dictionary<StructureRoi,bool> visibility=new Dictionary<StructureRoi,bool>();
+        readonly Dictionary<StructureRoi,Button> legendNames=new Dictionary<StructureRoi,Button>();
+        readonly Dictionary<StructureRoi,CheckBox> legendChecks=new Dictionary<StructureRoi,CheckBox>();
+        public void RefreshLabels(){foreach(var item in legendNames)item.Value.Content=item.Key.DisplayName;foreach(var item in legendChecks)System.Windows.Automation.AutomationProperties.SetName(item.Value,"Show "+item.Key.DisplayName);plot.HideHover();}
         readonly Dictionary<StructureRoi,Border> legendRows=new Dictionary<StructureRoi,Border>();
         public StructureRoi FocusedStructure => plot.FocusedStructure;
         public int CalculationCount { get; private set; }
@@ -71,7 +74,7 @@ namespace QuickLook.DicomRT
         {
             if(disposed)return;Cancel();
             if(!ReferenceEquals(cachedDose,dose)){cache.Clear();visibility.Clear();cachedDose=dose;plot.FocusedStructure=null;}
-            legend.Children.Clear();legendRows.Clear();plot.HideHover();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
+            legend.Children.Clear();legendRows.Clear();legendNames.Clear();legendChecks.Clear();plot.HideHover();plot.Curves.Clear();plot.Units=dose?.Units??"";plot.InvalidateVisual();
             exportRois=(rois??new StructureRoi[0]).ToArray();requestedCount=rois?.Count??0;Completion=Task.CompletedTask;
             if(dose==null || rois==null || rois.Count==0){status.Text="No visible structures with a matching RTDOSE are available.";return;}
             // Snapshot mapping on the UI thread. Loaded contour/dose data are immutable.
@@ -108,10 +111,11 @@ namespace QuickLook.DicomRT
                     var contents=new StackPanel();row.Child=contents;
                     var heading=new DockPanel();contents.Children.Add(heading);
                     var box=new CheckBox {IsChecked=shown,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,7,0),IsEnabled=result.DoseValues.Length>0,ToolTip="Show or hide curve"};
-                    System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.Name);
+                    System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.DisplayName);
                     DockPanel.SetDock(box,Dock.Left);heading.Children.Add(box);
                     var info=Theme.Button("i");info.Padding=new Thickness(5,0,5,0);info.Margin=new Thickness(3,0,0,0);info.ToolTip=MetricDetails(result);ToolTipService.SetShowDuration(info,60000);DockPanel.SetDock(info,Dock.Right);heading.Children.Add(info);
-                    var name=new Button {Content=work.Roi.Name,Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
+                    var name=new Button {Content=work.Roi.DisplayName,Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
+                    legendNames[work.Roi]=name;legendChecks[work.Roi]=box;
                     name.Click+=(s,e)=>{FocusStructure(work.Roi);e.Handled=true;};heading.Children.Add(name);
                     box.Checked+=(s,e)=>{visibility[work.Roi]=curve.Visible=true;plot.InvalidateVisual();};
                     box.Unchecked+=(s,e)=>{visibility[work.Roi]=curve.Visible=false;plot.InvalidateVisual();};
@@ -135,7 +139,7 @@ namespace QuickLook.DicomRT
             finally { if(owner==calculation)calculation=null;owner.Dispose(); }
         }
         public void Cancel(){var active=calculation;if(active!=null){calculation=null;active.Cancel();if(!disposed)status.Text=$"Calculation canceled · {Math.Max(0,requestedCount-plot.Curves.Count)} not processed. Completed curves remain visible.";}}
-        public void Dispose(){disposed=true;Cancel();plot.HideHover();cache.Clear();visibility.Clear();legendRows.Clear();}
+        public void Dispose(){disposed=true;Cancel();plot.HideHover();cache.Clear();visibility.Clear();legendRows.Clear();legendNames.Clear();legendChecks.Clear();}
 
         sealed partial class DvhPlot : FrameworkElement
         {

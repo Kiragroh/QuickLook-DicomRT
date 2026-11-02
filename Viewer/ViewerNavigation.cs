@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,7 +23,7 @@ namespace QuickLook.DicomRT
     public sealed partial class ViewerControl
     {
         readonly Dictionary<string,Button> imageModeButtons=new Dictionary<string,Button>();
-        WindowRangeControl windowRange;
+        WindowRangeControl windowRange;UIElement windowControls;
         string windowPreset="DICOM";ComboBox windowPresets;StackPanel customWindow;bool applyingPreset;
         UIElement BuildImageModes()
         {
@@ -36,7 +36,7 @@ namespace QuickLook.DicomRT
         async void SelectImageMode(string mode)
         {
             if(mode=="3D"){SetWorkspace("3D");return;}
-            if(mode!="Native"&&volume==null)status.Text="Waiting for a matching image volume · navigation remains available.";
+            if(mode!="Native"&&NavigationBounds==null)status.Text="Waiting for a matching image volume · navigation remains available.";
             planes.SelectedItem=mode;SetWorkspace("Bild");if(mode=="Native"&&currentStack!=null)await MoveFocusAsync(focus);
         }
         void UpdateImageModeButtons()

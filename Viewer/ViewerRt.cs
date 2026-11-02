@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -45,15 +45,16 @@ namespace QuickLook.DicomRT
         private void RoiVisibilityChanged(){UpdateRoiOutlineIndicators();Redraw();if(workspaceMode=="DVH")UpdateDvh();}
         private void BuildRoiList()
         {
+            foreach(var item in structures.SelectMany(s=>s.Rois))item.LabelMode=(RoiLabelMode)Math.Max(0,roiLabelMode.SelectedIndex);
             roiOutlineRows.Clear();roiList.Children.Clear(); string query = roiSearch.Text.Trim();
-            foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => query.Length == 0 || r.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
+            foreach (var roi in SelectedStructures.SelectMany(s => s.Rois).Where(r => r.MatchesLabel(query)))
             {
                 bool empty = !roi.Contours.Any(c=>c.Points.Count>0);
                 var transform = TransformToImage(roi.FrameUid); var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
                 var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = !empty && (workspaceMode=="DVH" || transform != null), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
                 toggle.Checked += (s, e) => { roi.Visible = true; RoiVisibilityChanged(); }; toggle.Unchecked += (s, e) => { roi.Visible = false; RoiVisibilityChanged(); }; DockPanel.SetDock(toggle, Dock.Left); row.Children.Add(toggle);
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
-                var jump = Theme.Button(roi.Name); jump.HorizontalContentAlignment = HorizontalAlignment.Stretch; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = !empty && (workspaceMode=="DVH" || transform != null); jump.Content=new TextBlock{Text=roi.Name,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=roi.Name}; jump.ToolTip = empty ? "Empty structure · no contour points" : transform == null ? "No matching registration to the displayed series" : "Go to structure\n" + RoiClassification.Explain(roi,selectedPlan);
+                var jump = Theme.Button(roi.DisplayName); jump.HorizontalContentAlignment = HorizontalAlignment.Stretch; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = !empty && (workspaceMode=="DVH" || transform != null); jump.Content=new TextBlock{Text=roi.DisplayName,TextWrapping=roi.LabelMode==RoiLabelMode.Both?TextWrapping.Wrap:TextWrapping.NoWrap,MaxHeight=34,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip="Name: "+roi.Name+"\nDescription: "+(string.IsNullOrWhiteSpace(roi.Description)?"—":roi.Description)}; jump.ToolTip = empty ? "Empty structure · no contour points" : transform == null ? "No matching registration to the displayed series" : "Go to structure\n" + RoiClassification.Explain(roi,selectedPlan);
                 jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null){bool in3D=workspaceMode=="3D"||workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D";if(in3D&&!roi.Visible){roi.Visible=true;BuildRoiList();}await MoveFocusAsync(map.Transform(roi.Center));if(in3D){if(workspaceMode=="3D")threeDView?.FocusStructure(roi);else mprThreeD?.FocusStructure(roi);}} };
                 var indicator=Theme.Text("",9,Theme.Muted);indicator.VerticalAlignment=VerticalAlignment.Center;indicator.Margin=new Thickness(5,0,3,0);DockPanel.SetDock(indicator,Dock.Right);row.Children.Add(indicator);
                 var volumeLabel=Theme.Text(empty?"0 cm³":"…",10,Theme.Muted);volumeLabel.TextWrapping=TextWrapping.NoWrap;volumeLabel.VerticalAlignment=VerticalAlignment.Center;volumeLabel.TextAlignment=TextAlignment.Right;volumeLabel.Margin=new Thickness(6,0,4,0);DockPanel.SetDock(volumeLabel,Dock.Right);row.Children.Add(volumeLabel);
@@ -114,13 +115,13 @@ namespace QuickLook.DicomRT
         private async Task ScrollAsync(string plane, int steps)
         {
             userNavigatedImage=true;
-            if (plane == "Native") { await ShowSliceAsync(requestedSliceIndex + steps, true); return; }
-            if (volume == null) return;
-            double step = Math.Min(volume.SpacingX, Math.Min(volume.SpacingY, volume.SpacingZ));
+            if (plane == "Native" && HasImage) { await ShowSliceAsync(requestedSliceIndex + steps, true); return; }
+            var bounds=NavigationBounds;if(bounds==null)return;if(plane=="Native")plane="Axial";
+            double step = Math.Min(bounds.SpacingX, Math.Min(bounds.SpacingY, bounds.SpacingZ));
             Vec3 axis = plane == "Axial" ? new Vec3(0, 0, 1) : plane == "Coronal" ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
             var candidate = focus + axis * (steps * step);
             // Constrain the scroll coordinate to the physical volume's bounding box.
-            var corners = new List<Vec3>(); foreach (int x in new[] { 0, volume.Width - 1 }) foreach (int y in new[] { 0, volume.Height - 1 }) foreach (int z in new[] { 0, volume.Depth - 1 }) corners.Add(volume.WorldAt(x, y, z));
+            var corners = new List<Vec3>(); foreach (int x in new[] { 0, bounds.Width - 1 }) foreach (int y in new[] { 0, bounds.Height - 1 }) foreach (int z in new[] { 0, bounds.Depth - 1 }) corners.Add(bounds.WorldAt(x, y, z));
             double value = candidate.Dot(axis), bounded = Math.Max(corners.Min(p => p.Dot(axis)), Math.Min(corners.Max(p => p.Dot(axis)), value));
             focus = candidate + axis * (bounded - value); RedrawNavigation();
         }
@@ -130,13 +131,13 @@ namespace QuickLook.DicomRT
             if(latestScene==null||workspaceMode!="Bild"||(string)planes.SelectedItem=="Native"){Redraw();return;}
             latestScene.Focus=focus;
             foreach(var pane in panes)pane.Navigate(focus);
-            if((string)planes.SelectedItem=="MPR + 3D")mprThreeD?.SetSlicePlanes(focus,volume);
+            if((string)planes.SelectedItem=="MPR + 3D")mprThreeD?.SetSlicePlanes(focus,NavigationBounds);
             UpdatePositionText();
         }
-        private void UpdatePositionText(){position.Text=$"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";}
+        private void UpdatePositionText(){SyncRtSliceSlider();if(!HasImage&&rtSliceBounds!=null){position.Text=$"RT only · no CT/MR · LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";return;}position.Text=$"Slice {sliceIndex + 1}/{currentStack?.Entries.Count ?? 1}  ·  W {windowWidth:0} / L {windowCenter:0}  ·  LPS {focus.X:0.0}, {focus.Y:0.0}, {focus.Z:0.0} mm";}
         private void Redraw()
         {
-            if (disposed) return;ExportIdentity.SetContext(this,CurrentExportIdentity());UpdateImageModeButtons();windowRange?.SetSource(volume?.Values??native?.Values,volume?.Min??native?.Min??0,volume?.Max??native?.Max??1,currentEntry?.Modality=="CT"?"HU":"");
+            if (disposed) return;if(windowControls!=null)windowControls.Visibility=HasImage?Visibility.Visible:Visibility.Collapsed;ExportIdentity.SetContext(this,CurrentExportIdentity());UpdateImageModeButtons();windowRange?.SetSource(volume?.Values??native?.Values,volume?.Min??native?.Min??0,volume?.Max??native?.Max??1,currentEntry?.Modality=="CT"?"HU":"");
             var identitySource=(workspaceMode=="MLC"?selectedPlan?.Entry:null)??currentEntry??selectedPlan?.Entry??initialEntry;
             var patientName=identitySource?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.PatientName,"")??"";
             var patientId=identitySource?.Dataset?.GetSingleValueOrDefault<string>(Dicom.DicomTag.PatientID,"")??"";
@@ -156,20 +157,21 @@ namespace QuickLook.DicomRT
                     if (transform != null) doseOverlays.Add(new DoseOverlay { Dose = dose, ImageToDose = transform });
                 }
             }
+            EnsureRtSliceBounds(allRoiOverlays);
             var roiOverlays=allRoiOverlays.Where(r=>r.Roi.Visible).ToList();
             var isocenters=IsocenterNavigation.MappedPoints(selectedPlan,selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid));
             UpdateIsocenterButton(isocenters);UpdateIsodoseContext();UpdateIsodoseLegend(doseOverlays);
             latestScene = new RenderScene { FrameUid=SceneFrameUid,InteractionPreview=movingCrosshair,Plan=selectedPlan,PlanToImage=selectedPlan==null?null:TransformToImage(selectedPlan.FrameUid),ShowFields=showFields.IsChecked==true,ActiveControlPointIndex=centralPlayback?.LocalPosition??0,
-                ActiveBeam=neutralFields?null:selectedPlan?.Beams.Contains(activeField)==true?activeField:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault(),ActiveControlPoint=neutralFields?null:selectedPlan?.Beams.Contains(activeField)==true?activeFieldPoint:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault()?.ControlPoints.FirstOrDefault(),Isocenters=isocenters, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, ViewCenter=viewportCenter, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = !movingCrosshair&&iso.IsChecked == true,
+                ActiveBeam=neutralFields?null:selectedPlan?.Beams.Contains(activeField)==true?activeField:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault(),ActiveControlPoint=neutralFields?null:selectedPlan?.Beams.Contains(activeField)==true?activeFieldPoint:MlcTimeline.PlaybackOrder(selectedPlan).FirstOrDefault()?.ControlPoints.FirstOrDefault(),Isocenters=isocenters, RtBounds=HasImage?null:rtSliceBounds, Volume = volume, Native = native, Entry = currentEntry, Plane = (string)planes.SelectedItem, Focus = focus, ViewCenter=viewportCenter, WindowCenter = windowCenter, WindowWidth = windowWidth, Zoom = zoom, Structures = roiOverlays, Doses = doseOverlays, DoseOpacity = opacity.Value, Isodoses = !movingCrosshair&&iso.IsChecked == true,
                 DoseWash=wash.IsChecked==true,DoseMinimumPercent=doseMin.Value,DoseMaximumPercent=doseMax.Value,IsoLevels=displayedIsoLevels,HiddenIsoLevels=new HashSet<double>(HiddenIsodoses),AbsoluteIsodoses=absoluteIsodoses,IsoColorMaximum=isodoseMaximum,IsoColors=new Dictionary<double,int>(isodoseColors),
                 OverlayVolume=overlayVolume,ImageToOverlay=overlayStack==null?null:RegistrationReader.Resolve(registrations,currentEntry?.FrameUid,overlayStack.FrameUid),OverlayOpacity=blend.Value,
                 OverlayWindowCenter=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowCenter:((overlayVolume?.Min??0)+(overlayVolume?.Max??1))/2.0,
                 OverlayWindowWidth=overlayStack?.Entries[0].WindowWidth>0?overlayStack.Entries[0].WindowWidth:Math.Max(1,(overlayVolume?.Max??1)-(overlayVolume?.Min??0)) };
             if(selectedPlan!=null||centralPlayback!=null){EnsurePlayback();centralPlayback.SetAnatomy(latestScene,latestScene.PlanToImage);var preload=latestScene.Snapshot();preload.Structures=allRoiOverlays;centralPlayback.Preload(selectedPlan,preload,latestScene.PlanToImage);SyncFieldControls();}
-            if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
+            if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.RtBounds!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
             if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);
-            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,volume);}
+            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,NavigationBounds);}
             UpdatePositionText();
         }
     }

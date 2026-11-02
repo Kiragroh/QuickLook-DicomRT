@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -17,6 +17,7 @@ class Program
     {for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T match)yield return match;foreach(var item in Descendants<T>(child))yield return item;}}
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==2&&args[0]=="--private-rt-slices")return PrivateRtSlicesAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-plan-export")return PlanExportScenarios.Inspect(args[1]);
         if(args.Length==2&&args[0]=="--loading-navigation")return LoadingNavigationAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--accela-phantom")return AccelaPhantomAcceptance.Run(args[1]);
@@ -62,6 +63,7 @@ class Program
             RoiGroupingScenarios.Run(Check);
             LoadingNavigationScenarios.Run(Check);
             RoiVolumeScenarios.Run(Check);
+            RoiLabelsAndIdentityScenarios.Run(Check);
             PlanExportScenarios.Run(Check);
             PatientBadgeScenarios.Run(Check);
             DoseControlsScenarios.Run(Check);

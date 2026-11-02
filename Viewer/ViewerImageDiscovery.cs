@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,8 +16,8 @@ namespace QuickLook.DicomRT
         private SavedImage suspendedImage;
         private Func<DicomEntry,bool> PatientImagePredicate()
         {
-            var patient=initialEntry?.PatientKey;var study=initialEntry?.StudyUid;var sop=initialEntry?.SopUid;bool hasInitial=initialEntry!=null;
-            return e=>e!=null&&!(e.Modality??"").StartsWith("RT")&&e.Modality!="REG"&&(!hasInitial||(!string.IsNullOrEmpty(patient)&&patient!="|"?e.PatientKey==patient:!string.IsNullOrEmpty(study)?e.StudyUid==study:!string.IsNullOrEmpty(sop)&&e.SopUid==sop));
+            var opened=initialEntry;
+            return e=>e!=null&&!(e.Modality??"").StartsWith("RT")&&e.Modality!="REG"&&(opened==null||DicomPatientScope.Matches(opened,e)||(!string.IsNullOrEmpty(opened.SopUid)&&opened.SopUid==e.SopUid));
         }
         private Func<DicomEntry,bool> BuildImagePredicate(PlanData plan,DoseGrid dose,StructureSet structure)
         {
@@ -30,7 +30,7 @@ namespace QuickLook.DicomRT
         }
         private Func<DicomEntry,bool> InitialImagePredicate()
         {
-            if(!initialEntry.Modality.StartsWith("RT")){var seriesUid=initialEntry.SeriesUid;var patient=initialEntry.PatientKey;return e=>e.PatientKey==patient&&(!string.IsNullOrEmpty(seriesUid)?e.SeriesUid==seriesUid:e.SopUid==initialEntry.SopUid);}
+            if(!initialEntry.Modality.StartsWith("RT")){var seriesUid=initialEntry.SeriesUid;return e=>DicomPatientScope.Matches(initialEntry,e)&&(!string.IsNullOrEmpty(seriesUid)?e.SeriesUid==seriesUid:e.SopUid==initialEntry.SopUid);}
             return BuildImagePredicate(planData.FirstOrDefault(p=>p.Entry.SopUid==initialEntry.SopUid),doses.FirstOrDefault(d=>d.Entry.SopUid==initialEntry.SopUid),structures.FirstOrDefault(s=>s.Entry.SopUid==initialEntry.SopUid));
         }
         private ImageStack MatchingObjectStack(PlanData plan,DoseGrid dose,StructureSet structure)
@@ -95,7 +95,7 @@ namespace QuickLook.DicomRT
         }
         private void MergeDiscoveredCatalog(DicomCatalog found)
         {
-            Func<DicomEntry,bool> same=e=>initialEntry.PatientKey!="|"&&!string.IsNullOrEmpty(initialEntry.PatientKey)?e.PatientKey==initialEntry.PatientKey:!string.IsNullOrEmpty(initialEntry.StudyUid)&&e.StudyUid==initialEntry.StudyUid;
+            Func<DicomEntry,bool> same=e=>DicomPatientScope.Matches(initialEntry,e);
             var old=catalog??new DicomCatalog();var files=old.Files.Concat(found.Files.Where(same)).GroupBy(e=>e.SopUid).Select(g=>g.First()).ToList();var loaded=new HashSet<string>(files.Select(e=>e.SopUid));
             catalog=new DicomCatalog{Files=files,DeferredImages=old.DeferredImages.Concat(found.DeferredImages.Where(same)).Where(e=>!loaded.Contains(e.SopUid)).GroupBy(e=>e.SopUid).Select(g=>g.First()).ToList(),Stacks=old.Stacks.Concat(found.Stacks.Where(s=>s.Entries.All(same))).GroupBy(s=>s.Key).Select(g=>g.OrderByDescending(s=>s.Entries.Count).First()).ToList(),SkippedFiles=found.SkippedFiles};
             changing=true;series.ItemsSource=catalog.Stacks;series.SelectedItem=currentStack;changing=false;

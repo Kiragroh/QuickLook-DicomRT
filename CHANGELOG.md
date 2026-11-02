@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.39 — Structure descriptions and RT-only slice navigation
+
+- **Name / Description / Both:** choose the structure labels in the left sidebar. Search always checks both DICOM fields. Missing descriptions fall back to the name; DVH labels and hover follow the choice without recalculating curves. Canonical ROI names remain unchanged in CSV exports and structure classification.
+- **Slices without CT/MR:** scroll structures and dose in axial, coronal and sagittal views, including the linked 2 × 2 layout. The mouse wheel, slice slider and crosshair use physical RT coordinates on a black background. Geometry is prepared off the UI thread; no artificial CT voxel volume is created. Windowing controls are hidden until an image is loaded.
+- **More robust CT/RT discovery:** a missing Patient ID issuer in an RT export no longer excludes matching files when Patient ID and Study Instance UID agree. Conflicting declared issuers and different patient IDs remain separate. The same rule applies to image discovery and referenced-plan ZIP selection.
+
 ## 0.2.38 — Toggle individual isodoses
 
 - **One-click isodose visibility:** use a checkbox beside each dose-panel legend entry, or click a level directly in an image's legend. Hidden entries remain available and are muted, so they can be enabled again.

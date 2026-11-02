@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -53,7 +53,7 @@ namespace QuickLook.DicomRT
   {
    if(disposed)return;
    int mine=++generation;pending?.Cancel();var cancel=new CancellationTokenSource();pending=cancel;
-   if(scene==null||(scene.Native==null&&scene.Volume==null)||(scene.Plane!="Native"&&scene.Volume==null)){frame=null;status=scene!=null&&scene.Plane!="Native"?"Waiting for a matching image volume":"Select an image";InvalidateVisual();cancel.Dispose();if(pending==cancel)pending=null;return;}
+   if(scene==null||scene.RtBounds==null&&((scene.Native==null&&scene.Volume==null)||(scene.Plane!="Native"&&scene.Volume==null))){frame=null;status=scene!=null&&scene.Plane!="Native"?"Waiting for a matching image volume":"Select an image";InvalidateVisual();cancel.Dispose();if(pending==cancel)pending=null;return;}
    var copy=scene.Snapshot();var rect=ImageRect(SliceGeometry.Create(copy));int w=Math.Max(2,(int)Math.Ceiling(rect.Width)),h=Math.Max(2,(int)Math.Ceiling(rect.Height));if(copy.InteractionPreview){w=Math.Min(224,w);h=Math.Min(224,h);}
    // Keep pixels, overlays, geometry and crosshair together until the next complete frame is ready.
    // A genuinely different primary source must never display the previous series while loading.
@@ -120,15 +120,15 @@ namespace QuickLook.DicomRT
    dc.Pop();
    // Beam geometry belongs to the whole pane, not the finite CT raster.
    FieldArrangementDrawing.Draw(dc,f.Scene,g,rect,InvalidateVisual,new Rect(RenderSize));
-   Text(dc,f.Scene.Plane=="Native"?"Original plane":f.Scene.Plane=="Axial"?"Axial":f.Scene.Plane=="Coronal"?"Coronal":"Sagittal",new Point(10,7),Brushes.White);
-   if(f.Scene.Entry?.HasGeometry!=false)
+   Text(dc,f.Scene.Plane=="Native"?(f.Scene.RtBounds!=null?"Axial · RT only":"Original plane"):f.Scene.Plane=="Axial"?"Axial":f.Scene.Plane=="Coronal"?"Coronal":"Sagittal",new Point(10,7),Brushes.White);
+   if(f.Scene.RtBounds!=null||f.Scene.Entry?.HasGeometry!=false)
    {
     Text(dc,SliceGeometry.Direction(g.Right*-1),new Point(3,ActualHeight/2),Brushes.LightGray);
     Text(dc,SliceGeometry.Direction(g.Right),new Point(Math.Max(3,ActualWidth-25),ActualHeight/2),Brushes.LightGray);
     Text(dc,SliceGeometry.Direction(g.Down*-1),new Point(ActualWidth/2,7),Brushes.LightGray);
     Text(dc,SliceGeometry.Direction(g.Down),new Point(ActualWidth/2,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
    }
-   Text(dc,string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
+   Text(dc,f.Scene.RtBounds!=null?$"RT only · no CT/MR · ×{f.Scene.Zoom:0.0}":string.Format(CultureInfo.InvariantCulture,"Width {0:0}  Level {1:0}  ×{2:0.0}",f.Scene.WindowWidth,f.Scene.WindowCenter,f.Scene.Zoom),new Point(10,Math.Max(7,ActualHeight-23)),Brushes.LightGray);
    if(f.InterpolatedContours||f.ContourFallback)Text(dc,f.ContourFallback?"Contour intersections (unsupported stack)"+(f.InterpolatedContours?"; interpolated boundaries":""):"Interpolated contour-stack boundary",new Point(10,26),Brushes.LightSlateGray,10);
    if(f.Scene.Isodoses&&f.Scene.Doses.Any(d=>d.Dose.Visible&&d.Dose.Maximum>0))
    {
@@ -151,7 +151,7 @@ namespace QuickLook.DicomRT
   {
    using(var dc=crosshairVisual.RenderOpen()){
     if(frame==null)return;var f=frame;var g=f.Raster.Geometry;var rect=ImageRect(g);dc.PushClip(new RectangleGeometry(rect));
-   if(f.Scene.Crosshair&&f.Scene.Entry?.HasGeometry!=false)
+   if(f.Scene.Crosshair&&(f.Scene.RtBounds!=null||f.Scene.Entry?.HasGeometry!=false))
    {
     var p=Project(immediateFocus??f.Scene.Focus,g,rect);var pen=new Pen(new SolidColorBrush(Color.FromArgb(155,100,181,246)),.8);
     dc.DrawLine(pen,new Point(rect.Left,p.Y),new Point(p.X-5,p.Y));dc.DrawLine(pen,new Point(p.X+5,p.Y),new Point(rect.Right,p.Y));

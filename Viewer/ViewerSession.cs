@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -66,7 +66,7 @@ namespace QuickLook.DicomRT
                 }),token);
                 IndexMilliseconds=elapsed.Elapsed.TotalMilliseconds;scanComplete=true;
                 if (token.IsCancellationRequested) return;
-                Func<DicomEntry,bool> samePatient = e => initialEntry.PatientKey != "|" && !string.IsNullOrEmpty(initialEntry.PatientKey) ? e.PatientKey == initialEntry.PatientKey : !string.IsNullOrEmpty(initialEntry.StudyUid) && e.StudyUid == initialEntry.StudyUid;
+                Func<DicomEntry,bool> samePatient = e => DicomPatientScope.Matches(initialEntry,e);
                 catalog.DeferredImages=catalog.DeferredImages.Where(samePatient).ToList();catalog.Files = catalog.Files.Where(samePatient).ToList(); catalog.Stacks = catalog.Stacks.Where(s => s.Entries.All(samePatient)).ToList();
                 registrations=await Task.Run(()=>RegistrationReader.Read(catalog),token);loadRevision++;sumResult=null;
                 changing = true; series.ItemsSource = catalog.Stacks; changing = false;
@@ -91,7 +91,7 @@ namespace QuickLook.DicomRT
                     var choice = tagSource.Items.Cast<TagChoice>().FirstOrDefault(x => x.Entry != null && SamePath(x.Entry.Path, initialEntry.Path));
                     if (choice != null) tagSource.SelectedItem = choice;
                 }
-                RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
+                RefreshPlanChoices();RefreshRt();await rtSliceCompletion;await TryInitialIsocenterAsync();if(sumMode)await BuildSumAsync();
                 if(!sumMode){activity.Visibility=System.Windows.Visibility.Collapsed;activity.Text=$"✓ Scan complete · {planData.Count} plans · {doses.Count} doses · {catalog.Files.Count} files"+(rtFailures>0?$" · {rtFailures} unreadable RT files":"");}
                 searchSubfolders.Visibility=searchMoreImages.Visibility=System.Windows.Visibility.Visible;
             }

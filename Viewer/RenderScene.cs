@@ -10,6 +10,7 @@ namespace QuickLook.DicomRT
  public sealed class RenderScene
  {
   public string FrameUid {get;set;}
+  public VolumeData RtBounds {get;set;} // Geometry only; no image values.
   public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;public double ActiveControlPointIndex;
   public VolumeData Volume {get;set;} public PixelPlane Native {get;set;} public DicomEntry Entry {get;set;}
   public string Plane {get;set;} = "Native"; public Vec3 Focus {get;set;} public Vec3? ViewCenter {get;set;}
@@ -54,12 +55,12 @@ namespace QuickLook.DicomRT
     if(zoom>1&&e.HasGeometry){var delta=s.Focus-g.Center;g.Center=g.Center+g.Right*delta.Dot(g.Right)+g.Down*delta.Dot(g.Down);}
     g.WidthMm=s.Native.Width*sx/zoom;g.HeightMm=s.Native.Height*sy/zoom;
    }
-   else if(s.Volume!=null)
+   else if(s.Volume!=null||s.RtBounds!=null)
    {
     g.Center=s.Focus;
     g.Right=s.Plane=="Sagittal"?new Vec3(0,1,0):new Vec3(1,0,0);
-    g.Down=s.Plane=="Axial"?new Vec3(0,1,0):new Vec3(0,0,-1);
-    var v=s.Volume;double minU=double.PositiveInfinity,maxU=double.NegativeInfinity,minV=minU,maxV=maxU;
+    g.Down=(s.Plane=="Axial"||s.Plane=="Native")?new Vec3(0,1,0):new Vec3(0,0,-1);
+    var v=s.Volume??s.RtBounds;double minU=double.PositiveInfinity,maxU=double.NegativeInfinity,minV=minU,maxV=maxU;
     foreach(double x in new[]{-.5,v.Width-.5})foreach(double y in new[]{-.5,v.Height-.5})foreach(double z in new[]{-.5,v.Depth-.5})
     {var p=v.WorldAt(x,y,z);var u=p.Dot(g.Right);var h=p.Dot(g.Down);minU=Math.Min(minU,u);maxU=Math.Max(maxU,u);minV=Math.Min(minV,h);maxV=Math.Max(maxV,h);}
     g.WidthMm=Math.Max(.01,maxU-minU)/zoom;g.HeightMm=Math.Max(.01,maxV-minV)/zoom;

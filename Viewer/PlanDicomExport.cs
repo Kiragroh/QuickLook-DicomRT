@@ -17,7 +17,7 @@ namespace QuickLook.DicomRT
     {
         static string[] References(DicomEntry entry,DicomTag sequence)=>RtItems(entry.Dataset,sequence).Select(d=>d.GetSingleValueOrDefault<string>(DicomTag.ReferencedSOPInstanceUID,"")).Where(s=>s.Length>0).Distinct().ToArray();
         static IEnumerable<DicomDataset> RtItems(DicomDataset dataset,DicomTag tag)=>dataset!=null&&dataset.Contains(tag)?dataset.GetSequence(tag).Items:Enumerable.Empty<DicomDataset>();
-        static bool SamePatient(DicomEntry a,DicomEntry b)=>string.IsNullOrWhiteSpace(a.PatientKey)||a.PatientKey=="|"||string.IsNullOrWhiteSpace(b.PatientKey)||b.PatientKey=="|"||a.PatientKey==b.PatientKey;
+        static bool SamePatient(DicomEntry a,DicomEntry b)=>string.IsNullOrWhiteSpace(a.PatientKey)||a.PatientKey=="|"||string.IsNullOrWhiteSpace(b.PatientKey)||b.PatientKey=="|"||DicomPatientScope.Matches(a,b);
         public static PlanDicomSelection Resolve(PlanData plan,IEnumerable<DicomEntry> discovered)
         {
             if(plan?.Entry==null||string.IsNullOrEmpty(plan.Entry.SopUid))throw new InvalidOperationException("Select an original RTPLAN first.");

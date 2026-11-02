@@ -5,7 +5,23 @@ using Dicom;
 namespace QuickLook.DicomRT
 {
     public sealed class Contour { public List<Vec3> Points=new List<Vec3>(); public string GeometricType; public List<string> ReferencedSops=new List<string>(); }
-    public sealed class StructureRoi { public int Number; public string Name,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true; }
+    public enum RoiLabelMode { Name, Description, Both }
+    public sealed class StructureRoi
+    {
+        public int Number; public string Name,Description,FrameUid,InterpretedType,StructureSopUid; public byte Red,Green,Blue; public List<Contour> Contours=new List<Contour>(); public Vec3 Center; public bool Visible=true;
+        public RoiLabelMode LabelMode;
+        public string DisplayName
+        {
+            get
+            {
+                var name=(Name??"").Trim();var description=(Description??"").Trim();
+                if(name.Length==0)return description.Length>0?description:"ROI "+Number;
+                if(description.Length==0||string.Equals(name,description,StringComparison.Ordinal))return name;
+                return LabelMode==RoiLabelMode.Description?description:LabelMode==RoiLabelMode.Both?name+" · "+description:name;
+            }
+        }
+        public bool MatchesLabel(string query)=>string.IsNullOrEmpty(query)||(Name??"").IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0||(Description??"").IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0;
+    }
     public sealed class StructureSet
     {
         public DicomEntry Entry; public List<StructureRoi> Rois=new List<StructureRoi>(); public HashSet<string> ReferencedSeries=new HashSet<string>();
@@ -16,7 +32,7 @@ namespace QuickLook.DicomRT
             foreach(var item in RtDicom.Items(d,DicomTag.StructureSetROISequence))
             {
                 int n=RtDicom.Int(item,DicomTag.ROINumber,-1); if(n<0 || rois.ContainsKey(n)) continue;
-                var roi=new StructureRoi {Number=n,Name=RtDicom.Text(item,DicomTag.ROIName,"ROI "+n),FrameUid=RtDicom.Text(item,DicomTag.ReferencedFrameOfReferenceUID),Red=255,Green=210,Blue=70};
+                var roi=new StructureRoi {Number=n,Name=RtDicom.Text(item,DicomTag.ROIName),Description=RtDicom.Text(item,DicomTag.ROIDescription),FrameUid=RtDicom.Text(item,DicomTag.ReferencedFrameOfReferenceUID),Red=255,Green=210,Blue=70};
                 roi.StructureSopUid=RtDicom.Text(d,DicomTag.SOPInstanceUID,entry.SopUid);
                 rois.Add(n,roi); result.Rois.Add(roi);
             }

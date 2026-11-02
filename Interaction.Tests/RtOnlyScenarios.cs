@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,6 +23,27 @@ internal static class RtOnlyScenarios
         var timer=new DispatcherTimer(DispatcherPriority.Background){Interval=TimeSpan.FromMilliseconds(10)};
         timer.Tick+=(s,e)=>{if(task.IsCompleted||DateTime.UtcNow>limit)frame.Continue=false;};timer.Start();Dispatcher.PushFrame(frame);timer.Stop();
         if(!task.IsCompleted)throw new TimeoutException("RT-only scenario timed out");task.GetAwaiter().GetResult();
+    }
+    static void CheckSlices(ViewerControl viewer,Action<bool,string> check)
+    {
+        Pump(Field<Task>(viewer,"rtSliceCompletion"));
+        var bounds=Field<VolumeData>(viewer,"rtSliceBounds");
+        check(bounds!=null&&bounds.Values==null&&!viewer.HasImage,"RT-only navigation has geometry without fabricated image voxels");
+        foreach(var plane in new[]{"Native","Axial","Coronal","Sagittal","MPR + 3D"})
+        {
+            Invoke(viewer,"SelectImageMode",plane);
+            typeof(ViewerControl).GetField("focus",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,bounds.Center);
+            string scrollPlane=plane=="MPR + 3D"?"Axial":plane;
+            var method=typeof(ViewerControl).GetMethod("ScrollAsync",BindingFlags.Instance|BindingFlags.NonPublic);
+            Pump((Task)method.Invoke(viewer,new object[]{scrollPlane,1}));
+            var after=Field<Vec3>(viewer,"focus");check((after-bounds.Center).Length>0,"RT-only wheel moves "+plane);
+            var scene=Field<RenderScene>(viewer,"latestScene");
+            scene.Plane=scrollPlane;var g=SliceGeometry.Create(scene);
+            check(g.WidthMm>1&&g.HeightMm>1&&scene.Volume==null&&scene.Native==null,"RT-only "+plane+" has physical extents without CT");
+            SliceRaster.Render(scene,32,32,CancellationToken.None);
+        }
+        var slider=Field<Slider>(viewer,"sliceSlider");Invoke(viewer,"SelectImageMode","Axial");slider.Value=2;
+        check(Math.Abs(Field<Vec3>(viewer,"focus").Z-(bounds.Origin.Z+2*bounds.SpacingZ))<1e-6,"RT-only slider changes physical slice coordinate");
     }
     static string FixtureFolder(string root)
     {
@@ -112,11 +133,15 @@ internal static class RtOnlyScenarios
                 check(!viewer.HasImage && viewer.StructureCount>0,"RTSTRUCT-only parses contours without CT");
                 check(Field<string>(viewer,"workspaceMode")=="3D","RTSTRUCT-only selects 3D workspace");
                 var scene=Field<RenderScene>(viewer,"latestScene");check(scene.Structures.Count>0 && scene.Volume==null && scene.Native==null,"RTSTRUCT-only 3D scene contains mapped ROIs without image");
+                CheckSlices(viewer,check);
             }
+            stage("dose_only_slices",new[]{"RTDOSE.dcm"});
+            using(var viewer=Open(Path.Combine(root,"dose_only_slices","RTDOSE.dcm")))CheckSlices(viewer,check);
             stage("dose_structures",new[]{"RTDOSE.dcm","RTSTRUCT.dcm"});
             using(var viewer=Open(Path.Combine(root,"dose_structures","RTDOSE.dcm")))
             {
                 check(!viewer.HasImage && Field<List<PlanData>>(viewer,"planData").Count==0,"Dose and structures load without plan or image");
+                CheckSlices(viewer,check);
                 check(!Field<bool>(viewer,"sumMode") && Field<ComboBox>(viewer,"plans").SelectedItem!=null&&Field<PlanData>(viewer,"selectedPlan")==null,"Dose-only scan selects the actual standalone dose, never a plan sum");
                 Invoke(viewer,"SetWorkspace","DVH");Invoke(viewer,"BuildRoiList");
                 var dvh=Field<DvhControl>(viewer,"dvhView");Pump(dvh.Completion);

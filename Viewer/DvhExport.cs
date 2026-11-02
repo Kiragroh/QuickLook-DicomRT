@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -61,7 +61,7 @@ namespace QuickLook.DicomRT
             grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});grid.RowDefinitions.Add(new RowDefinition());grid.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1050)});grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(450)});
             var header=Theme.Text("Cumulative DVH - active structures",24);header.Margin=new Thickness(24);Grid.SetColumnSpan(header,2);grid.Children.Add(header);
             var chart=new DvhPlot{Units=plot.Units,Margin=new Thickness(24,12,12,24)};chart.Curves.AddRange(plot.Curves.Where(c=>c.Visible&&selected.Contains(c.Roi)));Grid.SetRow(chart,1);grid.Children.Add(chart);
-            var names=new StackPanel{Margin=new Thickness(10,12,24,24)};foreach(var roi in selected){var curve=plot.Curves.FirstOrDefault(c=>c.Roi==roi);names.Children.Add(Theme.Text(roi.Name+(curve?.Result.DoseValues.Length>0?"":" (no curve)"),12,new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue))));if(curve?.Result!=null){var r=curve.Result;Func<double,string> f=v=>double.IsNaN(v)?"n/a":v.ToString("0.##",CultureInfo.InvariantCulture);var metrics=Theme.Text($"{r.EstimatedVolumeCc:0.##} cm³ · {r.DoseUnits}\nMean {f(r.Dmean)} · Median {f(r.Dmedian)} · Min {f(r.Dmin)}\nMax {f(r.Dmax)} · D98 {f(r.D98)} · D2 {f(r.D2)}",10,Theme.Muted);metrics.Margin=new Thickness(0,0,0,12);names.Children.Add(metrics);}}Grid.SetRow(names,1);Grid.SetColumn(names,1);grid.Children.Add(names);
+            var names=new StackPanel{Margin=new Thickness(10,12,24,24)};foreach(var roi in selected){var curve=plot.Curves.FirstOrDefault(c=>c.Roi==roi);names.Children.Add(Theme.Text(roi.DisplayName+(curve?.Result.DoseValues.Length>0?"":" (no curve)"),12,new SolidColorBrush(Color.FromRgb(roi.Red,roi.Green,roi.Blue))));if(curve?.Result!=null){var r=curve.Result;Func<double,string> f=v=>double.IsNaN(v)?"n/a":v.ToString("0.##",CultureInfo.InvariantCulture);var metrics=Theme.Text($"{r.EstimatedVolumeCc:0.##} cm³ · {r.DoseUnits}\nMean {f(r.Dmean)} · Median {f(r.Dmedian)} · Min {f(r.Dmin)}\nMax {f(r.Dmax)} · D98 {f(r.D98)} · D2 {f(r.D2)}",10,Theme.Muted);metrics.Margin=new Thickness(0,0,0,12);names.Children.Add(metrics);}}Grid.SetRow(names,1);Grid.SetColumn(names,1);grid.Children.Add(names);
             var footer=Theme.Text("Approximate inspection DVH; not TPS validation. Dashed curves have partial dose coverage. "+StatusText,12,Theme.Muted);footer.Margin=new Thickness(24);Grid.SetRow(footer,2);Grid.SetColumnSpan(footer,2);grid.Children.Add(footer);
             grid.Measure(new Size(grid.Width,grid.Height));grid.Arrange(new Rect(0,0,grid.Width,grid.Height));grid.UpdateLayout();return ExportIdentity.GetContext(this).Stamp(ViewerSnapshot.Capture(grid));
         }

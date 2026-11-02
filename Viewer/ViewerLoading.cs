@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -116,7 +116,7 @@ namespace QuickLook.DicomRT
         private void OnEntryFound(DicomEntry entry)
         {
             if(!(entry.Modality.StartsWith("RT")||entry.Modality=="REG"))return;
-            bool same=initialEntry.PatientKey!="|"&&!string.IsNullOrEmpty(initialEntry.PatientKey)?entry.PatientKey==initialEntry.PatientKey:!string.IsNullOrEmpty(initialEntry.StudyUid)&&entry.StudyUid==initialEntry.StudyUid;
+            bool same=DicomPatientScope.Matches(initialEntry,entry);
             if(!same&&!SamePath(entry.Path,initialEntry.Path))return;lifetime.Token.ThrowIfCancellationRequested();
             lock(rtLoadGate)
             {
