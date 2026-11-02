@@ -11,9 +11,13 @@ sealed partial class PreviewSession
     public PreviewSession():this(new CancellationTokenSource()){}
     PreviewSession(CancellationTokenSource lifetime){this.lifetime=lifetime;}
     string CacheKey(object id)=>contextVersion+":"+id;
-    public PreviewSession Snapshot(){var snapshot=new PreviewSession(lifetime){opened=opened,catalog=catalog,plans=plans.ToList(),structures=structures.ToList(),doses=doses.ToList(),links=links.ToList(),plan=plan,structure=structure,dose=dose,stack=stack,volume=volume,rtBounds=rtBounds,native=native,image=image,focus=focus,failures=failures,imageWarning=imageWarning,contextVersion=contextVersion,dvhCache=dvhCache,meshCache=meshCache,projectionCache=projectionCache,rays=rays,roiMeshes=roiMeshes,fieldTracks=fieldTracks};snapshot.sumResult=sumResult;snapshot.sumSets.AddRange(sumSets);return snapshot;}
+    public PreviewSession Snapshot(){var snapshot=new PreviewSession(lifetime){opened=opened,catalog=catalog,plans=plans.ToList(),structures=structures.ToList(),doses=doses.ToList(),links=links.ToList(),plan=plan,structure=structure,dose=dose,stack=stack,volume=volume,rtBounds=rtBounds,native=native,image=image,focus=focus,failures=failures,imageWarning=imageWarning,contextVersion=contextVersion,dvhCache=dvhCache,meshCache=meshCache,projectionCache=projectionCache,rays=rays,roiMeshes=roiMeshes,fieldTracks=fieldTracks,referenceCache=referenceCache,contourCache=contourCache};snapshot.sumResult=sumResult;snapshot.sumSets.AddRange(sumSets);return snapshot;}
     CancellationToken token => lifetime.Token;
     public void Cancel()=>lifetime.Cancel();
+    public sealed record LoadProgress(string phase,int current,int total,bool finished);
+    volatile LoadProgress loadProgress=new("Bereit",0,0,true);
+    public object Progress()=>loadProgress;
+    void ReportLoad(string phase,int current,int total,bool finished=false)=>loadProgress=new(phase,current,total,finished);
     DicomEntry opened;
     DicomCatalog catalog;
     List<PlanData> plans = new();
@@ -38,17 +42,19 @@ sealed partial class PreviewSession
         "tags" => TagReader.Read((Flag(r,"source")?opened:image??opened).Dataset),
         "mesh" => Mesh(r), "fusion" => Fusion(r), "sum" => Sum(r),
         "discover" => Discover(r), "export" => Export(r), "exportInfo" => ExportInfo(),
-        "histogram" => Histogram(), "volume" => RoiVolume(r),
+        "histogram" => Histogram(), "volume" => RoiVolume(r), "doseReference" => DoseReference(), "progress" => Progress(),
         _ => throw new ArgumentException("Unknown operation")
     };
     public object Open(string path, bool folder)
     {
+        ReportLoad("DICOM-Datei lesen",0,0);
         opened = DicomCatalog.ReadEntry(path);
         failures=0; plans.Clear(); structures.Clear(); doses.Clear(); dvhCache.Clear();sumResult=null;sumSets.Clear();meshCache.Clear();projectionCache.Clear();
-        catalog = folder ? DicomCatalog.Scan(path, token, seed:opened) : DicomCatalog.Scan(path,token,seed:opened,knownPaths:new[]{path});
+        catalog = folder ? DicomCatalog.Scan(path, token, phaseProgress:(phase,current,total)=>ReportLoad("DICOM-Ordner prüfen",current,total),seed:opened) : DicomCatalog.Scan(path,token,seed:opened,knownPaths:new[]{path});
         catalog.Files=catalog.Files.Where(e=>e.SopUid==opened.SopUid || DicomPatientScope.Matches(opened,e)).GroupBy(e=>e.SopUid).Select(g=>g.First()).ToList();
         catalog.Stacks=catalog.Stacks.Where(s=>s.Entries.All(e=>catalog.Files.Contains(e))).ToList();
         links=RegistrationReader.Read(catalog);
+        int rtDone=0,rtTotal=catalog.Files.Count(e=>e.Modality.StartsWith("RT"));
         foreach(var e in catalog.Files)
         {
             try {
@@ -56,6 +62,7 @@ sealed partial class PreviewSession
                 else if(e.Modality=="RTSTRUCT")structures.Add(StructureSet.Load(e));
                 else if(e.Modality=="RTDOSE")doses.Add(DoseGrid.Load(e));
             } catch { failures++; }
+            if(e.Modality.StartsWith("RT"))ReportLoad("Plan, Strukturen und Dosis",++rtDone,rtTotal);
         }
         plan=plans.SingleOrDefault(p=>p.Entry.SopUid==opened.SopUid);
         dose=doses.SingleOrDefault(d=>d.Entry.SopUid==opened.SopUid);
@@ -69,7 +76,7 @@ sealed partial class PreviewSession
         Associate();
         if(exactDose!=null)dose=exactDose;
         LoadStack(ChooseStack());
-        return Model();
+        var model=Model();ReportLoad("Bereit",1,1,true);return model;
     }
     void Associate()
     {
@@ -102,10 +109,10 @@ sealed partial class PreviewSession
     }
     void LoadStack(ImageStack selected)
     {
-        contextVersion++;volume=null; native=null; image=null; stack=selected; imageWarning="";overlayVolume=null;overlayStack=null;meshCache.Clear();projectionCache.Clear();rays.Clear();fieldTracks.Clear();
+        contextVersion++;volume=null; native=null; image=null; stack=selected; imageWarning="";overlayVolume=null;overlayStack=null;meshCache.Clear();projectionCache.Clear();rays.Clear();fieldTracks.Clear();referenceCache.Clear();contourCache.Clear();
         if(stack!=null) {
             image=stack.Entries.FirstOrDefault(e=>e.SopUid==opened.SopUid)??stack.Entries[stack.Entries.Count/2];
-            try {native=PixelPlane.Load(image);if(stack.CanMpr)volume=VolumeData.Load(stack,token);}
+            try {native=PixelPlane.Load(image);if(stack.CanMpr)volume=VolumeData.Load(stack,token,current=>ReportLoad("Bilder laden",current,stack.Entries.Count),null,2);}
             catch {imageWarning="Bilddaten nicht dekodierbar oder keine reguläre MPR-Geometrie.";}
         }
         var frame=stack?.FrameUid??plan?.FrameUid??dose?.FrameUid??structure?.Rois.FirstOrDefault()?.FrameUid;
@@ -147,6 +154,7 @@ sealed partial class PreviewSession
             sumGroups=DoseSum.CompatibleGroups(doses,links).Select(g=>g.Select(d=>doses.IndexOf(d)).ToArray()),
             fusionCandidates=catalog.Stacks.Select((s,i)=>new{id=i,label=s.ToString(),eligible=s!=stack&&s.CanMpr&&Map(Frame,s.FrameUid)!=null}).Where(s=>s.eligible),
             nativeIndex=stack?.Entries.IndexOf(image)??0,
+            sliceSteps=volume==null?new[]{1d,1d,1d}:new[]{new Vec3(1,0,0),new Vec3(0,1,0),new Vec3(0,0,1)}.Select(a=>1/Math.Sqrt(Math.Pow(a.Dot(volume.AxisX)/volume.SpacingX,2)+Math.Pow(a.Dot(volume.AxisY)/volume.SpacingY,2)+Math.Pow(a.Dot(volume.AxisZ)/volume.SpacingZ,2))).ToArray(),
             window=Num(image?.WindowCenter??40)??40,width=Num(image?.WindowWidth??400)??400,
             failures, imageWarning,files=catalog.Files.Count,
             doseInfo=dose==null?null:new{maximum=Num(dose.Maximum),units=dose.Units,type=dose.DoseType},
@@ -167,8 +175,12 @@ sealed partial class PreviewSession
         if(plane!="Native" && native!=null && volume==null)throw new NotSupportedException();
         var scene=new RenderScene {Entry=image,Native=native,Volume=volume,RtBounds=rtBounds,FrameUid=Frame,Focus=focus,Plane=plane,
             WindowCenter=Real(r,"level",40),WindowWidth=Math.Clamp(Real(r,"width",400),1,100000),Zoom=Math.Clamp(Real(r,"zoom",1),.1,20),
-            DoseWash=Flag(r,"wash"),Isodoses=Flag(r,"isodoses"),DoseOpacity=Math.Clamp(Real(r,"opacity",.38),0,.9),DoseMinimumPercent=Math.Clamp(Real(r,"washMin",5),0,100),DoseMaximumPercent=Math.Clamp(Real(r,"washMax",100),0,100),
+            DoseNormalization=Real(r,"reference",0),MaximumRelativeIsoLevel=Real(r,"maximumPercent",100),
+            DoseWash=Flag(r,"wash"),Isodoses=Flag(r,"isodoses"),DoseOpacity=Math.Clamp(Real(r,"opacity",.38),0,.9),DoseMinimumPercent=Math.Clamp(Real(r,"washMin",5),0,200),DoseMaximumPercent=Math.Clamp(Real(r,"washMax",100),0,200),
             OverlayVolume=overlayVolume,ImageToOverlay=Map(Frame,overlayStack?.FrameUid),OverlayOpacity=Real(r,"blend",.5),OverlayWindowCenter=Real(r,"overlayLevel",overlayLevel),OverlayWindowWidth=Real(r,"overlayWidth",overlayWidth)};
+        if(r.TryGetProperty("palette",out var palette)&&palette.ValueKind==JsonValueKind.Array)foreach(var stop in palette.EnumerateArray()){
+            var values=stop.EnumerateArray().ToArray();double percent=values[0].GetDouble();if(percent>=0&&percent<=200)scene.DoseColorStops[percent]=Convert.ToInt32(values[1].GetString().TrimStart('#'),16);
+        }
         scene.AbsoluteIsodoses=Flag(r,"absolute")&&IsodoseConfiguration.IsPhysicalGy(dose);
         scene.IsoColorMaximum=dose?.Maximum??100;
         if(r.TryGetProperty("levels",out var levels)&&levels.ValueKind==JsonValueKind.Array)scene.IsoLevels=levels.EnumerateArray().Select(x=>x.GetDouble()).ToArray();
@@ -192,7 +204,7 @@ sealed partial class PreviewSession
         var outlines=new List<object>();
         foreach(var roi in ActiveRois().Where(x=>!hidden.Contains(RoiKey(x)))) {
             var map=Map(roi.FrameUid,Frame); if(map==null)continue;
-            var lines=ReformatContours.Outline(roi,map,g,.01,token,out var kind);
+            var lines=ContourLines(roi,map,g,out var kind);
             outlines.Add(new {color=Color(roi),kind=kind.ToString(),lines=lines.Select(l=>new[]{Project(l.A),Project(l.B)})});
         }
         var iso=plan?.Beams.FirstOrDefault()?.Isocenter;var planMap=Map(plan?.FrameUid,Frame);

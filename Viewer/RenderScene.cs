@@ -24,8 +24,11 @@ namespace QuickLook.DicomRT
   public double[] IsoLevels {get;set;} = new double[]{10,20,30,40,50,60,70,80,90,100};
   public bool AbsoluteIsodoses {get;set;} public double IsoColorMaximum {get;set;} = 100;
   public Dictionary<double,int> IsoColors {get;set;} = new Dictionary<double,int>();
+  // Optional display normalization/palette. Defaults retain the Windows renderer's behavior.
+  public double DoseNormalization {get;set;} public double MaximumRelativeIsoLevel {get;set;}=100;
+  public Dictionary<double,int> DoseColorStops {get;set;}=new Dictionary<double,int>();
   public HashSet<double> HiddenIsoLevels {get;set;} = new HashSet<double>();
-  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,ClassificationPlan=x.ClassificationPlan,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());s.HiddenIsoLevels=new HashSet<double>(HiddenIsoLevels??new HashSet<double>());return s; }
+  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,ClassificationPlan=x.ClassificationPlan,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());s.DoseColorStops=new Dictionary<double,int>(DoseColorStops??new Dictionary<double,int>());s.HiddenIsoLevels=new HashSet<double>(HiddenIsoLevels??new HashSet<double>());return s; }
   // A pending scroll keeps the complete previous frame, including its own geometry and labels.
   internal bool SameImageSource(RenderScene other)
   {
@@ -136,7 +139,7 @@ namespace QuickLook.DicomRT
  }
  public static class SliceRaster
  {
-  public static double[] IsodoseLevels(RenderScene s) => (s.IsoLevels??new double[0]).Where(x=>!double.IsNaN(x)&&!double.IsInfinity(x)&&x>0&&(s.AbsoluteIsodoses||x<=100)).Distinct().OrderBy(x=>x).ToArray();
+  public static double[] IsodoseLevels(RenderScene s) => (s.IsoLevels??new double[0]).Where(x=>!double.IsNaN(x)&&!double.IsInfinity(x)&&x>0&&(s.AbsoluteIsodoses||x<=s.MaximumRelativeIsoLevel)).Distinct().OrderBy(x=>x).ToArray();
   // Colorwash remains a percentage of each grid maximum; isodose levels may instead be absolute Gy.
   public static void DoseColor(double percent,out double red,out double green,out double blue)
   {double t=Math.Max(0,Math.Min(1,percent/100));red=255*Math.Min(1,2*t);green=255*Math.Max(0,1-Math.Abs(2*t-1));blue=255*Math.Max(0,1-2*t);}
@@ -164,6 +167,14 @@ namespace QuickLook.DicomRT
    var r=new SlicePixels{Width=w,Height=h,Pixels=new byte[w*h*4],Geometry=g};
    var doses=(s.Doses??new List<DoseOverlay>()).Where(d=>d?.Dose!=null&&d.Dose.Visible&&d.Dose.Maximum>0).ToArray();
    var maps=s.Isodoses?doses.Select(d=>new float[w*h]).ToArray():null;
+   var stops=s.DoseColorStops.OrderBy(p=>p.Key).ToArray();
+   int[] palette=null;double paletteMax=stops.Length==0?100:Math.Max(100,stops.Last().Key);
+   if(stops.Length>0){palette=new int[(int)Math.Ceiling(paletteMax*10)+1];int upper=0;
+    for(int i=0;i<palette.Length;i++){double percent=i/10d;while(upper+1<stops.Length&&stops[upper].Key<percent)upper++;
+     int lower=Math.Max(0,upper-1);double t=upper==lower?0:Math.Max(0,Math.Min(1,(percent-stops[lower].Key)/(stops[upper].Key-stops[lower].Key)));
+     int c=0;foreach(int shift in new[]{16,8,0})c|=(int)Math.Round(((stops[lower].Value>>shift)&255)*(1-t)+((stops[upper].Value>>shift)&255)*t)<<shift;palette[i]=c;
+    }
+   }
    bool invert=s.Plane=="Native"?(s.Native?.Invert??false):(s.Volume?.Invert??false);
    // Native image orientation and pixel spacing are invariant across this frame.
    // Calculate patient-to-pixel axes once, retaining the same bilinear sampler.
@@ -185,11 +196,11 @@ namespace QuickLook.DicomRT
      }
      for(int d=0;d<doses.Length;d++)
      {
-      float val=doses[d].Dose.Sample(doses[d].ImageToDose.Transform(p));float ratio=val/doses[d].Dose.Maximum;
-      if(maps!=null)maps[d][y*w+x]=s.AbsoluteIsodoses?val:ratio;
-      if(!s.DoseWash||float.IsNaN(ratio)||ratio*100<s.DoseMinimumPercent||ratio*100>s.DoseMaximumPercent)continue;
+      float val=doses[d].Dose.Sample(doses[d].ImageToDose.Transform(p));double ratio=s.DoseNormalization>0?val/s.DoseNormalization:val/doses[d].Dose.Maximum;
+      if(maps!=null)maps[d][y*w+x]=s.AbsoluteIsodoses?val:(float)ratio;
+      if(!s.DoseWash||double.IsNaN(ratio)||ratio*100<s.DoseMinimumPercent||(palette==null||s.DoseMaximumPercent<stops.Last().Key)&&ratio*100>s.DoseMaximumPercent)continue;
       double t=Math.Max(0,Math.Min(1,ratio));double a=Math.Max(0,Math.Min(.9,s.DoseOpacity))*Math.Min(1,t*3);
-      double rr,gg,bb;DoseColor(ratio*100,out rr,out gg,out bb);
+      double rr,gg,bb;if(palette==null)DoseColor(ratio*100,out rr,out gg,out bb);else{int color=palette[(int)Math.Max(0,Math.Min(palette.Length-1,Math.Round(ratio*1000)))];rr=(color>>16)&255;gg=(color>>8)&255;bb=color&255;}
       red=red*(1-a)+rr*a;green=green*(1-a)+gg*a;blue=blue*(1-a)+bb*a;
      }
      int k=(y*w+x)*4;r.Pixels[k]=(byte)blue;r.Pixels[k+1]=(byte)green;r.Pixels[k+2]=(byte)red;r.Pixels[k+3]=255;

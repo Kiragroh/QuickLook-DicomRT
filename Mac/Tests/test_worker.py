@@ -22,7 +22,18 @@ with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
     subprocess.run([sys.executable, str(root / 'scripts/CreateSynthetic.py'), str(folder)], check=True, stdout=subprocess.DEVNULL)
     placeholder = pydicom.dcmread(str(folder / 'RTPLAN.dcm'))
     placeholder.RTPlanLabel = 'None'
+    for point in placeholder.BeamSequence[1].ControlPointSequence:
+        for device in point.BeamLimitingDevicePositionSequence:
+            if device.RTBeamLimitingDeviceType == 'X':
+                device.LeafJawPositions = [-35 + point.ControlPointIndex * .5, 35 - point.ControlPointIndex * .5]
     placeholder.save_as(str(folder / 'RTPLAN.dcm'), write_like_original=False)
+    contours = pydicom.dcmread(str(folder / 'RTSTRUCT.dcm'))
+    body = pydicom.Dataset()
+    body.ObservationNumber = 1
+    body.ReferencedROINumber = 1
+    body.RTROIInterpretedType = 'EXTERNAL'
+    contours.RTROIObservationsSequence = pydicom.Sequence([body])
+    contours.save_as(str(folder / 'RTSTRUCT.dcm'), write_like_original=False)
     before = {p.name: p.read_bytes() for p in folder.iterdir()}
     process = subprocess.Popen([str(worker)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     serial = 0
@@ -45,6 +56,43 @@ with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
         check(m['hasImage'] and m['mpr'] and m['plan'] >= 0 and m['dose'] >= 0 and m['structure'] >= 0, 'explicit RT references resolve complete context')
         check(len(m['beams']) == 2 and len(m['rois']) == 2, 'all beams and structures retained')
         check(m['plans'][m['plan']]['label'].lower() != 'none' and 'None' in m['plans'][m['plan']]['detail'], 'placeholder plan label remains identifiable with original metadata retained')
+        reference = request('doseReference')
+        check(reference['prescriptions'] == [] and 0 < reference['d0035'] < m['doseInfo']['maximum'], 'without prescription the hottest 0.035 cc is computed inside the body instead of the point maximum')
+        check(request('progress')['finished'], 'completed opening reports real progress completion')
+        palette = [[10, '#8c5a2b'], [95, '#006400'], [100, '#90ee90'], [105, '#ffff00'], [107, '#ff0000'], [110, '#ff00ff'], [120, '#b000e0']]
+        relative = request('render', plane='Axial', focus=m['focus'], size=96, wash=True, isodoses=True, reference=8, palette=palette, maximumPercent=120, washMax=120, levels=[95, 100, 105, 107, 110, 120])
+        absolute = request('render', plane='Axial', focus=m['focus'], size=96, wash=True, isodoses=True, reference=8, palette=palette, maximumPercent=120, washMax=120, absolute=True, levels=[7.6, 8, 8.4, 8.56, 8.8, 9.6])
+        check(relative['rgba'] == absolute['rgba'], 'Gy conversion preserves the normalized colorwash')
+        check(any(line['level'] == 105 for line in relative['isolines']), 'relative 105-percent contour is retained')
+        check(len(relative['isolines']) == len(absolute['isolines']), 'absolute and relative isodose geometry agree')
+        hotspot = request('render', plane='Axial', focus=m['focus'], size=64, wash=True, reference=8, opacity=.9, palette=[[10, '#8c5a2b'], [100, '#ff00ff']], washMax=100)
+        pixels = base64.b64decode(hotspot['rgba'])
+        check(any(pixels[i] > 180 and pixels[i + 2] > 180 and pixels[i + 1] < 70 for i in range(0, len(pixels), 4)), 'hotter-than-100-percent voxels remain visible in the final palette color')
+        prescribed = pydicom.dcmread(str(folder / 'RTPLAN.dcm'))
+        rx = pydicom.Dataset()
+        rx.DoseReferenceNumber = 1
+        rx.DoseReferenceType = 'TARGET'
+        rx.DoseReferenceStructureType = 'SITE'
+        rx.TargetPrescriptionDose = 60
+        prescribed.DoseReferenceSequence = pydicom.Sequence([rx])
+        prescribed.save_as(str(folder / 'RTPLAN.dcm'), write_like_original=False)
+        request('open', path=str(folder / 'RTPLAN.dcm'), folder=True)
+        check(request('doseReference')['prescriptions'] == [60], 'an explicit target prescription is retained in Gy')
+        other_rx = pydicom.Dataset()
+        other_rx.DoseReferenceNumber = 2
+        other_rx.DoseReferenceType = 'TARGET'
+        other_rx.TargetPrescriptionDose = 54
+        prescribed.DoseReferenceSequence.append(other_rx)
+        prescribed.save_as(str(folder / 'RTPLAN.dcm'), write_like_original=False)
+        request('open', path=str(folder / 'RTPLAN.dcm'), folder=True)
+        check(request('doseReference')['prescriptions'] == [54, 60], 'distinct prescriptions remain explicit instead of guessing one')
+        (folder / 'RTPLAN.dcm').write_bytes(before['RTPLAN.dcm'])
+        del contours.RTROIObservationsSequence
+        contours.save_as(str(folder / 'RTSTRUCT.dcm'), write_like_original=False)
+        request('open', path=str(folder / 'RTPLAN.dcm'), folder=True)
+        check(request('doseReference')['d0035'] is None, 'a missing body contour is not replaced by an unlabelled point maximum')
+        (folder / 'RTSTRUCT.dcm').write_bytes(before['RTSTRUCT.dcm'])
+        m = request('open', path=str(folder / 'RTPLAN.dcm'), folder=True)
         for plane in ('Axial', 'Coronal', 'Sagittal'):
             f = request('render', plane=plane, focus=m['focus'], size=96, wash=True, isodoses=True)
             check(len(base64.b64decode(f['rgba'])) == f['width'] * f['height'] * 4, 'complete raster payload')
@@ -54,6 +102,7 @@ with tempfile.TemporaryDirectory(prefix='quicklookrt synthetic ') as folder:
         check(not f['outlines'], 'per-ROI visibility is independent')
         check(len(request('scene')['rois']) == 2, '3D retains both original contour stacks')
         b = request('beam', beam=1, cp=10.5)
+        check(b['jaws']['x'] == [-29.75, 29.75], 'moving jaws interpolate at the actual fractional control point')
         check(b['cp'] == 10.5 and b['count'] == 21 and len(b['rectangles']) > 0, 'second field and fractional MLC aperture')
         b = request('beam', beam=0, cp=0, drr=True)
         check(b['drr'] is None and b['reason'], 'missing SAD/patient position never fabricated for DRR')

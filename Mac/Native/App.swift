@@ -1,6 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private var openingPanel: NSOpenPanel?
     private var windows: [NSWindow] = []
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -31,9 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func openDocument() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         panel.message = "Eine DICOM-Datei wählen. Der zugehörige Plan wird im selben Ordner gesucht."
-        if panel.runModal() == .OK, let url = panel.url { show(url) }
+        openingPanel = panel
+        panel.begin { [weak self] response in
+            self?.openingPanel = nil
+            if response == .OK, let url = panel.url { self?.show(url) }
+        }
     }
     private func show(_ url: URL) {
+        openingPanel?.cancel(nil);openingPanel = nil
         let controller = PreviewController()
         let window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 1180,height: 800), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         window.title = "QuickLookRT · " + url.lastPathComponent

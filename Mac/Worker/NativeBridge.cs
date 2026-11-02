@@ -18,7 +18,8 @@ public static class NativeBridge
             if(op=="close") {if(sessions.TryRemove(key,out var removed))removed.Cancel();response=JsonSerializer.Serialize(new{id,result=true});}
             else {
                 var session=sessions.GetOrAdd(key,_=>new PreviewSession());object value;
-                if(op is "mesh" or "beam" or "dvh" or "volume") {PreviewSession snapshot;lock(session.Gate)snapshot=session.Snapshot();value=snapshot.Execute(op,r);}
+                if(op=="progress")value=session.Progress();
+                else if(op is "mesh" or "beam" or "dvh" or "volume" or "doseReference") {PreviewSession snapshot;lock(session.Gate)snapshot=session.Snapshot();value=snapshot.Execute(op,r);}
                 else lock(session.Gate)value=session.Execute(op,r);
                 response=JsonSerializer.Serialize(new{id,result=value});
             }

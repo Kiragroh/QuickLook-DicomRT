@@ -7,7 +7,7 @@
 <key>CFBundleExecutable</key><string>QuickLookRTPreview</string>
 <key>CFBundlePackageType</key><string>XPC!</string>
 <key>CFBundleShortVersionString</key><string>0.2.44</string>
-<key>CFBundleVersion</key><string>2026110202</string>
+<key>CFBundleVersion</key><string>2026110204</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSExtension</key><dict>
 <key>NSExtensionPointIdentifier</key><string>com.apple.quicklook.preview</string>

@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Threading;
 using Dicom;
 using Dicom.Imaging;
 using Dicom.Imaging.Codec;
 namespace QuickLook.DicomRT
 {
+    public readonly struct DoseVoxel
+    {
+        public readonly Vec3 Position; public readonly float Dose; public readonly double VolumeCc;
+        public DoseVoxel(Vec3 position,float dose,double volumeCc){Position=position;Dose=dose;VolumeCc=volumeCc;}
+    }
     public sealed class DoseGrid
     {
         public DicomEntry Entry; public VolumeData Volume;
@@ -89,6 +96,20 @@ namespace QuickLook.DicomRT
             double f=hi==lo?0:Math.Max(0,Math.Min(1,(z-offsets[lo])/(offsets[hi]-offsets[lo])));
             if(f<1e-9)f=0;else if(f>1-1e-9)f=1;
             return (float)Mix(Plane(x,y,lo),Plane(x,y,hi),f);
+        }
+        // Native grid-centre samples, with volume weights from the actual frame
+        // offsets. A single plane has no known thickness and defines no volume.
+        public IEnumerable<DoseVoxel> Voxels(CancellationToken token)
+        {
+            if(depth<2||values==null)yield break;
+            for(int z=0;z<depth;z++){
+                double dz=z==0?offsets[1]-offsets[0]:z==depth-1?offsets[z]-offsets[z-1]:(offsets[z+1]-offsets[z-1])*.5;
+                double cc=sx*sy*dz/1000;
+                for(int y=0;y<height;y++){
+                    token.ThrowIfCancellationRequested();var row=origin+yAxis*(y*sy)+zAxis*offsets[z];
+                    for(int x=0;x<width;x++)yield return new DoseVoxel(row+xAxis*(x*sx),values[(z*height+y)*width+x],cc);
+                }
+            }
         }
         double Plane(double x,double y,int z)
         {
