@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.40 — Visible installed version
+
+- **Version in the viewer header:** the top bar always displays the DICOM RT version from the loaded viewer assembly, including in MLC, DVH and 3D workspaces.
+
 ## 0.2.39 — Structure descriptions and RT-only slice navigation
 
 - **Name / Description / Both:** choose the structure labels in the left sidebar. Search always checks both DICOM fields. Missing descriptions fall back to the name; DVH labels and hover follow the choice without recalculating curves. Canonical ROI names remain unchanged in CSV exports and structure classification.

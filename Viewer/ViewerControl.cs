@@ -79,7 +79,7 @@ namespace QuickLook.DicomRT
             var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var heading = new DockPanel { Margin = new Thickness(10, 4, 10, 4), LastChildFill=false };
             var logo = new Image { Source = AppIcon.Image, Width = 26, Height = 26, Margin = new Thickness(0, 0, 7, 0) }; DockPanel.SetDock(logo, Dock.Left); heading.Children.Add(logo);
-            var title = Theme.Text("DICOM RT", 12); title.FontWeight = FontWeights.SemiBold; title.VerticalAlignment=VerticalAlignment.Center;title.Margin=new Thickness(0,0,16,0); DockPanel.SetDock(title, Dock.Left); heading.Children.Add(title);
+            var title = Theme.Text("DICOM RT · v"+typeof(ViewerControl).Assembly.GetName().Version.ToString(3), 12); title.FontWeight = FontWeights.SemiBold; title.VerticalAlignment=VerticalAlignment.Center;title.Margin=new Thickness(0,0,16,0); DockPanel.SetDock(title, Dock.Left); heading.Children.Add(title);
             var zip=BuildPlanExportButton();DockPanel.SetDock(zip,Dock.Right);heading.Children.Add(zip);
             var screenshot=BuildScreenshotButton();DockPanel.SetDock(screenshot,Dock.Right);heading.Children.Add(screenshot);
             tagsButton.ToolTip="Right sidebar with searchable DICOM tags";tagsButton.Click+=(s,e)=>{tagsVisible=!tagsVisible;UpdatePanels();if(tagsVisible)UpdateTags();};DockPanel.SetDock(tagsButton,Dock.Right);heading.Children.Add(tagsButton);
