@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace QuickLook.DicomRT.Installer
 {
-    public sealed class InstallResult { public int Updated,Unchanged;public string BackupPath,RestartWarning; }
+    public sealed class InstallResult { public int Updated,Unchanged;public string BackupPath,RestartWarning,IntegrationWarning; }
     public static class InstallEngine
     {
         public static string TargetDirectory=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),"pooi.moe","QuickLook","QuickLook.Plugin","QuickLook.Plugin.DicomRT");
@@ -121,7 +121,11 @@ namespace QuickLook.DicomRT.Installer
                         result.Updated++;
                     }
                 }
-                installed=true;restart=true;return result;
+                installed=true;restart=true;
+                progress?.Invoke("Adding Open with QuickLookRT to Explorer …");
+                try { ExplorerIntegration.Register(executable); }
+                catch(Exception error) { result.IntegrationWarning="Plugin installed, but the Explorer menu could not be registered. Run Install / Update again. "+error.Message; }
+                return result;
             }
             catch(Exception failure)
             {

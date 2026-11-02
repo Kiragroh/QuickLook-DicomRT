@@ -47,7 +47,7 @@ namespace QuickLook.DicomRT.Installer
             var root=new Grid{Margin=new Thickness(34)};root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});root.RowDefinitions.Add(new RowDefinition());root.RowDefinitions.Add(new RowDefinition{Height=GridLength.Auto});
             var heading=new StackPanel{Orientation=Orientation.Horizontal};heading.Children.Add(new Image{Source=icon,Width=68,Height=68,Margin=new Thickness(0,0,20,0)});var names=new StackPanel();names.Children.Add(Text("DICOM RT",30,Ink));names.Children.Add(Text("QuickLook plugin · version "+Payload.Version,14,Muted));heading.Children.Add(names);root.Children.Add(heading);
             var body=new StackPanel{Margin=new Thickness(0,24,0,20)};body.Children.Add(Text("CT and MR, MPR, DICOM tags, RT structures, dose, MLC, DVH and 3D previews.",16,Ink));
-            body.Children.Add(Text("Install for your Windows account. No administrator rights required.",13,Muted,14));
+            body.Children.Add(Text("Install for your Windows account, including Open with QuickLookRT in Explorer. No administrator rights required.",13,Muted,14));
             body.Children.Add(Text("QuickLook will restart when files change. The existing DICOM RT folder is backed up; other plugins remain installed.",13,Muted,12));
             body.Children.Add(Text("Install location",11,Accent,18));body.Children.Add(Text(InstallEngine.TargetDirectory,12,Muted,5));
             status=Text("Checking QuickLook …",13,Accent,20);body.Children.Add(status);Grid.SetRow(body,1);root.Children.Add(body);
@@ -71,7 +71,8 @@ namespace QuickLook.DicomRT.Installer
             try
             {
                 var result=await Task.Run(()=>InstallEngine.Install(payload,executable,message=>Dispatcher.Invoke(new Action(()=>status.Text=message))));
-                status.Text=result.RestartWarning??("Ready. "+result.Updated+" files updated; "+result.Unchanged+" unchanged. Select a DICOM file in Explorer and press Space.");
+                status.Text=result.RestartWarning??("Ready. "+result.Updated+" files updated; "+result.Unchanged+" unchanged. Press Space or right-click → Open with QuickLookRT (Show more options on Windows 11).");
+                if(result.IntegrationWarning!=null)status.Text+="\n"+result.IntegrationWarning;
                 if(result.BackupPath!=null)status.Text+="\nBackup: "+result.BackupPath;
                 install.Content="Installed";
             }

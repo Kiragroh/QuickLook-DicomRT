@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Web.Script.Serialization;
 using QuickLook.DicomRT.Installer;
+using Microsoft.Win32;
 
 class Program
 {
@@ -38,6 +39,7 @@ class Program
     {
         try
         {
+            ExplorerMenuChecks();
             var good=Archive();using(var source=new MemoryStream(good))Check(Payload.Verify(source,Payload.Hash(good)).Files.Count==Payload.RequiredNames.Length+1,"complete allowlisted archive accepted");
             Reject(good,"whole archive checksum rejects tampering",new string('0',64));
             Reject(Archive(wrongHash:true),"per-file hash mismatch rejected");Reject(Archive(omit:true),"missing required plugin rejected");
@@ -57,8 +59,39 @@ class Program
             {
                 var bytes=File.ReadAllBytes(args[0]);using(var source=new MemoryStream(bytes)){var package=Payload.Verify(source,Payload.Hash(bytes));Check(package.Files.ContainsKey("QuickLook.Plugin.DicomRT.dll"),"current release archive verified");}
             }
-            Console.WriteLine("PASS: "+checks+" installer archive/path/checksum checks; no installation or process changes performed.");return 0;
+            Console.WriteLine("PASS: "+checks+" installer archive/path/checksum/menu checks; registry tests use a disposable non-shell subtree; no installation or process changes performed.");return 0;
         }
         catch(Exception error){Console.Error.WriteLine("FAIL: "+error);return 1;}
+    }
+
+    static void ExplorerMenuChecks()
+    {
+        string folder=Path.Combine(Path.GetTempPath(),"QuickLook menu test & spaces "+Guid.NewGuid().ToString("N"));
+        string host=Path.Combine(folder,"QuickLook.exe"), keyPath=@"Software\QuickLookDicomRT.Tests\"+Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(folder);File.WriteAllText(host,"synthetic fixture, never executed");
+        try
+        {
+            Check(ExplorerIntegration.Command(host)=="\""+host+"\" \"%1\"","host path and selected filename quoted without a command shell");
+            Check(ExplorerIntegration.Command(host,true)=="\""+host+"\" \"%V\"","folder background uses current directory");
+            foreach(var invalid in new[]{"QuickLook.exe",@"C:QuickLook.exe",@"\QuickLook.exe",@"C:\Tools\cmd.exe","C:\\Tools\\\"bad\\QuickLook.exe","C:\\Tools\\\nQuickLook.exe"})
+            {bool rejected=false;try{ExplorerIntegration.Command(invalid);}catch(ArgumentException){rejected=true;}Check(rejected,"invalid host command rejected");}
+            using(var root=Registry.CurrentUser.CreateSubKey(keyPath))
+            {
+                using(var other=root.CreateSubKey(@"*\shell\OtherViewer\command"))other.SetValue("","keep me");
+                using(var association=root.CreateSubKey(".dcm"))association.SetValue("","ExistingViewer");
+                using(var previous=root.CreateSubKey(@"*\shell\QuickLookRT\command"))previous.SetValue("","old host");
+                ExplorerIntegration.RegisterAt(root,host);ExplorerIntegration.RegisterAt(root,host);
+                foreach(var path in new[]{@"*\shell\QuickLookRT",@"Directory\shell\QuickLookRT",@"Directory\Background\shell\QuickLookRT"})
+                {
+                    using(var verb=root.OpenSubKey(path))
+                    {Check((string)verb.GetValue("")==ExplorerIntegration.Label,"menu title registered");Check((string)verb.GetValue("Icon")=="\""+host+"\",0","host icon registered");Check((string)verb.GetValue("MultiSelectModel")=="Single","one preview per invocation");}
+                    using(var command=root.OpenSubKey(path+@"\command"))Check((string)command.GetValue("")==ExplorerIntegration.Command(host,path.Contains(@"\Background\")),"menu command survives repeat install");
+                }
+                using(var other=root.OpenSubKey(@"*\shell\OtherViewer\command"))Check((string)other.GetValue("")=="keep me","other menu untouched");
+                using(var association=root.OpenSubKey(".dcm"))Check((string)association.GetValue("")=="ExistingViewer","default association untouched");
+                bool missing=false;try{ExplorerIntegration.RegisterAt(root,Path.Combine(folder,"missing","QuickLook.exe"));}catch(FileNotFoundException){missing=true;}Check(missing,"missing host rejected before registration");
+            }
+        }
+        finally{Registry.CurrentUser.DeleteSubKeyTree(keyPath,false);File.Delete(host);Directory.Delete(folder,false);}
     }
 }

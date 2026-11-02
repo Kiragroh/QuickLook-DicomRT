@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Installer\Payload.cs" Link="Payload.cs"/><Compile Include="..\Installer\InstallEngine.cs" Link="InstallEngine.cs"/>
+    <Compile Include="..\Installer\ExplorerIntegration.cs" Link="ExplorerIntegration.cs"/>
     <Reference Include="System.IO.Compression"/><Reference Include="System.IO.Compression.FileSystem"/><Reference Include="System.Web.Extensions"/>
   </ItemGroup>
 </Project>

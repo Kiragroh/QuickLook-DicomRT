@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.43 — Open directly from Explorer
+
+- **Open with QuickLookRT:** the Windows installer adds a per-user right-click command for files, folders and folder backgrounds. This also works with extensionless DICOM files. On Windows 11, use **Show more options** or **Shift + F10**.
+- **Direct launch:** the command opens the selected path through the installed QuickLook host and starts it when needed. DICOM files use the RT viewer; other files and folders retain QuickLook's existing preview handlers. Default file associations are unchanged.
+- **Repair through setup:** running **Install / Update** again restores the menu entries even when the plugin files are already current.
+
 ## 0.2.42 — Compact structure controls and MLC zoom
 
 - **One-row structure controls:** the label selector shares the All / None row and uses its remaining width, instead of wrapping onto another line.
