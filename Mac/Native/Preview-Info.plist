@@ -6,8 +6,8 @@
 <key>CFBundleDisplayName</key><string>DICOM RT Preview</string>
 <key>CFBundleExecutable</key><string>QuickLookRTPreview</string>
 <key>CFBundlePackageType</key><string>XPC!</string>
-<key>CFBundleShortVersionString</key><string>0.2.45</string>
-<key>CFBundleVersion</key><string>2026110305</string>
+<key>CFBundleShortVersionString</key><string>0.2.46</string>
+<key>CFBundleVersion</key><string>2026110306</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSExtension</key><dict>
 <key>NSExtensionPointIdentifier</key><string>com.apple.quicklook.preview</string>

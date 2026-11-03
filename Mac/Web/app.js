@@ -27,7 +27,7 @@ function applyModel(m,initial=false){
  $('plane').value=(m.canReformat??m.mpr)?'Axial':'Native';hidden=new Set();roiList();
  const warning=[m.imageWarning,m.failures?m.failures+' RT-Objekt(e) nicht unterstützt.':''].filter(Boolean).join(' ');
  if(m.files>1){$('notice').textContent=warning||'Plan-Kontext geladen · Verknüpfung über DICOM-Referenzen und räumliche Registrierung';$('notice').classList.toggle('warning',!!warning);}
- else if(warning){$('notice').textContent=warning+' Für den Kontext den Ordner freigeben.';$('notice').classList.add('warning');}
+ else if(warning){$('notice').textContent=warning+' Für den Kontext den lokalen Ordner auswählen.';$('notice').classList.add('warning');}
  if(initial)view=m.initialView;
  if(view==='quad'&&!(m.canReformat??m.mpr))view=m.hasImage?'image':m.beams.length?'mlc':'3d';
  setView(view);status('Bereit · '+m.files+' Dateien');

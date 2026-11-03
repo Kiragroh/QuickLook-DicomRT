@@ -4,8 +4,9 @@
 <key>com.apple.security.app-sandbox</key><true/>
 <key>com.apple.security.files.user-selected.read-write</key><true/>
 <key>com.apple.security.files.bookmarks.app-scope</key><true/>
-<!-- Dedicated local DICOM library; read-only, no access to unrelated folders. -->
-<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key><array><string>/DICOM/</string></array>
+<!-- Direct distribution: read sibling DICOMs wherever Finder opens a file.
+     Still subject to user permissions/TCC; this grants no filesystem writes. -->
+<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key><array><string>/</string></array>
 <key>com.apple.security.temporary-exception.shared-preference.read-write</key><array><string>de.kiragroh.QuickLookRT.Settings</string></array>
 <key>com.apple.security.cs.allow-jit</key><true/>
 <key>com.apple.security.network.client</key><true/>

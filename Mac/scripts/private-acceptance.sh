@@ -20,13 +20,14 @@ TEST_ENTITLEMENTS="$MAC_ROOT/Native/Preview.entitlements"
 if [[ "${TEST_SANDBOX:-1}" == "0" ]]; then TEST_ENTITLEMENTS="$MAC_ROOT/Native/App.entitlements"; fi
 codesign --force --sign - --entitlements "$TEST_ENTITLEMENTS" "$TEST_APP" >/dev/null 2>&1
 python3 - "$INDEX" "$TEST_APP/Contents/MacOS/$TEST_SOURCE" <<'PY'
-import json,subprocess,sys
+import json,os,subprocess,sys
 from pathlib import Path
 index=json.loads(Path(sys.argv[1]).read_text())
 for i,case in enumerate(index,1):
-    entry=next(x['path'] for x in case['entries'] if x['modality']=='RTPLAN')
+    modality=os.environ.get('TEST_MODALITY', 'CT' if sys.argv[2].endswith('/FolderAccessAcceptance') else 'RTPLAN')
+    entry=next(x['path'] for x in case['entries'] if x['modality']==modality)
     result=subprocess.run([sys.argv[2],entry],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,timeout=420)
     # The harness emits aggregate counts or fixed assertion labels only, never source paths.
-    print('Case',i,':',result.stdout.strip(),flush=True)
+    print('Case',i,modality,':',result.stdout.strip(),flush=True)
     if result.returncode:raise SystemExit(result.returncode)
 PY

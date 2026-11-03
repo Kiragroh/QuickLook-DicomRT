@@ -101,7 +101,8 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
     }
     private func loadDocument() {
         guard let url = fileURL else { return }
-        // The standalone app can read sibling files; sandboxed Finder previews need a grant.
+        // Direct previews have read-only sibling access; privacy controls/ACLs
+        // can still deny a folder, so retain the contextual local-picker fallback.
         #if QUICKLOOK_EXTENSION
         let scanFolder = canReadSiblings(url)
         #else

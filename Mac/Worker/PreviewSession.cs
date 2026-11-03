@@ -129,7 +129,7 @@ sealed partial class PreviewSession
         var bounds=volume??rtBounds;
         var corners=bounds==null?new[]{focus}:Corners(bounds);
         return new {
-            partial,context=contextVersion,selectionKey=sumResult?.Dose!=null?"sum:"+contextVersion:InstanceKey(plan?.Entry??dose?.Entry??structure?.Entry??opened),version="0.2.45 · macOS build 5", modality=opened.Modality,
+            partial,context=contextVersion,selectionKey=sumResult?.Dose!=null?"sum:"+contextVersion:InstanceKey(plan?.Entry??dose?.Entry??structure?.Entry??opened),version="0.2.46 · macOS build 6", modality=opened.Modality,
             patientId=DicomCatalog.Text(opened.Dataset,DicomTag.PatientID),planLabel=plan?.Label??dose?.Label??"",
             title=DicomCatalog.Text(opened.Dataset,DicomTag.PatientName).Replace('^',' '),
             plan=plans.IndexOf(plan),structure=structures.IndexOf(structure),dose=doses.IndexOf(dose),series=catalog.Stacks.IndexOf(stack),

@@ -1,5 +1,7 @@
 # macOS feature completion and performance plan
 
+Build 5 historical plan. The later user request for automatic Finder access in arbitrary folders supersedes the library-only access constraints below; see [the build 6 folder-access design and evidence](macos-folder-access.md).
+
 Author: Max Grohmann / implementation agent
 Date: 2026-11-03
 Status: independent EGM source and readiness reviews completed; findings incorporated. Implementation, testing, installation and push authorized by the user.
