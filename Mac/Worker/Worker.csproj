@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>QuickLookRT.Worker</AssemblyName></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>QuickLookRT.Worker</AssemblyName><TieredCompilation>false</TieredCompilation></PropertyGroup>
   <ItemGroup>
     <PackageReference Include="fo-dicom.NetCore" Version="4.0.8" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />

@@ -12,9 +12,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu = NSMenu()
         let item = NSMenuItem(); menu.addItem(item)
         let appMenu = NSMenu(); item.submenu = appMenu
-        appMenu.addItem(withTitle: "DICOM öffnen …", action: #selector(openDocument), keyEquivalent: "o").target = self
+        appMenu.addItem(withTitle: "Einstellungen …", action: #selector(viewerCommand(_:)), keyEquivalent: ",").representedObject = "settings"
+        appMenu.items.last?.target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "QuickLookRT beenden", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let fileItem = NSMenuItem(title: "Ablage", action: nil, keyEquivalent: "");menu.addItem(fileItem)
+        let fileMenu = NSMenu(title: "Ablage");fileItem.submenu = fileMenu
+        fileMenu.addItem(withTitle: "DICOM öffnen …", action: #selector(openDocument), keyEquivalent: "o").target = self
+        for (title,command,key) in [("Vorschau als PNG sichern …","png","S"),("DICOM als ZIP exportieren …","zip","")] {
+            let entry=fileMenu.addItem(withTitle:title,action:#selector(viewerCommand(_:)),keyEquivalent:key);entry.target=self;entry.representedObject=command
+        }
+        fileMenu.addItem(.separator());fileMenu.addItem(withTitle:"Schließen",action:#selector(NSWindow.performClose(_:)),keyEquivalent:"w")
         let editItem = NSMenuItem(title: "Bearbeiten", action: nil, keyEquivalent: "")
         menu.addItem(editItem)
         let editMenu = NSMenu(title: "Bearbeiten"); editItem.submenu = editMenu
@@ -22,6 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         editMenu.addItem(withTitle: "Kopieren", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         editMenu.addItem(withTitle: "Einsetzen", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: "Alles auswählen", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let viewItem=NSMenuItem(title:"Darstellung",action:nil,keyEquivalent:"");menu.addItem(viewItem);let viewMenu=NSMenu(title:"Darstellung");viewItem.submenu=viewMenu
+        for (title,command,key) in [("RT-Bereich ein-/ausblenden","rt",""),("Tags ein-/ausblenden","tags",""),("DICOM-Tags suchen","find","f"),("Einpassen","fit","")] {
+            let entry=viewMenu.addItem(withTitle:title,action:#selector(viewerCommand(_:)),keyEquivalent:key);entry.target=self;entry.representedObject=command
+        }
+        let helpItem=NSMenuItem(title:"Hilfe",action:nil,keyEquivalent:"");menu.addItem(helpItem);let helpMenu=NSMenu(title:"Hilfe");helpItem.submenu=helpMenu;let help=helpMenu.addItem(withTitle:"QuickLookRT-Hilfe",action:#selector(viewerCommand(_:)),keyEquivalent:"");help.target=self;help.representedObject="help"
         NSApp.mainMenu = menu
         if CommandLine.arguments.count > 1 {
             for path in CommandLine.arguments.dropFirst() where !path.hasPrefix("-") { show(URL(fileURLWithPath: path)) }
@@ -29,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     func application(_ sender: NSApplication, openFile filename: String) -> Bool { show(URL(fileURLWithPath: filename)); return true }
+    @objc private func viewerCommand(_ sender: NSMenuItem) {
+        guard let command=sender.representedObject as? String else { return }
+        (NSApp.keyWindow?.contentViewController as? PreviewController)?.performViewerCommand(command)
+    }
     @objc private func openDocument() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         panel.message = "Eine DICOM-Datei wählen. Der zugehörige Plan wird im selben Ordner gesucht."

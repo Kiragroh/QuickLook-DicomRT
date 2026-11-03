@@ -6,18 +6,20 @@ using System.Globalization;
 sealed partial class PreviewSession
 {
     ConcurrentDictionary<string,float[]> rays=new();
+    ConcurrentDictionary<PlanBeam,double> beamExtents=new();
+    object projectionCacheGate=new();
     ConcurrentDictionary<StructureRoi,Lazy<(ThreeDMeshData mesh,string reason)>> roiMeshes=new();
     object AdvancedBeam(JsonElement r,PlanBeam b,ControlPoint c,double cursor,BeamProjection projection,string reason)
     {
-        int size=Math.Clamp(Int(r,"size",384),96,512);double extent=Math.Max(100,b.ControlPoints.SelectMany(cp=>cp.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(cp.XJaws??Array.Empty<double>()).Concat(cp.YJaws??Array.Empty<double>())).Where(double.IsFinite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max());
-        string geometryKey=CacheKey(plans.IndexOf(plan)+":"+plan.Beams.IndexOf(b)+":"+cursor.ToString("R",CultureInfo.InvariantCulture));
+        int size=Math.Clamp(Int(r,"size",384),96,512);double extent=beamExtents.GetOrAdd(b,value=>Math.Max(100,value.ControlPoints.SelectMany(cp=>cp.MlcLayers.SelectMany(l=>l.Boundaries.Concat(l.Positions)).Concat(cp.XJaws??Array.Empty<double>()).Concat(cp.YJaws??Array.Empty<double>())).Where(double.IsFinite).Select(v=>Math.Abs(v)+10).DefaultIfEmpty(100).Max()));
+        string geometryKey=CacheKey(projection==null?"none:"+plan.Beams.IndexOf(b)+":"+cursor.ToString("R",CultureInfo.InvariantCulture):string.Join(":",new[]{projection.Source,projection.Right,projection.Up,projection.Iso}.SelectMany(V).Append(extent).Select(x=>x.ToString("R",CultureInfo.InvariantCulture))));
         string key=geometryKey+":"+size;
         object drr=null;var outlines=new List<object>();int omitted=0;
         if(Flag(r,"drr")&&projection!=null&&volume!=null&&stack.Modality=="CT") {
             if(!rays.TryGetValue(key,out var values)) {
                 values=projection.Integrate(volume,extent,size,size<300?2:1,token,2);
-                while(rays.Count>0&&(rays.Count>=256||rays.Values.Sum(x=>(long)x.Length)*4+values.LongLength*4>64L*1024*1024)){var oldest=rays.Keys.FirstOrDefault();if(oldest==null)break;rays.TryRemove(oldest,out _);}
-                rays[key]=values;
+                token.ThrowIfCancellationRequested();lock(projectionCacheGate){while(rays.Count>0&&(rays.Count>=256||rays.Values.Sum(x=>(long)x.Length)*4+values.LongLength*4>64L*1024*1024)){var oldest=rays.Keys.FirstOrDefault();if(oldest==null)break;rays.TryRemove(oldest,out _);}
+                rays[key]=values;}
             }
             var gray=Tone(values,Text(r,"drrPreset","High contrast"),Real(r,"drrCenter",.5),Real(r,"drrWidth",1));
             drr=new{size,gray=Convert.ToBase64String(gray),extent};
@@ -32,7 +34,7 @@ sealed partial class PreviewSession
             if(!projectionCache.TryGetValue(projectionKey,out var outline)) {
                 var boundary=ProjectionSilhouette.Build(cached.mesh,map,projection,extent,512,token);
                 outline=new{id=RoiKey(roi),color=Color(roi),boundary};
-                if(projectionCache.Count>=512){var oldest=projectionCache.Keys.FirstOrDefault();if(oldest!=null)projectionCache.TryRemove(oldest,out _);}projectionCache[projectionKey]=outline;
+                token.ThrowIfCancellationRequested();lock(projectionCacheGate){if(projectionCache.Count>=512){var oldest=projectionCache.Keys.FirstOrDefault();if(oldest!=null)projectionCache.TryRemove(oldest,out _);}projectionCache[projectionKey]=outline;}
             }
             outlines.Add(outline);
         }
@@ -53,7 +55,17 @@ sealed partial class PreviewSession
     (ThreeDMeshData mesh,string reason) OriginalMesh(StructureRoi roi)
     {
         if(roiMeshes.Count>=256||roiMeshes.Values.Where(x=>x.IsValueCreated).Sum(x=>(long)(x.Value.mesh?.Points.Count??0))>8000000)roiMeshes.Clear();
-        return roiMeshes.GetOrAdd(roi,_=>new Lazy<(ThreeDMeshData mesh,string reason)>(()=>{var mesh=ThreeDGeometry.BuildRoiSurface(roi,Matrix4.Identity,token,out var reason);return(mesh,reason);},LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        while(true){
+            token.ThrowIfCancellationRequested();
+            var lazy=roiMeshes.GetOrAdd(roi,_=>new Lazy<(ThreeDMeshData mesh,string reason)>(()=>{var mesh=ThreeDGeometry.BuildRoiSurface(roi,Matrix4.Identity,token,out var reason);token.ThrowIfCancellationRequested();return(mesh,reason);},LazyThreadSafetyMode.ExecutionAndPublication));
+            try{return lazy.Value;}
+            catch(OperationCanceledException){
+                // A cancelled projection may have owned this shared lazy. Do not
+                // cache its exception or cancel a current 3D request waiting for it.
+                ((ICollection<KeyValuePair<StructureRoi,Lazy<(ThreeDMeshData mesh,string reason)>>>)roiMeshes).Remove(new(roi,lazy));
+                token.ThrowIfCancellationRequested();
+            }
+        }
     }
 
     static byte[] Tone(float[] values,string preset,double center,double width)

@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace QuickLook.DicomRT
 {
  public sealed class RoiOverlay { public StructureRoi Roi {get;set;} public PlanData ClassificationPlan {get;set;} public RoiCategory Category=>RoiClassification.Category(Roi,ClassificationPlan); public Matrix4 RoiToImage {get;set;} = Matrix4.Identity; }
- public sealed class DoseOverlay { public DoseGrid Dose {get;set;} public Matrix4 ImageToDose {get;set;} = Matrix4.Identity; }
+ public sealed class DoseOverlay { public double Normalization {get;set;} public DoseGrid Dose {get;set;} public Matrix4 ImageToDose {get;set;} = Matrix4.Identity; }
  public sealed class RenderScene
  {
   public string FrameUid {get;set;}
   public VolumeData RtBounds {get;set;} // Geometry only; no image values.
-  public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;public double ActiveControlPointIndex;
+  public int RasterParallelism {get;set;}=1;public bool InteractionPreview;public PlanData Plan;public Matrix4 PlanToImage;public PlanBeam ActiveBeam;public ControlPoint ActiveControlPoint;public bool ShowFields;public double ActiveControlPointIndex;
   public VolumeData Volume {get;set;} public PixelPlane Native {get;set;} public DicomEntry Entry {get;set;}
   public string Plane {get;set;} = "Native"; public Vec3 Focus {get;set;} public Vec3? ViewCenter {get;set;}
   public double WindowCenter {get;set;} public double WindowWidth {get;set;} = 400; public double Zoom {get;set;} = 1;
@@ -28,7 +29,7 @@ namespace QuickLook.DicomRT
   public double DoseNormalization {get;set;} public double MaximumRelativeIsoLevel {get;set;}=100;
   public Dictionary<double,int> DoseColorStops {get;set;}=new Dictionary<double,int>();
   public HashSet<double> HiddenIsoLevels {get;set;} = new HashSet<double>();
-  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,ClassificationPlan=x.ClassificationPlan,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());s.DoseColorStops=new Dictionary<double,int>(DoseColorStops??new Dictionary<double,int>());s.HiddenIsoLevels=new HashSet<double>(HiddenIsoLevels??new HashSet<double>());return s; }
+  internal RenderScene Snapshot() { var s=(RenderScene)MemberwiseClone();s.Structures=(Structures??new List<RoiOverlay>()).Where(x=>x!=null).Select(x=>new RoiOverlay{Roi=x.Roi,ClassificationPlan=x.ClassificationPlan,RoiToImage=x.RoiToImage}).ToList();s.Doses=(Doses??new List<DoseOverlay>()).Where(x=>x!=null).Select(x=>new DoseOverlay{Dose=x.Dose,ImageToDose=x.ImageToDose,Normalization=x.Normalization}).ToList();s.Isocenters=(Isocenters??new Vec3[0]).ToArray();s.IsoLevels=(double[])(IsoLevels??new double[0]).Clone();s.IsoColors=new Dictionary<double,int>(IsoColors??new Dictionary<double,int>());s.DoseColorStops=new Dictionary<double,int>(DoseColorStops??new Dictionary<double,int>());s.HiddenIsoLevels=new HashSet<double>(HiddenIsoLevels??new HashSet<double>());return s; }
   // A pending scroll keeps the complete previous frame, including its own geometry and labels.
   internal bool SameImageSource(RenderScene other)
   {
@@ -47,6 +48,12 @@ namespace QuickLook.DicomRT
   public Vec3 WorldAt(double u,double v) => Center+Right*((u-.5)*WidthMm)+Down*((v-.5)*HeightMm);
   public double U(Vec3 p) => .5+(p-Center).Dot(Right)/WidthMm;
   public double V(Vec3 p) => .5+(p-Center).Dot(Down)/HeightMm;
+  // Lightweight overlays reuse the exact geometry of an already rendered frame.
+  public static SliceGeometry FromFrame(Vec3 center,Vec3 right,Vec3 down,double width,double height)
+  {
+   if(new[]{center.X,center.Y,center.Z,right.X,right.Y,right.Z,down.X,down.Y,down.Z,width,height}.Any(v=>double.IsNaN(v)||double.IsInfinity(v))||Math.Abs(right.Length-1)>1e-6||Math.Abs(down.Length-1)>1e-6||Math.Abs(right.Dot(down))>1e-6||width<=0||height<=0||width>1e6||height>1e6)throw new ArgumentException("Invalid slice frame");
+   return new SliceGeometry{Center=center,Right=right,Down=down,WidthMm=width,HeightMm=height};
+  }
   public static SliceGeometry Create(RenderScene s)
   {
    var g=new SliceGeometry(); var zoom=Math.Max(.1,Math.Min(20,s.Zoom));
@@ -167,6 +174,7 @@ namespace QuickLook.DicomRT
    var r=new SlicePixels{Width=w,Height=h,Pixels=new byte[w*h*4],Geometry=g};
    var doses=(s.Doses??new List<DoseOverlay>()).Where(d=>d?.Dose!=null&&d.Dose.Visible&&d.Dose.Maximum>0).ToArray();
    var maps=s.Isodoses?doses.Select(d=>new float[w*h]).ToArray():null;
+   var rowMin=maps==null?null:doses.Select(d=>new float[h]).ToArray();var rowMax=maps==null?null:doses.Select(d=>new float[h]).ToArray();
    var stops=s.DoseColorStops.OrderBy(p=>p.Key).ToArray();
    int[] palette=null;double paletteMax=stops.Length==0?100:Math.Max(100,stops.Last().Key);
    if(stops.Length>0){palette=new int[(int)Math.Ceiling(paletteMax*10)+1];int upper=0;
@@ -180,7 +188,7 @@ namespace QuickLook.DicomRT
    // Calculate patient-to-pixel axes once, retaining the same bilinear sampler.
    bool native=s.Plane=="Native"&&s.Native!=null&&s.Entry!=null;var nx=new Vec3();var ny=new Vec3();var nn=new Vec3();double nativeSx=1,nativeSy=1;
    if(native){var e=s.Entry;nx=e.HasGeometry?e.AxisX.Normalized():new Vec3(1,0,0);ny=e.HasGeometry?e.AxisY.Normalized():new Vec3(0,1,0);nn=nx.Cross(ny);nativeSx=e.SpacingX>0?e.SpacingX:1;nativeSy=e.SpacingY>0?e.SpacingY:1;}
-   for(int y=0;y<h;y++)
+   Action<int> row=y=>
    {
     token.ThrowIfCancellationRequested();
     for(int x=0;x<w;x++)
@@ -196,7 +204,7 @@ namespace QuickLook.DicomRT
      }
      for(int d=0;d<doses.Length;d++)
      {
-      float val=doses[d].Dose.Sample(doses[d].ImageToDose.Transform(p));double ratio=s.DoseNormalization>0?val/s.DoseNormalization:val/doses[d].Dose.Maximum;
+      float val=doses[d].Dose.Sample(doses[d].ImageToDose.Transform(p));double ratio=doses[d].Normalization>0?val/doses[d].Normalization:s.DoseNormalization>0?val/s.DoseNormalization:val/doses[d].Dose.Maximum;
       if(maps!=null)maps[d][y*w+x]=s.AbsoluteIsodoses?val:(float)ratio;
       if(!s.DoseWash||double.IsNaN(ratio)||ratio*100<s.DoseMinimumPercent||(palette==null||s.DoseMaximumPercent<stops.Last().Key)&&ratio*100>s.DoseMaximumPercent)continue;
       double t=Math.Max(0,Math.Min(1,ratio));double a=Math.Max(0,Math.Min(.9,s.DoseOpacity))*Math.Min(1,t*3);
@@ -205,12 +213,21 @@ namespace QuickLook.DicomRT
      }
      int k=(y*w+x)*4;r.Pixels[k]=(byte)blue;r.Pixels[k+1]=(byte)green;r.Pixels[k+2]=(byte)red;r.Pixels[k+3]=255;
     }
-   }
+    if(maps!=null)for(int d=0;d<maps.Length;d++){
+     float lo=float.PositiveInfinity,hi=float.NegativeInfinity;for(int x=0;x<w;x++){float value=maps[d][y*w+x];if(float.IsNaN(value))continue;lo=Math.Min(lo,value);hi=Math.Max(hi,value);}rowMin[d][y]=lo;rowMax[d][y]=hi;
+    }
+   };
+   int workers=Math.Max(1,Math.Min(2,Math.Min(s.RasterParallelism,Environment.ProcessorCount-1)));
+   if(workers>1&&w*h>=32768)Parallel.For(0,h,new ParallelOptions{CancellationToken=token,MaxDegreeOfParallelism=workers},row);
+   else for(int y=0;y<h;y++)row(y);
    if(maps!=null)for(int doseIndex=0;doseIndex<maps.Length;doseIndex++)foreach(double displayLevel in IsodoseLevels(s))
    {
     if(s.AbsoluteIsodoses&&(!IsodoseConfiguration.IsPhysicalGy(doses[doseIndex].Dose)||displayLevel>doses[doseIndex].Dose.Maximum))continue;
     var map=maps[doseIndex];double level=s.AbsoluteIsodoses?displayLevel:displayLevel/100;var vals=new float[4];var uu=new double[4];var vv=new double[4];var points=new Vec3[4];
-    for(int y=0;y<h-1;y++) {token.ThrowIfCancellationRequested();for(int x=0;x<w-1;x++)
+    for(int y=0;y<h-1;y++) {token.ThrowIfCancellationRequested();
+     // Exact conservative rejection: no cell in these two rows can cross this level.
+     if(Math.Min(rowMin[doseIndex][y],rowMin[doseIndex][y+1])>=level||Math.Max(rowMax[doseIndex][y],rowMax[doseIndex][y+1])<level)continue;
+     for(int x=0;x<w-1;x++)
     {
      vals[0]=map[y*w+x];vals[1]=map[y*w+x+1];vals[2]=map[(y+1)*w+x+1];vals[3]=map[(y+1)*w+x];
      if((vals[0]<level&&vals[1]<level&&vals[2]<level&&vals[3]<level)||(vals[0]>=level&&vals[1]>=level&&vals[2]>=level&&vals[3]>=level))continue;

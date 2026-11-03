@@ -21,6 +21,14 @@ sealed partial class PreviewSession
                 samples=Track(b).Select(s=>new{iso=V(s.Iso),direction=V(s.SourceDirection),angular=Num(s.Angular),tick=s.Tick,split=s.Break})};
         }).ToArray();
     }
+    object FieldUpdates(JsonElement r)
+    {
+        Vec3 Vector(JsonElement v){var a=v.EnumerateArray().Select(x=>x.GetDouble()).ToArray();if(a.Length!=3)throw new ArgumentException();return new Vec3(a[0],a[1],a[2]);}
+        return r.GetProperty("frames").EnumerateArray().Take(4).Select(f=>{
+            var g=SliceGeometry.FromFrame(Vector(f.GetProperty("center")),Vector(f.GetProperty("right")),Vector(f.GetProperty("down")),f.GetProperty("widthMm").GetDouble(),f.GetProperty("heightMm").GetDouble());
+            return new{key=f.GetProperty("key").GetString(),fields=Fields(g,r)};
+        }).ToArray();
+    }
     object Fields(SliceGeometry g,JsonElement request)
     {
         if(plan==null||!Flag(request,"fields"))return null;

@@ -24,7 +24,7 @@ import AppKit
         const assert=(value,label)=>{if(!value)throw new Error(label);checks.push(label);};
         const pause=ms=>new Promise(r=>setTimeout(r,ms));
         const wait=async test=>{for(let i=0;i<1800;i++){if(test())return;await pause(100);}throw new Error('UI update timeout: '+test.toString());};
-        preparationGeneration++;preferences.outlinesFirst=false;preferences.drrOnDemand=false;preferences.autoDvh=true;startAutomaticDvh();
+        preparationGeneration++;preferences.outlinesFirst=false;preferences.drrOnDemand=true;preferences.autoDvh=true;startAutomaticDvh();
         const automaticRois=model.rois.filter(r=>r.category==='Target'||r.category==='Organ');await wait(()=>automaticRois.every(r=>dvhs.has(r.id)));
         assert(automaticRois.length>0&&automaticRois.every(r=>dvhs.has(r.id)),'targets and organs populate DVHs automatically without the calculation button');
         await wait(()=>isoState.referenceInfo?.d0035>0);
@@ -74,7 +74,7 @@ import AppKit
         assert(first.layers.length>0,'original MLC layers available');
         const final=await rpc('beam',{beam:p.beam,cp:Math.max(0,first.count-1),drr:false,outlines:false});
         assert(final.count===first.count&&final.rectangles.length>=0,'complete control-point range available');
-        mlcState.outlines=false;preferences.outlinesFirst=false;preferences.drrOnDemand=false;
+        mlcState.outlines=false;preferences.outlinesFirst=false;preferences.drrOnDemand=true;
         beamRevision++;setView('mlc');await wait(()=>beam?.beam===p.beam&&tiles()[0]?.querySelector('canvas')?._mlcScale>0);
         const mlc=tiles()[0].querySelector('canvas');
         const pixels=()=>mlc.getContext('2d').getImageData(0,0,mlc.width,mlc.height).data;

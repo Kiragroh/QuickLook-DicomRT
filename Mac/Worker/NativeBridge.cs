@@ -19,7 +19,8 @@ public static class NativeBridge
             else {
                 var session=sessions.GetOrAdd(key,_=>new PreviewSession());object value;
                 if(op=="progress")value=session.Progress();
-                else if(op is "mesh" or "beam" or "dvh" or "volume" or "doseReference") {PreviewSession snapshot;lock(session.Gate)snapshot=session.Snapshot();value=snapshot.Execute(op,r);}
+                else if(op=="cancelWork")value=session.CancelWork(r);
+                else if(op is "mesh" or "beam" or "dvh" or "volume" or "doseReference" or "render" or "fields") {PreviewSession snapshot;lock(session.Gate)snapshot=session.WorkSnapshot(r);value=snapshot.Execute(op,r);}
                 else lock(session.Gate)value=session.Execute(op,r);
                 response=JsonSerializer.Serialize(new{id,result=value});
             }
@@ -28,7 +29,7 @@ public static class NativeBridge
                 :ex is NotSupportedException?"DICOM-Daten oder Geometrie nicht unterstützt."
                 :ex is UnauthorizedAccessException||ex is IOException?"Dateizugriff fehlgeschlagen. Bitte den DICOM-Ordner freigeben."
                 :"Vorschau nicht verfügbar. Datei, Zuordnung oder Geometrie prüfen.";
-            response=JsonSerializer.Serialize(new{id,error=message});
+            response=JsonSerializer.Serialize(new{id,error=message,cancelled=ex is OperationCanceledException});
         }
         return Marshal.StringToCoTaskMemUTF8(response);
     }

@@ -5,7 +5,7 @@ import WebKit
 class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationDelegate {
     private var web: WKWebView!
     private var sessionID = UUID().uuidString
-    private let io = DispatchQueue(label: "de.kiragroh.quicklookrt.worker")
+    private let io = DispatchQueue(label: "de.kiragroh.quicklookrt.worker", qos: .userInteractive)
     private let preparation: OperationQueue = {
         let queue = OperationQueue(); queue.name = "de.kiragroh.quicklookrt.preparation"
         queue.maxConcurrentOperationCount = 2; queue.qualityOfService = .utility; return queue
@@ -50,6 +50,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         fileURL = url
         folderScope?.stopAccessingSecurityScopedResource()
         folderScope = nil
+        extraScopes.forEach { $0.stopAccessingSecurityScopedResource() };extraScopes.removeAll()
         restoreFolder(for: url)
         if ready { loadDocument() }
     }
@@ -69,8 +70,9 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         panel.directoryURL = file.deletingLastPathComponent()
         panel.message = "Den lokalen Ordner dieser DICOM-Datei auswählen. QuickLookRT liest darin die zugehörigen Bilder und RT-Objekte. Es wird nichts an andere Personen übertragen."
         panel.prompt = "Ordner auswählen"
+        let version = generation
         let complete: (NSApplication.ModalResponse) -> Void = { [weak self] response in
-            guard let self = self, response == .OK, let url = panel.url else { return }
+            guard let self = self, self.generation == version, self.fileURL == file, response == .OK, let url = panel.url else { return }
             self.useFolder(url, for: file)
         }
         if let window = view.window { panel.beginSheetModal(for: window, completionHandler: complete) }
@@ -106,7 +108,11 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let scanFolder = true
         #endif
         web.evaluateJavaScript("window.loading(\(String(scanFolder)))", completionHandler: nil)
-        send(["id": 0, "op": "open", "path": url.path, "folder": scanFolder])
+        // Return useful single-file content before indexing and decoding its siblings.
+        send(["id": 0, "op": "open", "path": url.path, "folder": false, "partial": scanFolder]) { [weak self] in
+            guard let self = self, scanFolder else { return }
+            self.send(["id": 0, "op": "open", "path": url.path, "folder": true])
+        }
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, let url = message.frameInfo.request.url, url.isFileURL,
@@ -123,7 +129,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         if op == "openContainingFolder" { chooseFolder(); return }
         if op == "searchFolder" { searchFolder(body); return }
         if op == "save" { saveExport(body); return }
-        guard ["select", "render", "scene", "beam", "dvh", "tags", "mesh", "fusion", "sum", "exportInfo", "histogram", "volume", "doseReference", "progress"].contains(op), body["id"] as? Int != nil else { return }
+        guard ["select", "render", "scene", "beam", "dvh", "tags", "mesh", "fusion", "sum", "exportInfo", "histogram", "volume", "doseReference", "progress", "fields", "navigate", "cancelWork"].contains(op), body["id"] as? Int != nil else { return }
         send(body)
     }
     private func reply(_ request: [String: Any], _ result: [String: Any]) {
@@ -134,12 +140,16 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         panel.directoryURL = fileURL?.deletingLastPathComponent()
         panel.message = "DICOMs im gewählten Ordner und seinen Unterordnern suchen. Zuordnung nur über Patientenidentität und DICOM-Referenzen."
-        guard panel.runModal() == .OK, let root = panel.url else { reply(request, ["cancelled": true]); return }
-        _ = root.startAccessingSecurityScopedResource()
-        var command = request; command["op"] = "discover"; command["root"] = root.path
-        send(command)
-        // Hold this grant for the life of the preview; on-demand buffers may still read it.
-        extraScopes.append(root)
+        let version = generation
+        let complete: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self = self else { return }
+            guard self.generation == version, response == .OK, let root = panel.url else { self.reply(request, ["cancelled": true]); return }
+            _ = root.startAccessingSecurityScopedResource()
+            var command = request; command["op"] = "discover"; command["root"] = root.path
+            self.send(command);self.extraScopes.append(root)
+        }
+        if let window = view.window { panel.beginSheetModal(for: window, completionHandler: complete) }
+        else { panel.begin(completionHandler: complete) }
     }
     private var extraScopes: [URL] = []
     private func saveExport(_ request: [String: Any]) {
@@ -148,10 +158,21 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let name = request["filename"] as? String ?? "QuickLookRT"
         panel.nameFieldStringValue = name.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_") + "." + kind
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let destination = panel.url else { reply(request, ["cancelled": true]); return }
+        let version = generation
+        let complete: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard let self = self else { return }
+            guard self.generation == version, response == .OK, let destination = panel.url else { self.reply(request, ["cancelled": true]); return }
+            self.writeExport(request, kind: kind, destination: destination)
+        }
+        if let window = view.window { panel.beginSheetModal(for: window, completionHandler: complete) }
+        else { panel.begin(completionHandler: complete) }
+    }
+    private func writeExport(_ request: [String: Any], kind: String, destination: URL) {
+        let version = generation
         if kind != "png" { var command = request; command["op"] = "export"; command["destination"] = destination.path; send(command); return }
         let finish: (NSImage?) -> Void = { [weak self] image in
             guard let self = self, let image = image else { self?.showError(id: request["id"] as? Int ?? 0); return }
+            guard self.generation == version else { self.reply(request, ["cancelled": true]);return }
             let caption = request["caption"] as? String ?? "QuickLookRT"
             let stamped = NSImage(size: NSSize(width: image.size.width, height: image.size.height + 32))
             stamped.lockFocus()
@@ -174,7 +195,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
             web.takeSnapshot(with: config) { image, _ in finish(image) }
         }
     }
-    private func send(_ request: [String: Any]) {
+    private func send(_ request: [String: Any], after: (() -> Void)? = nil) {
         var body = request
         body["session"] = sessionID
         guard let data = try? JSONSerialization.data(withJSONObject: body), let json = String(data: data, encoding: .utf8) else { return }
@@ -190,11 +211,11 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
             qlrt_release(reply)
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, version == self.generation else { return }
-                self.web.evaluateJavaScript("window.receive(\(result))", completionHandler: nil)
+                self.web.evaluateJavaScript("window.receive(\(result))") { _, _ in after?() }
             }
         }
         let apertureOnly = request["op"] as? String == "beam" && request["drr"] as? Bool != true && request["outlines"] as? Bool != true && request["tracks"] as? Bool != true
-        if request["op"] as? String == "progress" { DispatchQueue.global(qos: .utility).async(execute: work) }
+        if ["progress", "cancelWork"].contains(request["op"] as? String ?? "") { DispatchQueue.global(qos: .utility).async(execute: work) }
         else if !apertureOnly && ["mesh", "beam", "dvh", "volume", "doseReference"].contains(request["op"] as? String ?? "") {
             let operation = BlockOperation(block: work)
             operation.queuePriority = request["background"] as? Bool == true ? (request["priority"] as? String == "dvh" ? .normal : .low) : .veryHigh
@@ -209,6 +230,10 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         let old = sessionID
         sessionID = UUID().uuidString
         DispatchQueue.global(qos: .userInitiated).async { old.withCString { qlrt_close($0) } }
+    }
+    func performViewerCommand(_ command: String) {
+        let commands = ["settings":"$('settings').click()", "tags":"$('tagsToggle').click()", "rt":"$('rtToggle').click()", "png":"savePng()", "zip":"$('zipButton').click()", "fit":"$('fit').click()", "help":"$('help').click()", "find":"openTagSearch()"]
+        if let script = commands[command] { web.evaluateJavaScript(script, completionHandler: nil) }
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         let url = navigationAction.request.url

@@ -1,5 +1,7 @@
 # DICOM RT for QuickLook
 
+**macOS port:** [Build, features and test evidence](Mac/README.md) · **For the Windows agent:** [Reusable view icons and design/interaction improvements](docs/windows-design-improvements.md)
+
 **Preparation settings:** open the header gear to configure persistent defaults. Outlines prepare before background DRRs; DRRs start when enabled and progressively fill gaps between widely spaced recorded control points. Playback uses complete, geometrically matching views as they become available. All preparation shortcuts can be disabled individually. Default label mode, x filtering, isodose units and relative levels are saved locally; absolute Gy levels remain dose-specific.
 
 **Hide x\*:** filter on the primary displayed text, including Description-first mode. Hidden structures retain their individual visibility choices. With the filter off, x-prefixed entries sort last. The MLC dose-relevance filter skips projections with D2% at or below 10% of the highest complete structure D2% for one selected, matching dose. Unknown or partially covered structures stay eligible. This filter does not alter slice contours, 3D, DVH results or exports; `Low D2%` explains excluded MLC outlines.

@@ -15,8 +15,8 @@ sealed partial class PreviewSession
     readonly List<StructureSet> sumSets=new();
     object Mesh(JsonElement r)
     {
-        string kind=Text(r,"kind","roi");int id=Int(r,"roi",-1);double level=Real(r,"level",dose?.Maximum*.5??0);
-        string key=CacheKey(kind+":"+id+":"+level.ToString("R",CultureInfo.InvariantCulture));
+        string kind=Text(r,"kind","roi");var dose=RequestDose(r);int id=Int(r,"roi",-1);double level=Real(r,"level",dose?.Maximum*.5??0);
+        string key=CacheKey(kind+":"+id+":"+DoseId(dose)+":"+level.ToString("R",CultureInfo.InvariantCulture));
         if(!meshCache.TryGetValue(key,out var saved)) {
             ThreeDMeshData mesh=null;string reason="";
             if(kind=="roi") {
@@ -35,7 +35,7 @@ sealed partial class PreviewSession
                 }
             }
             if(meshCache.Count>=96||meshCache.Values.Sum(x=>(long)(x.mesh?.Indices.Count??0)/3)+(mesh?.Indices.Count??0)/3>10000000)meshCache.Clear();
-            saved=(mesh,reason);meshCache[key]=saved;
+            token.ThrowIfCancellationRequested();saved=(mesh,reason);meshCache[key]=saved;
         }
         if(saved.mesh==null)return new{available=false,reason=saved.reason};
         var m=saved.mesh;
@@ -77,11 +77,11 @@ sealed partial class PreviewSession
         if(sumResult.Dose==null||sumResult.IncludedCount<2)throw new NotSupportedException();
         dose=sumResult.Dose;dose.Label="Σ "+string.Join(" + ",plans.Where(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)).Select(p=>p.Label));
         sumSets.Clear();sumSets.AddRange(structures.Where(s=>plans.Any(p=>sumResult.IncludedPlanUids.Contains(p.Entry.SopUid)&&p.StructureSopUid==s.Entry.SopUid)));
-        plan=null;structure=null;dvhCache.Clear();LoadStack(ChooseStack());return Model();
+        plan=null;structure=null;ResolveContext();LoadStack(ChooseStack());return Model();
     }
     object Discover(JsonElement r)
     {
-        var oldPlan=plan?.Entry.SopUid;var oldDose=dose?.Entry?.SopUid;var oldStructure=structure?.Entry.SopUid;
+        var oldPlan=plan?.Entry.SopUid;var oldDose=dose?.Entry?.SopUid;var oldStructure=structure?.Entry.SopUid;var exact=opened.Modality=="RTDOSE"&&oldDose==opened.SopUid;
         var found=DicomCatalog.Scan(opened.Path,token,searchRoot:r.GetProperty("root").GetString(),recursive:true);
         var same=found.Files.Where(e=>DicomPatientScope.Matches(opened,e)).ToArray();
         foreach(var entry in same.Where(e=>catalog.Files.All(o=>o.SopUid!=e.SopUid))) {
@@ -92,7 +92,7 @@ sealed partial class PreviewSession
         links=RegistrationReader.Read(catalog);sumResult=null;sumSets.Clear();
         plan=plans.FirstOrDefault(p=>p.Entry.SopUid==oldPlan);structure=structures.FirstOrDefault(s=>s.Entry.SopUid==oldStructure);dose=doses.FirstOrDefault(d=>d.Entry.SopUid==oldDose);
         if(plan==null&&opened.Modality!="RTDOSE")plan=Unique(plans.Where(p=>structures.Any(s=>s.Entry.SopUid==p.StructureSopUid&&s.ReferencedSeries.Contains(opened.SeriesUid))));
-        if(plan!=null)Associate();LoadStack(ChooseStack());return Model();
+        IndexRois();ResolveContext(exact?dose:null);LoadStack(ChooseStack());return Model();
     }
     object ExportInfo()
     {
@@ -104,20 +104,20 @@ sealed partial class PreviewSession
         string kind=Text(r,"kind","zip"),destination=r.GetProperty("destination").GetString();
         if(kind=="zip") {var selected=PlanDicomExport.Resolve(plan,catalog.Files);PlanDicomExport.WriteZip(selected,r.GetProperty("parts").EnumerateArray().Select(x=>x.GetString()),destination,token);}
         else if(kind=="csv") {
-            bool simple=Flag(r,"simple");var ids=r.GetProperty("rois").EnumerateArray().Select(x=>x.GetInt32()).ToHashSet();
+            var dose=RequestDose(r);bool simple=Flag(r,"simple");var ids=r.GetProperty("rois").EnumerateArray().Select(x=>x.GetInt32()).ToHashSet();
             var text=new StringBuilder(simple?"Structure,Dose,DoseUnit,VolumePercent\r\n":"PatientID,PlanID,Structure,ROIType,Dose,DoseUnit,CumulativeVolumePercent,EstimatedVolumeCc,CoverageFraction,SamplingStepMm,Status,Note,Dmean,Dmedian,Dmax,Dmin,D98,D2\r\n");
             string Q(string s)=>"\""+(s??"").Replace("\"","\"\"")+"\"";
             string N(JsonElement o,string key)=>o.TryGetProperty(key,out var v)&&v.ValueKind==JsonValueKind.Number?v.GetDouble().ToString("0.####",CultureInfo.InvariantCulture):"";
             foreach(var roi in ActiveRois().Where(roi=>ids.Contains(RoiKey(roi)))) {
-                int id=RoiKey(roi);if(!dvhCache.TryGetValue(CacheKey(id),out var value))continue;
-                var data=JsonSerializer.SerializeToElement(value);var xs=data.GetProperty("x").EnumerateArray().ToArray();var ys=data.GetProperty("y").EnumerateArray().ToArray();
+                int id=RoiKey(roi);bool calculated=dvhCache.TryGetValue(CacheKey("dvh:"+DoseId(dose)+":"+id),out var value);if(simple&&!calculated)continue;
+                var data=calculated?JsonSerializer.SerializeToElement(value):JsonSerializer.SerializeToElement(new{status="NotCalculated",message="No calculated curve available",x=Array.Empty<double>(),y=Array.Empty<double>()});var xs=data.GetProperty("x").EnumerateArray().ToArray();var ys=data.GetProperty("y").EnumerateArray().ToArray();
                 for(int i=0;i<Math.Max(1,xs.Length);i++) {
                     string x=i<xs.Length?xs[i].GetDouble().ToString("0.####",CultureInfo.InvariantCulture):"",y=i<ys.Length?ys[i].GetDouble().ToString("0.####",CultureInfo.InvariantCulture):"";
                     var cells=simple?new[]{Q(roi.Name),x,Q(dose?.Units),y}:new[]{Q(DicomCatalog.Text(opened.Dataset,DicomTag.PatientID)),Q(plan?.Label??dose?.Label),Q(roi.Name),Q(roi.InterpretedType),x,Q(dose?.Units),y,N(data,"volume"),N(data,"coverage"),N(data,"sampling"),Q(data.GetProperty("status").GetString()),Q("Approximate preview; "+data.GetProperty("message").GetString()),N(data,"mean"),N(data,"median"),N(data,"max"),N(data,"min"),N(data,"d98"),N(data,"d2")};
                     text.AppendLine(string.Join(",",cells));
                 }
             }
-            if(catalog.Files.Any(e=>Path.GetFullPath(e.Path)==Path.GetFullPath(destination)))throw new IOException();
+            if(catalog.Files.Any(e=>string.Equals(Path.GetFullPath(e.Path),Path.GetFullPath(destination),StringComparison.OrdinalIgnoreCase)))throw new IOException();
             File.WriteAllText(destination,text.ToString(),new UTF8Encoding(true));
         } else throw new NotSupportedException();
         return new{saved=true};

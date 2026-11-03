@@ -8,15 +8,55 @@ Requires macOS 13+, Apple Command Line Tools and .NET SDK 10. Set `DOTNET` if th
 
 The application is installed in `~/Applications/QuickLookRT.app`. The installer backs up the previous application and registers the bundled Quick Look extension. Close an existing preview before reopening it with Space. A sandboxed Finder preview can request access to the containing folder to discover related images, plans, structures and doses; folder authorization is retained in a security-scoped bookmark.
 
-## Current scope and validation
+## Build 5: completed comparison items
 
-The development port includes linked image/MPR views, slice scrolling, plan selection, structures and contour-description labels, DVH calculation, MLC control-point playback, DRRs, 3D surfaces, dose/fusion controls, preferences and native export dialogs. Original core and RT regression tests can be run through `Mac/Tests/Core` and `Mac/Tests/Rt`. `Mac/Tests/test_worker.py` checks the JSON worker against synthetic DICOM fixtures. `Mac/scripts/smoke.sh` checks the embedded native/WebKit rendering path. `Mac/Tests/PrivateAcceptance.swift` is a local UI acceptance harness for independently supplied examples and emits aggregate results only.
+Version 0.2.45 / bundle 2026110305 implements the remaining gaps identified in the Windows source comparison. The [reviewed plan](../docs/macos-parity-plan.md) and [independent source/readiness review](../docs/goldfish_review_report.md) describe the contracts. [Reusable icons and design improvements for the Windows agent](../docs/windows-design-improvements.md) are linked from the repository README.
 
-Full Windows feature parity and Finder integration across all dataset arrangements are still under verification. This branch is a development preview, not a completed parity release. Multiple simultaneous dose overlays, full preparation/loading behavior and some detailed Windows interaction controls still need comparison. Private DICOM files and test artifacts must remain outside tracked source.
+| Original workflow | macOS implementation |
+| --- | --- |
+| One selected file, then its related plan | Staged initial native image/RT slice/MLC aperture before folder discovery; completed context preserves user navigation |
+| Plans and individual RT objects | Explicit plan/structure/dose choices; exact opened-dose preservation; deterministic standalone associations; ambiguous contexts remain choices |
+| Multiple associated doses | Independent registered overlays and per-dose reference state; separate DVH dose choice; registered plan sums |
+| Image and RT-only views | Native, axial, coronal, sagittal, linked 2×2 and 3D; wheel/crosshair/zoom/window controls; all source isocenters and dose maxima |
+| Structures and descriptions | Original label modes, search, categories, x-prefix filtering, visibility, focus and volumes |
+| DVHs | Automatic Targets/Organs; progressive curves, numerical metrics and coverage; independent per-dose caches; manual additional structures |
+| Shared field navigation | Image/MLC/3D field controls, neutral selection, whole-plan playback, restart and field-end marks; guide motion does not re-rasterize anatomy |
+| MLC and DRR | Recorded and interpolated CPs/layers/jaws; source machine label; exact-geometry overlays; progressive recorded-CP or prepared fractional playback; contours-first and DRR on-demand preferences; current-frame refinement and tone controls |
+| Orientation | Selectable LPS figures in image views; movable/resizable axial field arrangement plus LINAC in MLC; reusable scene geometry |
+| Tags | Current image, opened RT object, catalog RT/REG source picker; hierarchy, search, element detail and copy |
+| Exports | Whole-view/individual PNG; separate full DVH chart PNG with equal-opacity curves/metrics/status; detailed CSV including NotCalculated; curve-only CSV; reference-resolved original DICOM ZIP |
+| Native shell | Original app/Dock icon; Settings/Open/Close/Quit/search/export menus; asynchronous open/save sheets; shared viewer preferences |
 
-Local native WebKit acceptance on three original datasets passed 36 checks per dataset, including the selected plan label, continuous scrolling, configurable dose presets/line width, automatic target/organ DVHs, MLC bank-tip and jaw pixels, machine labels, CT-derived DRR pixels, structure-contour pixels, control-point navigation, export reference resolution and WebGL surfaces. The latest run used the preview sandbox and its read-only library allowance. These tests exercise the shared native viewer; they do not independently certify all Finder sandbox configurations or full Windows parity. Placeholder plan labels such as `None` receive an explicit plan/field-count display label while the original DICOM label is retained. MLC geometry renders before expensive projections, and the bank tips remain visible for closed apertures. Image modes have text labels and plane illustrations.
+This remains a development inspection tool. The source comparison and tests cover the workflows above; they do not certify every vendor export, every OS/sandbox configuration or clinical equivalence. Missing/unsupported registration, patient position, SAD and source device coordinates remain unavailable rather than inferred. Existing core gates for unsupported intensity transforms and geometry remain in force. Multiframe MPR remains unsupported by the shared engine. Arbitrary-folder Finder access still requires a local OS folder grant; the dedicated local library has read-only access. Opening the same file in the standalone app rebuilds its complete folder context; in-memory manual view/selection state is not transferred between processes.
 
-The bundled `Web/graphics.js` is built from `Graphics/renderer.js` with `npm ci --prefix Mac` and `npm run build --prefix Mac`. Its Three.js license is included in `Web/THREE-LICENSE.txt`.
+## Validation
+
+Tests use original Core/Rt code, generated selection arrangements and three original local datasets. No private data, source names, UIDs or screenshots are tracked.
+
+- Original Core synthetic suite; 194 RT assertions plus analytic DRR checks across eight patient positions; 8 display-math checks; 24 palette/reference checks.
+- Worker integration: 130 checks. Additional parity contracts: 123 checks, including numerically distinct same-plan DVHs/references/meshes, mixed units, exact-dose discovery, negative associations, RT-only views, sum transitions and uncomputed CSV rows.
+- Original-case native acceptance: 36 checks per case, covering original image/RT context, automatic DVHs, dose presets, descriptions, visible leaves/jaws/DRR/contours, export associations and WebGL.
+- Additional native parity acceptance: 30 passed and 3 explicitly skipped per original case. Those sources each have one plan, one associated dose and one isocenter; generated native multi-plan/multi-dose data cover those branches, with 40 passed and zero skipped, including prepared fractional DRR playback, unit-switch color/level preservation and 3D isodose rebuilding after reference edits. Tests also cover source metadata selection, dedicated DVH PNG, field-only updates, orientation move/resize, cancelled-work recovery, bounded geometry reuse and staged first content.
+- Original ZIP exports contained 173/155/184 reference-resolved files; every archived file matched original bytes. Detailed CSV retained requested structures and correct calculated metrics/status. All 512 source files matched their pre-export hashes. Temporary exports were removed after verification.
+- The original-case harness is signed with the preview sandbox/read-only library entitlement. Generated native fixtures outside that library run in the containing-app configuration. These are shared-view tests. The installed build was also opened from Finder Space on an original CT: the full 43-structure/one-dose/one-plan context appeared, and Open With QuickLookRT retained that complete context in the standalone app. Its DVH populated 38 Complete and four PartialCoverage results automatically. The old permanent folder-access button was absent; a dedicated DVH PNG was saved through the native asynchronous sheet.
+
+Reproduce generated tests with `Mac/Tests/test_worker.py`, `Mac/Tests/test_parity.py`, and `Mac/scripts/smoke.sh`. `Mac/scripts/private-acceptance.sh <untracked-index.json> [PrivateAcceptance|ParityAcceptance]` builds a native harness and emits aggregates only. The index stays local. A generated fixture can be written with `test_parity.py <worker> --export-fixture <ignored-output-folder>`.
+
+## Measured performance
+
+Alternating requests to the previous installed build and this build on the same 10-core arm64 machine (32 GiB), with other local workloads present. Each raster size used five warm-up pairs and twenty measured pairs; timings include private-pipe IPC and JSON decode. These are aggregate local measurements, not a hardware-independent speed promise.
+
+| Original case | Full 512px axial median, old → new | Interactive 256px p95, old → new | Unchanged context selection median, old → new | Fast aperture median, old → new |
+| --- | --- | --- | --- | --- |
+| 1 | 40.7 → 35.6 ms | 47.5 → 32.3 ms | 104.7 → 5.0 ms | 13.15 → 0.24 ms |
+| 2 | 46.9 → 37.8 ms | 59.8 → 46.8 ms | 125.1 → 4.2 ms | 5.33 → 0.27 ms |
+| 3 | 54.6 → 45.0 ms | 47.2 → 40.8 ms | 135.7 → 7.6 ms | 2.36 → 0.26 ms |
+
+All paired raster samples matched the old pixels, source-contour coordinates and isodose segments exactly with identical render options. New display palettes intentionally follow the separate user-confirmed settings. Interactive medians were not uniformly faster; the p95 and real gesture behavior are the stronger evidence. Final native gesture checks published 11, 17 and 12 frames during the 440 ms wheel sequences and settled at full resolution in 220, 167 and 193 ms respectively; the generated native case published 18 frames and settled in 168 ms.
+
+Changes include source-stack and native-plane reuse, cached beam extents, geometry-based DRR/silhouette keys, conservative isodose-row rejection, parallel full-resolution raster rows, optimized Mac-worker compilation from first execution, frame-coalesced 3D rendering, retained LINAC/character geometry and reused slice textures. Serialized frontend meshes are bounded to 256 MiB/96 entries, projections to 64 MiB/24,000 entries and the GPU scene to eight million triangles; hidden geometry can be evicted before rejecting a new visible mesh. A cancelled shared lazy ROI mesh is removed/retried, so it cannot poison later 3D requests.
+
+The bundled `Web/graphics.js` is generated from `Graphics/renderer.js` with `npm ci --prefix Mac` and `npm run build --prefix Mac`. Its Three.js license is included in `Web/THREE-LICENSE.txt`.
 
 ## Dose display and preparation
 

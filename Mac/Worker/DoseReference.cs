@@ -27,17 +27,20 @@ public static class HotVolumeDose
 sealed partial class PreviewSession
 {
     ConcurrentDictionary<string,Lazy<object>> referenceCache=new();
-    object DoseReference() => referenceCache.GetOrAdd(CacheKey("reference"),_=>new Lazy<object>(CalculateReference,LazyThreadSafetyMode.ExecutionAndPublication)).Value;
-    object CalculateReference()
+    object DoseReference(System.Text.Json.JsonElement r){var selected=RequestDose(r);return referenceCache.GetOrAdd(CacheKey("reference:"+DoseId(selected)),_=>new Lazy<object>(()=>CalculateReference(selected),LazyThreadSafetyMode.ExecutionAndPublication)).Value;}
+    object CalculateReference(DoseGrid dose)
     {
         if(!IsodoseConfiguration.IsPhysicalGy(dose))return new{available=false,prescriptions=Array.Empty<double>(),d0035=(double?)null,message="Keine physikalische Gy-Dosis."};
-        var rx=plan==null?Array.Empty<double>():RtDicom.Items(RtDicom.Full(plan.Entry),DicomTag.DoseReferenceSequence)
+        var owner=plans.FirstOrDefault(p=>p.Entry.SopUid==dose.PlanUid);
+        var rx=owner==null?Array.Empty<double>():RtDicom.Items(RtDicom.Full(owner.Entry),DicomTag.DoseReferenceSequence)
             .Where(d=>RtDicom.Text(d,DicomTag.DoseReferenceType)=="TARGET")
             .Select(d=>RtDicom.Number(d,DicomTag.TargetPrescriptionDose)).Where(d=>double.IsFinite(d)&&d>0).Select(d=>Math.Round(d,6)).Distinct().OrderBy(d=>d).ToArray();
-        var external=ActiveRois().Where(r=>(r.InterpretedType??"").Trim().Equals("EXTERNAL",StringComparison.OrdinalIgnoreCase)).ToArray();
-        if(external.Length==0)external=ActiveRois().Where(r=>RoiClassification.Category(r,plan)==RoiCategory.External).ToArray();
+        var candidates=owner==null?ActiveRois():structures.Where(s=>s.Entry.SopUid==owner.StructureSopUid).SelectMany(s=>s.Rois);
+        var external=candidates.Where(r=>(r.InterpretedType??"").Trim().Equals("EXTERNAL",StringComparison.OrdinalIgnoreCase)).ToArray();
+        if(external.Length==0)external=candidates.Where(r=>RoiClassification.Category(r,owner)==RoiCategory.External).ToArray();
         var masks=external.Select(r=>BodyMask.Create(r,Map(dose.FrameUid,r.FrameUid))).Where(m=>m!=null).ToArray();
         double? maximum=masks.Length==0?null:HotVolumeDose.Calculate(dose.Voxels(token),.035,p=>masks.Any(m=>m.Contains(p)),token);
+        token.ThrowIfCancellationRequested();
         return new{available=maximum.HasValue&&maximum>0||rx.Length>0,prescriptions=rx,d0035=maximum,
             message=maximum.HasValue?"D0,035 cm³ · Körperkontur · native Dosisrasterwerte und Voxelvolumina (Näherung)":masks.Length==0?"D0,035 cm³ nicht verfügbar: keine unterstützte Körperkontur. Referenz manuell wählen.":"D0,035 cm³ nicht verfügbar: zu wenig bekanntes Dosisvolumen. Referenz manuell wählen."};
     }

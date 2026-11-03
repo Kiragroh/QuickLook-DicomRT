@@ -11,7 +11,9 @@ while (Console.ReadLine() is string line)
         using var doc = JsonDocument.Parse(line);
         var request = doc.RootElement;
         id = request.GetProperty("id").GetInt32();
-        object result = session.Execute(request.GetProperty("op").GetString(), request);
+        string op=request.GetProperty("op").GetString();
+        var target=op is "mesh" or "beam" or "dvh" or "volume" or "doseReference" or "render" or "fields"?session.WorkSnapshot(request):session;
+        object result = target.Execute(op, request);
         Console.WriteLine(JsonSerializer.Serialize(new { id, result }));
     }
     catch (Exception ex)

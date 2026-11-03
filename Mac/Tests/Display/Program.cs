@@ -10,4 +10,8 @@ using(var source=new CancellationTokenSource()){source.Cancel();try{HotVolumeDos
 var scene=new RenderScene{IsoLevels=new[]{95d,100,105,107,110,120},MaximumRelativeIsoLevel=120};
 Check(SliceRaster.IsodoseLevels(scene).SequenceEqual(new[]{95d,100,105,107,110,120}),"Normalized relative levels above 100 are retained");
 Check(SliceRaster.IsodoseLevels(new RenderScene{IsoLevels=new[]{95d,120}}).SequenceEqual(new[]{95d}),"Original Windows maximum-relative default remains unchanged");
+var volume=new VolumeData{Width=4,Height=4,Depth=4,Values=Enumerable.Range(0,64).Select(i=>(float)i).ToArray(),Origin=new Vec3(),AxisX=new Vec3(1,0,0),AxisY=new Vec3(0,1,0),AxisZ=new Vec3(0,0,1),SpacingX=1,SpacingY=1,SpacingZ=1};
+var sampled=new RenderScene{Volume=volume,Focus=new Vec3(1.5,1.5,1.5),Plane="Axial",WindowWidth=64,WindowCenter=32};
+var serial=SliceRaster.Render(sampled,256,256,CancellationToken.None);sampled.RasterParallelism=2;var parallel=SliceRaster.Render(sampled,256,256,CancellationToken.None);
+Check(serial.Pixels.SequenceEqual(parallel.Pixels),"Parallel row scheduling preserves every image pixel");
 Console.WriteLine($"PASS dose display math: {checks} checks");
