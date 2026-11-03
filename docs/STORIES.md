@@ -1,5 +1,16 @@
 # macOS completion stories
 
+## Find a split export automatically
+
+Acceptance: one selected image or RT object finds referenced CT, plan, structures and dose in nearby nested folders without an OS folder picker. Multiple matching plans and large search scopes ask before guessing or expanding.
+
+UX:
+- Flow: Finder Space / Open DICOM → selected-file preview → bounded reference search → full context, or choose a plan/search scope → full context. Escape/Keep current view cancels.
+- Surface: existing loading strip and one existing HTML sheet for a short choice; no new toolbar or folder-permission button.
+- States: selected content remains visible while searching; no references and denied access stay inline; many choices scroll and include labels/counts. Success uses the normal context controls.
+- Words: Plan auswählen, Suchbereich auswählen, Weiter suchen, Aktuelle Ansicht behalten. A search scope selects existing discovered folders, not a filesystem permission.
+- Access: labeled select and action buttons, initial keyboard focus, Enter submits, Escape cancels; visible text supplements colors. Stale selections cannot apply to another document.
+
 ## Compare associated doses
 
 Acceptance: associated dose grids can be independently displayed; DVH selection changes numerical results without resetting ROI visibility, image navigation or display references. Exact opened doses and missing registrations remain explicit.

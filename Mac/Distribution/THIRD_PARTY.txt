@@ -1,0 +1,13 @@
+QuickLookRT macOS runtime dependencies
+
+fo-dicom.NetCore 4.0.8: Microsoft Public License (MS-PL).
+Clipper2 2.0.0: Boost Software License 1.0.
+Three.js 0.180.0: MIT; its license is also in the app's Resources/Web.
+Microsoft .NET runtime and supporting Microsoft libraries: MIT and accompanying notices.
+
+License texts are in the package's licenses folder. The self-contained worker
+contains the framework/runtime libraries and transitive dependencies produced by
+dotnet publish. Build-time tools (SDK, compiler and esbuild) are not included.
+
+Project source and third-party references:
+https://github.com/Kiragroh/QuickLook-DicomRT

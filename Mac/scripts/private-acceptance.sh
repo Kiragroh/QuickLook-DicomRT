@@ -24,7 +24,7 @@ import json,os,subprocess,sys
 from pathlib import Path
 index=json.loads(Path(sys.argv[1]).read_text())
 for i,case in enumerate(index,1):
-    modality=os.environ.get('TEST_MODALITY', 'CT' if sys.argv[2].endswith('/FolderAccessAcceptance') else 'RTPLAN')
+    modality=os.environ.get('TEST_MODALITY', 'CT' if sys.argv[2].endswith(('/FolderAccessAcceptance','/DiscoveryAcceptance')) else 'RTPLAN')
     entry=next(x['path'] for x in case['entries'] if x['modality']==modality)
     result=subprocess.run([sys.argv[2],entry],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,timeout=420)
     # The harness emits aggregate counts or fixed assertion labels only, never source paths.

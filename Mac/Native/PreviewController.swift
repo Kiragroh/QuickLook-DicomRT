@@ -112,7 +112,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         // Return useful single-file content before indexing and decoding its siblings.
         send(["id": 0, "op": "open", "path": url.path, "folder": false, "partial": scanFolder]) { [weak self] in
             guard let self = self, scanFolder else { return }
-            self.send(["id": 0, "op": "open", "path": url.path, "folder": true])
+            self.send(["id": 0, "op": "open", "path": url.path, "folder": true, "automatic": true])
         }
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -130,7 +130,7 @@ class PreviewController: NSViewController, WKScriptMessageHandler, WKNavigationD
         if op == "openContainingFolder" { chooseFolder(); return }
         if op == "searchFolder" { searchFolder(body); return }
         if op == "save" { saveExport(body); return }
-        guard ["select", "render", "scene", "beam", "dvh", "tags", "mesh", "fusion", "sum", "exportInfo", "histogram", "volume", "doseReference", "progress", "fields", "navigate", "cancelWork"].contains(op), body["id"] as? Int != nil else { return }
+        guard ["select", "autoDiscover", "render", "scene", "beam", "dvh", "tags", "mesh", "fusion", "sum", "exportInfo", "histogram", "volume", "doseReference", "progress", "fields", "navigate", "cancelWork"].contains(op), body["id"] as? Int != nil else { return }
         send(body)
     }
     private func reply(_ request: [String: Any], _ result: [String: Any]) {

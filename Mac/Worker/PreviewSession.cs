@@ -36,7 +36,8 @@ sealed partial class PreviewSession
     string imageWarning = "";
     ConcurrentDictionary<string, object> dvhCache = new();
     public object Execute(string op, JsonElement r) => op switch {
-        "open" => Open(r.GetProperty("path").GetString(), Flag(r,"folder"),Flag(r,"partial")),
+        "open" => Open(r.GetProperty("path").GetString(), Flag(r,"folder"),Flag(r,"partial"),Flag(r,"automatic")),
+        "autoDiscover" => ContinueAutomatic(Int(r,"choice",-1)),
         "select" => Select(Int(r,"plan",-1), Int(r,"structure",-1), Int(r,"dose",-1), Int(r,"series",-1),Flag(r,"keepContext"),PointArgument(r,"focus")),
         "render" => Render(r), "scene" => Scene(), "beam" => Beam(r), "dvh" => Dvh(r),
         "tags" => Tags(r), "navigate" => Navigation(r), "fields" => FieldUpdates(r),
@@ -46,15 +47,26 @@ sealed partial class PreviewSession
         _ => throw new ArgumentException("Unknown operation")
     };
     bool partial;
-    public object Open(string path, bool folder,bool isPartial=false)
+    public object Open(string path, bool folder,bool isPartial=false,bool automatic=false)
     {
         workGroups.CancelAll();partial=isPartial;ReportLoad("DICOM-Datei lesen",0,0);
         pixels=new PixelCache();roiMeshes=new();beamExtents=new();
         opened = DicomCatalog.ReadEntry(path);
         failures=0; plans.Clear(); structures.Clear(); doses.Clear(); dvhCache.Clear();sumResult=null;sumSets.Clear();meshCache.Clear();projectionCache.Clear();
-        catalog = folder ? DicomCatalog.Scan(path, token, phaseProgress:(phase,current,total)=>ReportLoad("DICOM-Ordner prüfen",current,total),seed:opened) : DicomCatalog.Scan(path,token,seed:opened,knownPaths:new[]{path});
+        discovery=null;discoveryScopes.Clear();
+        if(folder&&automatic)AutomaticCatalog();
+        else ReadContext(folder ? DicomCatalog.Scan(path, token, phaseProgress:(phase,current,total)=>ReportLoad("DICOM-Ordner prüfen",current,total),seed:opened) : DicomCatalog.Scan(path,token,seed:opened,knownPaths:new[]{path}));
+        IndexRois();ResolveContext(dose);
+        LoadStack(ChooseStack());
+        var model=Model();ReportLoad("Bereit",1,1,true);return model;
+    }
+    void ReadContext(DicomCatalog found)
+    {
+        catalog=found;plans.Clear();structures.Clear();doses.Clear();failures=0;
         catalog.Files=catalog.Files.Where(e=>e.SopUid==opened.SopUid || DicomPatientScope.Matches(opened,e)).GroupBy(e=>e.SopUid).Select(g=>g.First()).ToList();
-        catalog.Stacks=catalog.Stacks.Where(s=>s.Entries.All(e=>catalog.Files.Contains(e))).ToList();
+        var accepted=catalog.Files.ToHashSet();
+        foreach(var candidate in catalog.Stacks){candidate.Entries=candidate.Entries.Where(accepted.Contains).ToList();if(candidate.Entries.Count>0){candidate.CanMpr=DicomCatalog.ValidateStack(candidate,out _,out var warning);candidate.GeometryWarning=warning;}}
+        catalog.Stacks=catalog.Stacks.Where(s=>s.Entries.Count>0).ToList();
         links=RegistrationReader.Read(catalog);
         int rtDone=0,rtTotal=catalog.Files.Count(e=>e.Modality.StartsWith("RT"));
         foreach(var e in catalog.Files)
@@ -75,8 +87,6 @@ sealed partial class PreviewSession
             plan=Unique(plans.Where(p=>structures.Any(s=>s.Entry.SopUid==p.StructureSopUid && s.ReferencedSeries.Contains(opened.SeriesUid))));
         if(plan==null && structure!=null)plan=Unique(plans.Where(p=>p.StructureSopUid==structure.Entry.SopUid));
         IndexRois();ResolveContext(dose);
-        LoadStack(ChooseStack());
-        var model=Model();ReportLoad("Bereit",1,1,true);return model;
     }
     void Associate()=>ResolveContext();
     ImageStack ChooseStack()
@@ -90,6 +100,7 @@ sealed partial class PreviewSession
     }
     object Select(int p,int s,int d,int series,bool keepContext=false,Vec3? navigationFocus=null)
     {
+        discovery=null;discoveryScopes.Clear();
         var priorFocus=navigationFocus??focus;var priorFrame=Frame;
         if(!keepContext){sumResult=null;sumSets.Clear();
         plan=p>=0&&p<plans.Count?plans[p]:null;
@@ -129,7 +140,7 @@ sealed partial class PreviewSession
         var bounds=volume??rtBounds;
         var corners=bounds==null?new[]{focus}:Corners(bounds);
         return new {
-            partial,context=contextVersion,selectionKey=sumResult?.Dose!=null?"sum:"+contextVersion:InstanceKey(plan?.Entry??dose?.Entry??structure?.Entry??opened),version="0.2.46 · macOS build 6", modality=opened.Modality,
+            partial,discovery,context=contextVersion,selectionKey=sumResult?.Dose!=null?"sum:"+contextVersion:InstanceKey(plan?.Entry??dose?.Entry??structure?.Entry??opened),version="0.2.47 · macOS build 7", modality=opened.Modality,
             patientId=DicomCatalog.Text(opened.Dataset,DicomTag.PatientID),planLabel=plan?.Label??dose?.Label??"",
             title=DicomCatalog.Text(opened.Dataset,DicomTag.PatientName).Replace('^',' '),
             plan=plans.IndexOf(plan),structure=structures.IndexOf(structure),dose=doses.IndexOf(dose),series=catalog.Stacks.IndexOf(stack),

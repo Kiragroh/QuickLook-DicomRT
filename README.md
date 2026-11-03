@@ -1,6 +1,6 @@
 # DICOM RT for QuickLook
 
-**macOS port:** [Build, features and test evidence](Mac/README.md) · **For the Windows agent:** [Reusable view icons and design/interaction improvements](docs/windows-design-improvements.md)
+**macOS port:** [Download the macOS release](https://github.com/Kiragroh/QuickLook-DicomRT/releases/tag/macos-v0.2.47) · [Build, features and test evidence](Mac/README.md) · **For the Windows agent:** [Reusable view icons and design/interaction improvements](docs/windows-design-improvements.md)
 
 **Preparation settings:** open the header gear to configure persistent defaults. Outlines prepare before background DRRs; DRRs start when enabled and progressively fill gaps between widely spaced recorded control points. Playback uses complete, geometrically matching views as they become available. All preparation shortcuts can be disabled individually. Default label mode, x filtering, isodose units and relative levels are saved locally; absolute Gy levels remain dose-specific.
 

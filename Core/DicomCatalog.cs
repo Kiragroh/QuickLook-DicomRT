@@ -171,6 +171,7 @@ namespace QuickLook.DicomRT
         static DicomEntry ReadImageIdentity(string path)
         {
             var file=DicomFile.Open(path,Encoding.UTF8,state=>state.SequenceDepth==0&&state.Tag.CompareTo(new DicomTag(0x0021,0))>=0,FileReadOption.ReadLargeOnDemand);
+            if(file==null)throw new ArgumentException("Not a DICOM instance.");
             return ImageIdentity(file.Dataset,path);
         }
         static DicomEntry ImageIdentity(DicomDataset d,string path)

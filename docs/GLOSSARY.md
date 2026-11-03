@@ -16,3 +16,5 @@
 | Neutral fields | Treatment fields without one active highlight |
 | Partial coverage | Unknown dose outside the covered part of a structure remains unknown |
 | Folder selection / Ordner auswählen | Local read-access choice; no transfer or sharing with another person |
+| Search scope / Suchbereich | Bounded nearby folder tree to inspect for referenced DICOM objects |
+| Plan choice / Plan auswählen | Explicit choice among plans referring to the selected image or structure |
