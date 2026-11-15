@@ -45,7 +45,7 @@ namespace QuickLook.DicomRT
             // horizontal pixel neighbourhood, even for 128 curves with 2048 bins each.
             Curve FindCurve(Point point)
             {
-                if(ActualWidth<140||ActualHeight<140)return null;
+                if(ActualWidth<140||ActualHeight<90)return null;
                 var bounds=new Rect(52,22,Math.Max(1,ActualWidth-70),Math.Max(1,ActualHeight-74));
                 if(!bounds.Contains(point))return null;
                 var usable=Curves.Where(c=>c.Visible&&c.Result.DoseValues.Length>1).ToArray();

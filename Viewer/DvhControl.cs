@@ -68,9 +68,9 @@ namespace QuickLook.DicomRT
         }
         void UpdateLayoutMode()
         {
-            bool narrow=ActualWidth<650;
-            body.ColumnDefinitions[1].Width=new GridLength(narrow?0:260);
-            body.RowDefinitions[1].Height=new GridLength(narrow?(embedded?90:150):0);
+            bool narrow=ActualWidth<(embedded?380:650);
+            body.ColumnDefinitions[1].Width=new GridLength(narrow?0:(embedded?160:260));
+            body.RowDefinitions[1].Height=new GridLength(narrow?(embedded?60:150):0);
             Grid.SetColumn(legendScroll,narrow?0:1);Grid.SetRow(legendScroll,narrow?1:0);
             legendScroll.Margin=narrow?new Thickness(0,12,0,0):new Thickness(18,0,0,0);
         }
@@ -162,7 +162,7 @@ namespace QuickLook.DicomRT
             double[] DoseTicks(double max)=>IsGy?Enumerable.Range(0,(int)Math.Min(10000,Math.Floor(max/5))+1).Select(i=>i*5d).ToArray():Enumerable.Range(0,6).Select(i=>max*i/5).ToArray();
             protected override void OnRender(DrawingContext dc)
             {
-                base.OnRender(dc);double w=ActualWidth,h=ActualHeight;if(w<140||h<140)return;
+                base.OnRender(dc);double w=ActualWidth,h=ActualHeight;if(w<140||h<90)return;
                 var bounds=new Rect(52,22,Math.Max(1,w-70),Math.Max(1,h-74));
                 dc.DrawRoundedRectangle(Theme.Panel,null,new Rect(0,0,w,h),10,10);
                 var usable=Curves.Where(c=>c.Visible&&c.Result.DoseValues.Length>0).ToArray();

@@ -37,8 +37,9 @@ static class DvhWorkspaceScenarios
             Call(viewer,"SetWorkspace","Bild");check(ReferenceEquals(holder.Parent,Get(viewer,"quadBody")),"Returning to quad preserves DVH pane choice");
             Call(viewer,"SetQuadDvh",false);check(ReferenceEquals(three,Get(viewer,"threeDView"))&&((UIElement)three).Visibility==Visibility.Visible,"Returning to 3D retains its control and cached scene");
             Call(viewer,"SetQuadDvh",true);check(ReferenceEquals(dvh,Get(viewer,"dvhView")),"Repeated 3D/DVH switching reuses DVH caches");
-            viewer.Measure(new Size(1300,900));viewer.Arrange(new Rect(0,0,1300,900));viewer.UpdateLayout();
-            var bitmap=new RenderTargetBitmap(1300,900,96,96,PixelFormats.Pbgra32);bitmap.Render(viewer);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var file=System.IO.File.Create(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"quad-dvh-review.png")))encoder.Save(file);
+            viewer.Measure(new Size(1300,800));viewer.Arrange(new Rect(0,0,1300,800));viewer.UpdateLayout();
+            check(((FrameworkElement)Get(dvh,"plot")).ActualHeight>=140,"Quad DVH preserves usable chart height in an 800-DIP-high window");
+            var bitmap=new RenderTargetBitmap(1300,800,96,96,PixelFormats.Pbgra32);bitmap.Render(viewer);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var file=System.IO.File.Create(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"quad-dvh-review.png")))encoder.Save(file);
         }
         using(var view=new DvhControl())
         {

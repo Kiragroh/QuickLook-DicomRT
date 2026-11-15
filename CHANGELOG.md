@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.46 — Compact DVH layout refinement
+
+- **More chart space in 2 × 2:** use a narrow side legend when the pane has enough width, and a shorter bottom legend in narrow panes. Small-height plots remain rendered and clickable. This refines the new 0.2.45 DVH mode for 800-DIP-high windows.
+
 ## 0.2.45 — Flexible 2 × 2 DVH and compact controls
 
 - **3D or DVH in the fourth pane:** switch using the small 3D / DVH buttons above the lower-right pane. Dose selection, curve focus, exports and cached DVHs are shared with the standalone DVH workspace. Slice navigation does not recalculate curves.
