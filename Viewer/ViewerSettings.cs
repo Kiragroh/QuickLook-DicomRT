@@ -8,7 +8,7 @@ namespace QuickLook.DicomRT
  {
   readonly ViewerPreferences preferences=ViewerPreferences.Current;
   readonly CheckBox hideX=new CheckBox{Content="Hide x*",Margin=new Thickness(5,0,5,0),VerticalAlignment=VerticalAlignment.Center,Foreground=Theme.Foreground,ToolTip="Hide structures whose primary displayed label begins with x (case-insensitive). Their individual visibility choices are retained. When shown, x* structures sort last."};
-  UIElement BuildSettingsButton(){var button=Theme.Button("⚙");button.ToolTip="Settings · preparation speed, structure labels and default isodoses";button.Click+=(s,e)=>ShowViewerSettings();return button;}
+  UIElement BuildSettingsButton(){var button=Theme.Button("Settings");button.Content=ControlIcons.Gear();System.Windows.Automation.AutomationProperties.SetName(button,"Viewer settings");button.ToolTip="Settings · preparation speed, structure labels and default isodoses";button.Click+=(s,e)=>ShowViewerSettings();return button;}
   void ShowViewerSettings()=>CreateSettingsWindow().ShowDialog();
   Window CreateSettingsWindow()
   {

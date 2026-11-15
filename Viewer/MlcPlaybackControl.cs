@@ -13,6 +13,8 @@ namespace QuickLook.DicomRT
         private readonly ComboBox beams = Theme.Combo(), speed = Theme.Combo(90);
         private readonly Slider cursor = new Slider { Minimum = 0, Margin = new Thickness(7, 2, 7, 0), ToolTip = "Entire plan · drag or click" };
         private readonly TextBlock details = Theme.Text("", 11);
+        private readonly TextBlock beamMachine = Theme.Text("", 11,Theme.Muted);
+        private readonly CheckBox jawGuides=new CheckBox{Content="Jaws",IsChecked=true,Margin=new Thickness(4),ToolTip="Show X/Y jaw guides and labels. Physical jaw blocking is always retained."};
         private readonly Button play = Theme.Button("▶ Play");
         private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
         private readonly MlcAperture aperture = new MlcAperture { MinHeight = 180, MinWidth = 160, Margin = new Thickness(0, 8, 0, 8) };
@@ -36,7 +38,7 @@ namespace QuickLook.DicomRT
         public double LocalPosition {get {int index;double local;MlcTimeline.Locate(counts,cursor.Value,out index,out local);return local;}}
         public MlcPlaybackControl()
         {
-            Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);var fit=Theme.Button("Fit");fit.ToolTip="Reset MLC zoom (also double-click the MLC image)";fit.Click+=(s,e)=>aperture.ResetView();settings.Children.Add(fit);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
+            Background=Theme.Background;ViewerSnapshot.AttachMenu(this,null,"MLC");var top=new StackPanel();var settings=new StackPanel{Orientation=Orientation.Horizontal};beams.Width=190;beams.ToolTip="Select beam or arc";settings.Children.Add(beams);beamMachine.MaxWidth=150;beamMachine.TextWrapping=TextWrapping.NoWrap;beamMachine.TextTrimming=TextTrimming.CharacterEllipsis;beamMachine.VerticalAlignment=VerticalAlignment.Center;beamMachine.Margin=new Thickness(5,0,5,0);settings.Children.Add(beamMachine);var fit=Theme.Button("Fit");fit.ToolTip="Reset MLC zoom (also double-click the MLC image)";fit.Click+=(s,e)=>aperture.ResetView();settings.Children.Add(fit);top.Children.Add(new ScrollViewer{Content=settings,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});SetDock(top,Dock.Top);Children.Add(top);
             layerView.ItemsSource=new[]{"All layers"};layerView.SelectedIndex=0;layerView.SelectionChanged+=(s,e)=>{aperture.LayerIndex=layerView.SelectedIndex-1;};layerView.Width=100;layerView.ToolTip="Choose MLC layer";settings.Children.Add(layerView);centerCollimator.Foreground=Theme.Foreground;settings.Children.Add(centerCollimator);centerCollimator.Checked+=(s,e)=>aperture.CenterCollimator=true;centerCollimator.Unchecked+=(s,e)=>aperture.CenterCollimator=false;
             var bottom=new StackPanel();bottom.Children.Add(details);
             var controls=new WrapPanel();controls.Children.Add(play);var restart=Theme.Button("↺");restart.ToolTip="Go to plan start";restart.Click+=(s,e)=>cursor.Value=0;controls.Children.Add(restart);
@@ -58,8 +60,8 @@ namespace QuickLook.DicomRT
         private void UpdateFrame()
         {
             int bi;double local;MlcTimeline.Locate(counts,cursor.Value,out bi,out local);
-            if(plan==null||bi<0){beam=null;orientation.Set(double.NaN,double.NaN);orientation.SetCollimator(double.NaN);aperture.Set(null,null,0);details.Text="No control points";return;}
-            beam=playbackBeams[bi];selecting=true;beams.SelectedIndex=bi;selecting=false;
+            if(plan==null||bi<0){beam=null;beamMachine.Text="";orientation.Set(double.NaN,double.NaN);orientation.SetCollimator(double.NaN);aperture.Set(null,null,0);details.Text="No control points";return;}
+            beam=playbackBeams[bi];beamMachine.Text=BeamMachineInfo.Label(beam);beamMachine.ToolTip=BeamMachineInfo.Detail(beam);selecting=true;beams.SelectedIndex=bi;selecting=false;
             int i=(int)local,j=Math.Min(i+1,beam.ControlPoints.Count-1);double t=local-i;var a=beam.ControlPoints[i];var b=beam.ControlPoints[j];aperture.Set(a,b,t);aperture.Extent=extents[beam];
             var layerLabels=new[]{"All layers"}.Concat(a.MlcLayers.Select((l,k)=>"Layer "+(k+1)+" · "+l.Type)).ToArray();
             if(!layerView.Items.Cast<string>().SequenceEqual(layerLabels)){layerView.ItemsSource=layerLabels;layerView.SelectedIndex=0;}
@@ -73,7 +75,7 @@ namespace QuickLook.DicomRT
         }
         private static string AngleText(double angle)=>double.IsNaN(angle)?"n/a":angle.ToString("0.0")+"°";
     }
-    internal sealed class MlcAperture : FrameworkElement
+    internal sealed partial class MlcAperture : FrameworkElement
     {
         private Geometry blockAperture;private ControlPoint first,second;private double fraction;private int layerIndex=-1;
         private MlcProjectionFrame projection;
@@ -131,14 +133,14 @@ namespace QuickLook.DicomRT
                 if(layerIndex>=0&&index!=layerIndex)continue;
                 var layer=layers[index];var positions=layer.Positions;var bounds=layer.Boundaries;int n=bounds.Length-1;bool mlcY=layer.IsY;
                 if(n<1||positions.Length!=n*2){dc.Pop();Label(dc,"Missing layer geometry",5,8);return;}
-                var leaf=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),18,25,32)):Theme.Brush(index%2==0?"#BF416178":"#BF876C43");var edge=new Pen(Theme.Brush(index%2==0?"#A9C6D6":"#EAC28A"),.6);
+                var leaf=projection?.Drr!=null?new SolidColorBrush(Color.FromArgb((byte)(255*DrrLeafOpacity),18,25,32)):Theme.Brush(index%2==0?"#BF416178":"#BF876C43");
                 for(int k=0;k<n;k++)
                 {
                     if(projection?.Drr!=null){var bankPen=new Pen(Theme.Brush(index%2==0?"#703599EF":"#70EAC28A"),.6);if(mlcY){dc.DrawLine(bankPen,point(bounds[k],-extent),point(bounds[k],positions[k]));dc.DrawLine(bankPen,point(bounds[k],positions[k+n]),point(bounds[k],extent));}else{dc.DrawLine(bankPen,point(-extent,bounds[k]),point(positions[k],bounds[k]));dc.DrawLine(bankPen,point(positions[k+n],bounds[k]),point(extent,bounds[k]));}}
                     if(mlcY){rect(bounds[k],-extent,bounds[k+1],positions[k],leaf);rect(bounds[k],positions[k+n],bounds[k+1],extent,leaf);}
                     else{rect(-extent,bounds[k],positions[k],bounds[k+1],leaf);rect(positions[k+n],bounds[k],extent,bounds[k+1],leaf);}
-                    var a=mlcY?point(bounds[k],positions[k]):point(positions[k],bounds[k]);var b=mlcY?point(bounds[k+1],positions[k]):point(positions[k],bounds[k+1]);dc.DrawLine(edge,a,b);
-                    a=mlcY?point(bounds[k],positions[k+n]):point(positions[k+n],bounds[k]);b=mlcY?point(bounds[k+1],positions[k+n]):point(positions[k+n],bounds[k+1]);dc.DrawLine(edge,a,b);
+                    if(Compact){var edge=new Pen(Theme.Brush(index%2==0?"#A9C6D6":"#EAC28A"),.6);for(int bank=0;bank<2;bank++){double v=positions[k+bank*n];dc.DrawLine(edge,mlcY?point(bounds[k],v):point(v,bounds[k]),mlcY?point(bounds[k+1],v):point(v,bounds[k+1]));}}
+
                 }
                 if(mlcY){rect(-extent,-extent,bounds[0],extent,leaf);rect(bounds[n],-extent,extent,extent,leaf);}
                 else{rect(-extent,-extent,extent,bounds[0],leaf);rect(-extent,bounds[n],extent,extent,leaf);}
@@ -148,6 +150,7 @@ namespace QuickLook.DicomRT
             if(yj.Length==2){rect(-extent,-extent,extent,yj[0],jaw);rect(-extent,yj[1],extent,extent,jaw);}
             if(blockAperture!=null){var opening=blockAperture.Clone();opening.Transform=new MatrixTransform(scale,0,0,-scale,cx,cy);var blocked=Geometry.Combine(new RectangleGeometry(imageRect),opening,GeometryCombineMode.Exclude,null);dc.DrawGeometry(jaw,null,blocked);dc.DrawGeometry(null,new Pen(Brushes.Gold,1.2),opening);}
             if(projection!=null){dc.PushClip(new RectangleGeometry(imageRect));dc.PushTransform(new MatrixTransform(imageRect.Width,0,0,imageRect.Height,imageRect.Left,imageRect.Top));foreach(var outline in projection.Outlines){dc.DrawGeometry(null,new Pen(Brushes.Black,3.5/imageRect.Width),outline.Boundary);dc.DrawGeometry(null,new Pen(new SolidColorBrush(Color.FromRgb(outline.Roi.Red,outline.Roi.Green,outline.Roi.Blue)),1.7/imageRect.Width),outline.Boundary);}dc.Pop();dc.Pop();}
+            if(!Compact)DrawGuides(dc,layers,xj,yj,extent,point);
             var cross=new Pen(Theme.Brush("#EE8068"),1);dc.DrawLine(cross,point(-6,0),point(6,0));dc.DrawLine(cross,point(0,-6),point(0,6));
             if(!Compact){var yp=point(0,extent);var xp=point(extent,0);Label(dc,"+Y",yp.X+3,yp.Y);Label(dc,"+X",xp.X-18,xp.Y+3);}
             dc.Pop();

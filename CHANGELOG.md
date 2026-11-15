@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.45 — Flexible 2 × 2 DVH and compact controls
+
+- **3D or DVH in the fourth pane:** switch using the small 3D / DVH buttons above the lower-right pane. Dose selection, curve focus, exports and cached DVHs are shared with the standalone DVH workspace. Slice navigation does not recalculate curves.
+- **Clear DVH dose axis:** absolute Gy plots use major ticks every 10 Gy and minor ticks every 5 Gy. Dashed Rx markers show distinct positive Target Prescription Dose values from the uniquely referenced RTPLAN for a PLAN dose. Missing, relative, fraction/beam and generated-sum dose contexts do not receive an inferred total-plan prescription. Chart exports include the markers.
+- **Structure hover:** Name and Description are always available together, regardless of the selected list mode. Long calculation explanations have been removed from structure/metric hover; dose metrics remain available.
+- **Compact Windows controls:** smaller buttons and dropdowns, labeled section-plane cube icons, a vector settings gear and blue keyboard focus, adapted from the Mac-port transfer guide. Placeholder plans and same-name dose alternatives receive clearer display labels while original DICOM identities remain intact.
+- **Readable MLC geometry:** backed leaf-tip edges, independent colored X/Y jaw guides with a toggle, and a machine label in the toolbar. Repeated full-beam extent queries use a weak identity cache, including miniature framing.
+- **Loading refinement:** RT-only bounds completion explicitly returns to the UI dispatcher, including startup before a synchronization context exists.
+
 ## 0.2.44 - Preparation settings and structure filtering
 
 - **Hide x\*:** a compact structure-list switch hides structures whose primary displayed label begins with x, case-insensitively. Description-first modes use the description; missing fields retain the usual fallback. With the filter off, x-prefixed structures sort at the bottom. Individual visibility choices are retained.

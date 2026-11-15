@@ -12,12 +12,17 @@ namespace QuickLook.DicomRT
         {
             var button=Theme.Button(mode);var row=new StackPanel{Orientation=Orientation.Horizontal};
             var drawing=new DrawingGroup();using(var dc=drawing.Open()){
-                var pen=new Pen(Theme.Accent,1.2);
-                if(mode=="MPR + 3D")foreach(int x in new[]{1,10})foreach(int y in new[]{1,10})dc.DrawRectangle(null,pen,new Rect(x,y,6,6));
-                else if(mode=="3D"){var shape=Geometry.Parse("M 9,1 L 17,5 17,13 9,17 1,13 1,5 Z M 1,5 L 9,9 17,5 M 9,9 L 9,17 M 9,1 L 9,9");dc.DrawGeometry(null,pen,shape);}
-                else{dc.DrawRoundedRectangle(null,pen,new Rect(2,2,14,14),3,3);if(mode=="Axial")dc.DrawLine(new Pen(Theme.Accent,3),new Point(3,9),new Point(15,9));else if(mode=="Coronal")dc.DrawRectangle(Theme.Accent,null,new Rect(5,4,8,10));else if(mode=="Sagittal")dc.DrawLine(new Pen(Theme.Accent,3),new Point(9,3),new Point(9,15));else dc.DrawLine(pen,new Point(4,13),new Point(14,5));}
-            }drawing.Freeze();row.Children.Add(new Image{Source=new DrawingImage(drawing),Width=18,Height=18,Margin=new Thickness(0,0,6,0)});if(mode=="MPR + 3D"||mode=="3D")row.Children.Add(new TextBlock{Text=mode=="MPR + 3D"?"2 x 2":mode,VerticalAlignment=VerticalAlignment.Center});button.Content=row;button.Tag=mode;
-            button.ToolTip=mode=="MPR + 3D"?"Linked axial, coronal, sagittal and 3D overview (Ctrl+5)":mode=="3D"?"Standalone 3D view (Ctrl+6)":"Show "+mode+" image plane";return button;
+                dc.DrawRectangle(Brushes.Transparent,null,new Rect(0,0,24,24));
+                var pen=new Pen(Theme.Accent,1.2){LineJoin=PenLineJoin.Round};
+                if(mode=="MPR + 3D")foreach(int x in new[]{3,13})foreach(int y in new[]{3,13})dc.DrawRectangle(null,pen,new Rect(x,y,8,8));
+                else if(mode=="Native"){dc.DrawRoundedRectangle(null,pen,new Rect(4,4,16,16),2,2);dc.DrawLine(pen,new Point(6,18),new Point(18,6));}
+                else{
+                    string plane=mode=="Axial"?"M12 7 21 12 12 17 3 12Z":mode=="Coronal"?"M7.5 4.5 16.5 9.5 16.5 19.5 7.5 14.5Z":mode=="Sagittal"?"M7.5 9.5 16.5 4.5 16.5 14.5 7.5 19.5Z":null;
+                    dc.DrawGeometry(null,pen,Geometry.Parse("M3 7 12 2 21 7 21 17 12 22 3 17Z M3 7 12 12 21 7 M12 12V22"));
+                    if(plane!=null)dc.DrawGeometry(Theme.Brush("#5564B5F6"),pen,Geometry.Parse(plane));
+                }
+            }drawing.Freeze();row.Children.Add(new Image{Source=new DrawingImage(drawing),Width=20,Height=20,Margin=new Thickness(0,0,5,0)});row.Children.Add(new TextBlock{Text=mode=="MPR + 3D"?"2 x 2":mode,VerticalAlignment=VerticalAlignment.Center});button.Content=row;button.Tag=mode;
+            button.ToolTip=mode=="MPR + 3D"?"Linked axial, coronal, sagittal and 3D or DVH overview":mode=="3D"?"Standalone 3D view":"Show "+mode+" image plane";System.Windows.Automation.AutomationProperties.SetName(button,mode=="MPR + 3D"?"Linked 2 x 2 views":mode);return button;
         }
     }
     public sealed partial class ViewerControl

@@ -36,7 +36,7 @@ namespace QuickLook.DicomRT
                 var hit=FindCurve(point);if(hit==null){HideHover();return;}
                 Cursor=Cursors.Hand;if(ReferenceEquals(hit,hovered))return;hovered=hit;
                 var content=new StackPanel {MaxWidth=330};
-                var label=RoiLabels.Content(hit.Roi);System.Windows.Documents.TextElement.SetForeground(label,hit.Color);content.Children.Add(label);
+                content.Children.Add(new TextBlock{Text=RoiLabels.Details(hit.Roi),Foreground=hit.Color,TextWrapping=TextWrapping.Wrap});
                 content.Children.Add(new TextBlock {Text=$"{hit.Result.EstimatedVolumeCc:0.##} cm³\n\n"+MetricDetails(hit.Result),Foreground=Theme.Foreground,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,5,0,0)});
                 content.Children.Add(new TextBlock {Text="Click to focus · click again to show all",Foreground=Theme.Accent,Margin=new Thickness(0,8,0,0)});
                 curveTip.Content=content;curveTip.PlacementTarget=this;curveTip.IsOpen=true;
@@ -49,7 +49,7 @@ namespace QuickLook.DicomRT
                 var bounds=new Rect(52,22,Math.Max(1,ActualWidth-70),Math.Max(1,ActualHeight-74));
                 if(!bounds.Contains(point))return null;
                 var usable=Curves.Where(c=>c.Visible&&c.Result.DoseValues.Length>1).ToArray();
-                double max=usable.Length==0?1:usable.Max(c=>c.Result.DoseValues.Last());if(max<=0)max=1;
+                double max=AxisMaximum(usable);
                 const double radius=7;double best=radius*radius;Curve nearest=null;
                 double left=(point.X-radius-bounds.Left)/bounds.Width*max,right=(point.X+radius-bounds.Left)/bounds.Width*max;
                 foreach(var curve in usable)

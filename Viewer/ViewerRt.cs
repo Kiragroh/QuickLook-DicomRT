@@ -32,7 +32,7 @@ namespace QuickLook.DicomRT
             machineSummary.Text=string.Join(" / ",machines);machineSummary.TextWrapping=TextWrapping.Wrap;
             machineSummary.Visibility=!sumMode&&machines.Length>0?Visibility.Visible:Visibility.Collapsed;
             machineSummary.ToolTip=string.Join("\n\n",selectedPlan?.Beams.Select(BeamMachineInfo.Detail).Distinct()??Enumerable.Empty<string>());
-            BuildRoiList(); BuildDoseList(); UpdateOverlayChoices(); if(workspaceMode=="DVH"){UpdateDvhChoices();UpdateDvh();} if(!sumMode&&workspaceMode=="MLC"&&selectedPlan!=centralPlan)SetWorkspace("MLC");
+            BuildRoiList(); BuildDoseList(); UpdateOverlayChoices(); if(DvhActive){UpdateDvhChoices();UpdateDvh();} if(!sumMode&&workspaceMode=="MLC"&&selectedPlan!=centralPlan)SetWorkspace("MLC");
             int regFiles = catalog?.Files.Count(f => f.Modality == "REG") ?? 0;
             var frames = SelectedStructures.SelectMany(s => s.Rois).Select(r => r.FrameUid).Concat(SelectedDoses.Select(d => d.FrameUid)).Where(f => !string.IsNullOrEmpty(f)).Distinct().ToArray();
             bool own = currentEntry != null && frames.Any(f => f == currentEntry.FrameUid);
@@ -42,7 +42,7 @@ namespace QuickLook.DicomRT
             Redraw();
         }
         private void SetRois(bool visible) { foreach (var roi in SelectedStructures.SelectMany(s => s.Rois)) roi.Visible = visible; BuildRoiList(); RoiVisibilityChanged(); }
-        private void RoiVisibilityChanged(){UpdateRoiOutlineIndicators();Redraw();if(workspaceMode=="DVH")UpdateDvh();}
+        private void RoiVisibilityChanged(){UpdateRoiOutlineIndicators();Redraw();if(DvhActive)UpdateDvh();}
         private void BuildRoiList()
         {
             foreach(var item in structures.SelectMany(s=>s.Rois)){item.LabelMode=(RoiLabelMode)Math.Max(0,roiLabelMode.SelectedIndex);item.HiddenByPrefix=hideX.IsChecked==true&&item.HasXPrefix;}
@@ -54,7 +54,7 @@ namespace QuickLook.DicomRT
                 var toggle = new CheckBox { IsChecked = roi.Visible, IsEnabled = !empty && (workspaceMode=="DVH" || transform != null), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(1, 0, 6, 0), ToolTip = "Show/hide structure" };
                 toggle.Checked += (s, e) => { roi.Visible = true; RoiVisibilityChanged(); }; toggle.Unchecked += (s, e) => { roi.Visible = false; RoiVisibilityChanged(); }; DockPanel.SetDock(toggle, Dock.Left); row.Children.Add(toggle);
                 var color = new Border { Background = new SolidColorBrush(Color.FromRgb(roi.Red, roi.Green, roi.Blue)), Width = 4, Margin = new Thickness(0, 2, 5, 2) }; DockPanel.SetDock(color, Dock.Left); row.Children.Add(color);
-                var jump = Theme.Button(roi.DisplayName); jump.HorizontalContentAlignment = HorizontalAlignment.Stretch; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = !empty && (workspaceMode=="DVH" || transform != null); jump.Content=RoiLabels.Content(roi); jump.ToolTip = empty ? "Empty structure · no contour points" : transform == null ? "No matching registration to the displayed series" : "Go to structure\n" + RoiClassification.Explain(roi,selectedPlan);
+                var jump = Theme.Button(roi.DisplayName); jump.HorizontalContentAlignment = HorizontalAlignment.Stretch; jump.Padding = new Thickness(4); jump.Margin = new Thickness(0); jump.FontSize = 11; jump.IsEnabled = !empty && (workspaceMode=="DVH" || transform != null); jump.Content=RoiLabels.Content(roi); jump.ToolTip=RoiLabels.Details(roi); ToolTipService.SetShowOnDisabled(jump,true);
                 jump.Click += async (s, e) => { if(workspaceMode=="DVH"){dvhView?.FocusStructure(roi);return;} var map = TransformToImage(roi.FrameUid); if (map != null){bool in3D=workspaceMode=="3D"||workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D";if(in3D&&!roi.Visible){roi.Visible=true;BuildRoiList();}await MoveFocusAsync(map.Transform(roi.Center));if(in3D){if(workspaceMode=="3D")threeDView?.FocusStructure(roi);else mprThreeD?.FocusStructure(roi);}} };
                 var indicator=Theme.Text("",9,Theme.Muted);indicator.VerticalAlignment=VerticalAlignment.Center;indicator.Margin=new Thickness(5,0,3,0);DockPanel.SetDock(indicator,Dock.Right);row.Children.Add(indicator);
                 var volumeLabel=Theme.Text(empty?"0 cm³":"…",10,Theme.Muted);volumeLabel.TextWrapping=TextWrapping.NoWrap;volumeLabel.VerticalAlignment=VerticalAlignment.Center;volumeLabel.TextAlignment=TextAlignment.Right;volumeLabel.Margin=new Thickness(6,0,4,0);DockPanel.SetDock(volumeLabel,Dock.Right);row.Children.Add(volumeLabel);
@@ -94,7 +94,7 @@ namespace QuickLook.DicomRT
             foreach (var dose in SelectedDoses)
             {
                 bool available = TransformToImage(dose.FrameUid) != null;
-                var check = new CheckBox { Content = dose.Label, IsChecked = dose.Visible, IsEnabled = available, Foreground = Theme.Foreground, Margin = new Thickness(2, 10, 2, 4) };
+                var check = new CheckBox { Content = DoseDisplay(dose), ToolTip=RtObjectLabels.DoseDetails(dose), IsChecked = dose.Visible, IsEnabled = available, Foreground = Theme.Foreground, Margin = new Thickness(2, 10, 2, 4) };
                 check.Checked += (s, e) => { dose.Visible = true; Redraw(); }; check.Unchecked += (s, e) => { dose.Visible = false; Redraw(); };
                 doseList.Children.Add(check); doseList.Children.Add(Theme.Text($"Maximum {dose.Maximum:0.###} {dose.Units}\nReference for percentages", 11, Theme.Muted));
                 if (!available) doseList.Children.Add(Theme.Text("No matching registration.", 11, Theme.Muted));
@@ -171,7 +171,7 @@ namespace QuickLook.DicomRT
             if(workspaceMode=="Bild")foreach(var pane in panes){var scene=latestScene.Snapshot();scene.Plane=(string)pane.Tag;pane.Scene=scene;PatientOrientationBadge badge;if(orientationBadges.TryGetValue(pane,out badge)){badge.Visibility=scene.Volume!=null||scene.RtBounds!=null||scene.Entry?.HasGeometry==true?Visibility.Visible:Visibility.Collapsed;if(badge.Visibility==Visibility.Visible)badge.SetPlane(SliceGeometry.Create(scene));}}
             if(!movingCrosshair&&(threeDView!=null||latestScene.Volume!=null||latestScene.Structures.Count>0||latestScene.Doses.Count>0)){EnsureThreeDView();threeDView.PreloadScene(latestScene);}
             if(workspaceMode=="3D")AttachThreeD(false);
-            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachThreeD(true);mprThreeD.SetSlicePlanes(focus,NavigationBounds);}
+            if(workspaceMode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"){AttachQuadView();mprThreeD?.SetSlicePlanes(focus,NavigationBounds);}
             UpdatePositionText();
         }
     }

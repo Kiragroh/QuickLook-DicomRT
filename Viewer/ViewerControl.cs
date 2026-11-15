@@ -153,7 +153,7 @@ namespace QuickLook.DicomRT
             viewportCenter=focus;
             foreach (var pane in panes) pane.Dispose(); panes.Clear();orientationBadges.Clear(); imageGrid.Children.Clear(); imageGrid.ColumnDefinitions.Clear(); imageGrid.RowDefinitions.Clear();
             string selected = (string)planes.SelectedItem ?? "Native"; var views = selected == "MPR + 3D" ? new[] { "Axial", "Coronal", "Sagittal" } : new[] { selected };
-            bool quad=views.Length==3;
+            bool quad=views.Length==3;if(!quad){dvhView?.Cancel();if(dvhContainer!=null)dvhContainer.Visibility=Visibility.Collapsed;}
             imageGrid.ColumnDefinitions.Add(new ColumnDefinition());
             imageGrid.RowDefinitions.Add(new RowDefinition());
             if(quad){imageGrid.ColumnDefinitions.Add(new ColumnDefinition());imageGrid.RowDefinitions.Add(new RowDefinition());}
@@ -167,7 +167,7 @@ namespace QuickLook.DicomRT
                 var cell=new Grid();cell.Children.Add(pane);ViewerSnapshot.AttachMenu(pane,()=>cell,views[i]);var badge=new PatientOrientationBadge{HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(8,24,8,8)};cell.Children.Add(badge);orientationBadges.Add(pane,badge);
                 Grid.SetColumn(cell, quad?i%2:0);Grid.SetRow(cell,quad?i/2:0); imageGrid.Children.Add(cell); panes.Add(pane);
             }
-            if(quad)AttachThreeD(true);
+            if(quad)AttachQuadView();
             else if(threeDView!=null&&threeDView.Parent==null){threeDView.Visibility=Visibility.Collapsed;workspace.Children.Add(threeDView);}
             var mini=BuildWindowControls();windowControls=mini;imageGrid.Children.Add(mini);
             Redraw();

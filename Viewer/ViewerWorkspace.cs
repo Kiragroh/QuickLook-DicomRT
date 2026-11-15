@@ -128,7 +128,7 @@ namespace QuickLook.DicomRT
             if(imageHeader!=null)imageHeader.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;
             if(imageFooter!=null)imageFooter.Visibility=mode=="Bild"?Visibility.Visible:Visibility.Collapsed;
             if(mode!="MLC"&&mode!="3D"&&!(mode=="Bild"&&(string)planes.SelectedItem=="MPR + 3D"))centralPlayback?.Pause();
-            if(mode!="DVH")dvhView?.Cancel();
+            if(!DvhActive){dvhView?.Cancel();if(dvhContainer!=null)dvhContainer.Visibility=Visibility.Collapsed;}
             if(mode=="Bild")imageGrid.Visibility=Visibility.Visible;
             else if(mode=="MLC")
             {
@@ -138,8 +138,7 @@ namespace QuickLook.DicomRT
             }
             else if(mode=="DVH")
             {
-                if(dvhView==null){dvhView=new DvhControl();var dock=new DockPanel();var header=new StackPanel();header.Children.Add(Theme.Text("DVH · select dose",11,Theme.Accent));header.Children.Add(dvhDose);DockPanel.SetDock(header,Dock.Top);dock.Children.Add(header);dock.Children.Add(dvhView);var holder=new Grid();holder.Children.Add(dock);dvhContainer=holder;workspace.Children.Add(holder);dvhDose.SelectionChanged+=(s,e)=>{if(!changing)UpdateDvh();};}
-                dvhContainer.Visibility=Visibility.Visible;UpdateDvhChoices();UpdateDvh();
+                AttachDvh(false);UpdateDvhChoices();UpdateDvh();
             }
             else if(mode=="3D")
             {
@@ -148,15 +147,16 @@ namespace QuickLook.DicomRT
             UpdateRoiOutlineIndicators();Redraw();
         }
         private Grid dvhContainer;
-        private sealed class DoseChoice { public DoseGrid Dose; public override string ToString()=>Dose.Label; }
+        private sealed class DoseChoice { public DoseGrid Dose; public string Details=>RtObjectLabels.DoseDetails(Dose); public string Label;public override string ToString()=>Label??Dose.Label; }
         private void UpdateDvhChoices()
         {
-            var old=(dvhDose.SelectedItem as DoseChoice)?.Dose;var choices=SelectedDoses.Select(d=>new DoseChoice{Dose=d}).ToList();bool prior=changing;changing=true;dvhDose.ItemsSource=choices;dvhDose.SelectedItem=choices.FirstOrDefault(c=>c.Dose==old)??choices.FirstOrDefault();changing=prior;
+            var itemStyle=new Style(typeof(ComboBoxItem),(Style)FindResource(typeof(ComboBoxItem)));itemStyle.Setters.Add(new Setter(FrameworkElement.ToolTipProperty,new System.Windows.Data.Binding("Details")));dvhDose.ItemContainerStyle=itemStyle;
+            var old=(dvhDose.SelectedItem as DoseChoice)?.Dose;var choices=SelectedDoses.Select(d=>new DoseChoice{Dose=d,Label=DoseDisplay(d)}).ToList();bool prior=changing;changing=true;dvhDose.ItemsSource=choices;dvhDose.SelectedItem=choices.FirstOrDefault(c=>c.Dose==old)??choices.FirstOrDefault();changing=prior;
         }
         private void UpdateDvh()
         {
-            if(workspaceMode!="DVH"||dvhView==null)return;var dose=(dvhDose.SelectedItem as DoseChoice)?.Dose;
-            ExportIdentity.SetContext(dvhView,CurrentExportIdentity(true));dvhView.SetData(SelectedStructures.SelectMany(s=>s.Rois).Where(r=>r.Visible).ToList(),dose,r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose?.FrameUid));
+            if(!DvhActive||dvhView==null)return;var dose=(dvhDose.SelectedItem as DoseChoice)?.Dose;
+            dvhView.SetPrescriptions(DvhPrescriptions(dose));ExportIdentity.SetContext(dvhView,CurrentExportIdentity(true));dvhView.SetData(SelectedStructures.SelectMany(s=>s.Rois).Where(r=>r.Visible).ToList(),dose,r=>RegistrationReader.Resolve(registrations,r.FrameUid,dose?.FrameUid));
         }
     }
 }

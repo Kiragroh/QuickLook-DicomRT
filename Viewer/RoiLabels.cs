@@ -11,9 +11,10 @@ namespace QuickLook.DicomRT
             var category=RoiClassification.Category(roi,plan);
             return category==RoiCategory.Target?0:category==RoiCategory.Organ?1:2;
         }
+        public static string Details(StructureRoi roi)=>"Name: "+(string.IsNullOrWhiteSpace(roi.Name)?"—":roi.Name)+"\nDescription: "+(string.IsNullOrWhiteSpace(roi.Description)?"—":roi.Description);
         public static FrameworkElement Content(StructureRoi roi)
         {
-            string tooltip="Name: "+(roi.Name??"")+"\nDescription: "+(string.IsNullOrWhiteSpace(roi.Description)?"—":roi.Description);
+            string tooltip=Details(roi);
             var primary=new TextBlock{Text=roi.PrimaryLabel,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=tooltip};
             if(roi.SecondaryLabel.Length==0)return primary;
             primary.FontSize=12;primary.FontWeight=FontWeights.SemiBold;

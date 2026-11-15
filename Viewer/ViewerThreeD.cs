@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace QuickLook.DicomRT
@@ -17,9 +17,9 @@ namespace QuickLook.DicomRT
   }
   private void AttachThreeD(bool quad)
   {
-   EnsureThreeDView();Panel parent=quad?(Panel)imageGrid:workspace;
+   EnsureThreeDView();Panel parent=quad?(Panel)quadBody:workspace;
    if(threeDView.Parent!=parent){(threeDView.Parent as Panel)?.Children.Remove(threeDView);parent.Children.Add(threeDView);}
-   Grid.SetColumn(threeDView,quad?1:0);Grid.SetRow(threeDView,quad?1:0);
+   Grid.SetColumn(threeDView,0);Grid.SetRow(threeDView,0);
    threeDView.SetCompact(quad);threeDView.Visibility=Visibility.Visible;
   }
  }

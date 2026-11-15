@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using Dicom;
@@ -36,6 +36,7 @@ namespace QuickLook.DicomRT
     }
     public sealed class PlanData
     {
+        public double[] PrescriptionDosesGy=new double[0];
         public HashSet<int> TargetRoiNumbers=new HashSet<int>(),OrganRoiNumbers=new HashSet<int>();
         public DicomEntry Entry; public string FrameUid,StructureSopUid; public string Label {get;set;} public List<PlanBeam> Beams=new List<PlanBeam>();
         public override string ToString()=>Label;
@@ -43,6 +44,7 @@ namespace QuickLook.DicomRT
         {
             var d=RtDicom.Full(entry); var result=new PlanData {Entry=entry,FrameUid=RtDicom.Text(d,DicomTag.FrameOfReferenceUID),Label=RtDicom.Text(d,DicomTag.RTPlanLabel,"RTPLAN"),
                 StructureSopUid=RtDicom.Items(d,DicomTag.ReferencedStructureSetSequence).Select(i=>RtDicom.Text(i,DicomTag.ReferencedSOPInstanceUID)).FirstOrDefault()??""};
+            result.PrescriptionDosesGy=RtDicom.Items(d,DicomTag.DoseReferenceSequence).Where(r=>RtDicom.Text(r,DicomTag.DoseReferenceType)=="TARGET").Select(r=>RtDicom.Number(r,DicomTag.TargetPrescriptionDose)).Where(v=>RtDicom.Finite(v)&&v>0).Distinct().OrderBy(v=>v).ToArray();
             foreach(var reference in RtDicom.Items(d,DicomTag.DoseReferenceSequence)){
                 int roi=RtDicom.Int(reference,DicomTag.ReferencedROINumber,-1);
                 if(roi<0||RtDicom.Text(reference,DicomTag.DoseReferenceStructureType)!="VOLUME")continue;

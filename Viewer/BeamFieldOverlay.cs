@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,11 +50,7 @@ namespace QuickLook.DicomRT
   static double MiniatureExtent(PlanBeam beam)
   {
    if(beam==null)return 100;
-   // Stable beam-wide jaw framing makes small SRS apertures readable. Do not
-   // let distant closed leaf ends determine the miniature's magnification.
-   if(beam.ControlPoints.Count>0&&beam.ControlPoints.All(p=>p.XJaws?.Length==2&&p.YJaws?.Length==2&&p.XJaws.Concat(p.YJaws).All(BeamProjection.Finite)))
-    return Math.Max(10,beam.ControlPoints.SelectMany(p=>p.XJaws.Concat(p.YJaws)).Max(x=>Math.Abs(x))*1.1);
-   return MlcPlaybackControl.BeamExtent(beam);
+   return BeamExtentCache.Get(beam).Miniature;
   }
   internal System.Collections.Generic.IEnumerable<Vec3> Bounds()
   {

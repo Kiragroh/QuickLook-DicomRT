@@ -19,14 +19,17 @@ namespace QuickLook.DicomRT
         readonly Grid body=new Grid {Margin=new Thickness(0,14,0,10)};
         readonly ScrollViewer legendScroll=new ScrollViewer {VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
         CancellationTokenSource calculation;
-        bool disposed,compact;
+        bool disposed,embedded;
+        StackPanel titleHeader;TextBlock calculationNote;
+        public void SetCompact(bool value){if(embedded==value)return;embedded=value;titleHeader.Visibility=value?Visibility.Collapsed:Visibility.Visible;calculationNote.Visibility=value?Visibility.Collapsed:Visibility.Visible;((Grid)Content).Margin=new Thickness(value?4:16);body.Margin=new Thickness(0,value?2:14,0,value?2:10);plot.MinHeight=value?100:160;UpdateLayoutMode();}
+        public void SetPrescriptions(double[] values){plot.Prescriptions=(values??new double[0]).Where(v=>!double.IsNaN(v)&&!double.IsInfinity(v)&&v>0).Distinct().OrderBy(v=>v).ToArray();plot.InvalidateVisual();}
         int requestedCount;
         DoseGrid cachedDose;
         readonly Dictionary<StructureRoi,CachedResult> cache=new Dictionary<StructureRoi,CachedResult>();
         readonly Dictionary<StructureRoi,bool> visibility=new Dictionary<StructureRoi,bool>();
         readonly Dictionary<StructureRoi,Button> legendNames=new Dictionary<StructureRoi,Button>();
         readonly Dictionary<StructureRoi,CheckBox> legendChecks=new Dictionary<StructureRoi,CheckBox>();
-        public void RefreshLabels(){foreach(var item in legendNames)item.Value.Content=RoiLabels.Content(item.Key);foreach(var item in legendChecks)System.Windows.Automation.AutomationProperties.SetName(item.Value,"Show "+item.Key.DisplayName);plot.HideHover();}
+        public void RefreshLabels(){foreach(var item in legendNames){item.Value.Content=RoiLabels.Content(item.Key);item.Value.ToolTip=RoiLabels.Details(item.Key);}foreach(var item in legendChecks)System.Windows.Automation.AutomationProperties.SetName(item.Value,"Show "+item.Key.DisplayName);plot.HideHover();}
         readonly Dictionary<StructureRoi,Border> legendRows=new Dictionary<StructureRoi,Border>();
         public StructureRoi FocusedStructure => plot.FocusedStructure;
         public int CalculationCount { get; private set; }
@@ -47,7 +50,7 @@ namespace QuickLook.DicomRT
             root.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
             root.RowDefinitions.Add(new RowDefinition {Height=new GridLength(1,GridUnitType.Star)});
             root.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-            var header=new StackPanel();header.Children.Add(Theme.Text("Dose–volume histogram",23));
+            var header=titleHeader=new StackPanel();header.Children.Add(Theme.Text("Dose–volume histogram",23));
             header.Children.Add(Theme.Text("CUMULATIVE  ·  VOLUME IN %  ·  APPROXIMATE PREVIEW",10,Theme.Accent));root.Children.Add(header);
             body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
             body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(260)});
@@ -57,16 +60,17 @@ namespace QuickLook.DicomRT
             legendScroll.Content=legend;legendScroll.Margin=new Thickness(18,0,0,0);Grid.SetColumn(legendScroll,1);body.Children.Add(legendScroll);
             Grid.SetRow(body,1);root.Children.Add(body);
             var footer=new StackPanel();footer.Children.Add(status);
-            footer.Children.Add(Theme.Text("Slab volumes estimated from contour spacing; DVH may differ from the TPS. Uncovered dose remains unknown. Percentages refer to the entire estimated structure volume.",10,Theme.Muted));
+            calculationNote=Theme.Text("Slab volumes estimated from contour spacing; DVH may differ from the TPS. Uncovered dose remains unknown. Percentages refer to the entire estimated structure volume.",10,Theme.Muted);footer.Children.Add(calculationNote);
             Grid.SetRow(footer,2);root.Children.Add(footer);Content=root;
-            Unloaded+=(s,e)=>Cancel();
+            // The viewer cancels on workspace exit and Dispose. Reparenting between quad
+            // and standalone also raises Unloaded and must not cancel the new calculation.
             SizeChanged+=(s,e)=>UpdateLayoutMode();InitializeExport();
         }
         void UpdateLayoutMode()
         {
-            bool narrow=ActualWidth<650;if(narrow==compact)return;compact=narrow;
+            bool narrow=ActualWidth<650;
             body.ColumnDefinitions[1].Width=new GridLength(narrow?0:260);
-            body.RowDefinitions[1].Height=new GridLength(narrow?150:0);
+            body.RowDefinitions[1].Height=new GridLength(narrow?(embedded?90:150):0);
             Grid.SetColumn(legendScroll,narrow?0:1);Grid.SetRow(legendScroll,narrow?1:0);
             legendScroll.Margin=narrow?new Thickness(0,12,0,0):new Thickness(18,0,0,0);
         }
@@ -113,8 +117,8 @@ namespace QuickLook.DicomRT
                     var box=new CheckBox {IsChecked=shown,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,7,0),IsEnabled=result.DoseValues.Length>0,ToolTip="Show or hide curve"};
                     System.Windows.Automation.AutomationProperties.SetName(box,"Show "+work.Roi.DisplayName);
                     DockPanel.SetDock(box,Dock.Left);heading.Children.Add(box);
-                    var info=Theme.Button("i");info.Padding=new Thickness(5,0,5,0);info.Margin=new Thickness(3,0,0,0);info.ToolTip=MetricDetails(result);ToolTipService.SetShowDuration(info,60000);DockPanel.SetDock(info,Dock.Right);heading.Children.Add(info);
-                    var name=new Button {Content=RoiLabels.Content(work.Roi),Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip="Focus curve; click again to restore all curves"};
+                    var info=Theme.Button("i");info.Padding=new Thickness(5,0,5,0);info.Margin=new Thickness(3,0,0,0);info.ToolTip=RoiLabels.Details(work.Roi)+"\n\n"+MetricDetails(result);ToolTipService.SetShowDuration(info,60000);DockPanel.SetDock(info,Dock.Right);heading.Children.Add(info);
+                    var name=new Button {Content=RoiLabels.Content(work.Roi),Foreground=brush,Background=Brushes.Transparent,BorderThickness=new Thickness(0),Padding=new Thickness(0,2,0,2),HorizontalContentAlignment=HorizontalAlignment.Left,FontWeight=FontWeights.SemiBold,ToolTip=RoiLabels.Details(work.Roi)};
                     legendNames[work.Roi]=name;legendChecks[work.Roi]=box;
                     name.Click+=(s,e)=>{FocusStructure(work.Roi);e.Handled=true;};heading.Children.Add(name);
                     box.Checked+=(s,e)=>{visibility[work.Roi]=curve.Visible=true;plot.InvalidateVisual();};
@@ -147,20 +151,35 @@ namespace QuickLook.DicomRT
             public StructureRoi FocusedStructure;
             public readonly List<Curve> Curves=new List<Curve>();
             public string Units;
+            public double[] Prescriptions=new double[0];
+            bool IsGy=>string.Equals(Units,"GY",StringComparison.OrdinalIgnoreCase);
+            double AxisMaximum(Curve[] usable)
+            {
+                double max=usable.Length==0?1:usable.Max(c=>c.Result.DoseValues.Last());if((double.IsNaN(max)||double.IsInfinity(max))||max<=0)max=1;
+                if(IsGy){if(Prescriptions.Length>0)max=Math.Max(max,Prescriptions.Max());max=Math.Max(10,Math.Ceiling(max/10)*10);}
+                return max;
+            }
+            double[] DoseTicks(double max)=>IsGy?Enumerable.Range(0,(int)Math.Min(10000,Math.Floor(max/5))+1).Select(i=>i*5d).ToArray():Enumerable.Range(0,6).Select(i=>max*i/5).ToArray();
             protected override void OnRender(DrawingContext dc)
             {
                 base.OnRender(dc);double w=ActualWidth,h=ActualHeight;if(w<140||h<140)return;
                 var bounds=new Rect(52,22,Math.Max(1,w-70),Math.Max(1,h-74));
                 dc.DrawRoundedRectangle(Theme.Panel,null,new Rect(0,0,w,h),10,10);
                 var usable=Curves.Where(c=>c.Visible&&c.Result.DoseValues.Length>0).ToArray();
-                double max=usable.Length==0?1:usable.Max(c=>c.Result.DoseValues.Last());if(max<=0)max=1;
+                double max=AxisMaximum(usable);
                 var gridPen=new Pen(new SolidColorBrush(Color.FromArgb(35,180,200,225)),1);
                 for(int i=0;i<=5;i++)
                 {
                     double yy=bounds.Bottom-bounds.Height*i/5;dc.DrawLine(gridPen,new Point(bounds.Left,yy),new Point(bounds.Right,yy));
                     Text(dc,(i*20).ToString(CultureInfo.InvariantCulture),new Point(12,yy-7),Theme.Muted,10);
-                    double xx=bounds.Left+bounds.Width*i/5;dc.DrawLine(gridPen,new Point(xx,bounds.Top),new Point(xx,bounds.Bottom));
-                    Text(dc,(max*i/5).ToString("0.##",CultureInfo.CurrentCulture),new Point(xx-10,bounds.Bottom+9),Theme.Muted,10);
+                }
+                var minorPen=new Pen(new SolidColorBrush(Color.FromArgb(18,180,200,225)),1);
+                foreach(double tick in DoseTicks(max))
+                {
+                    bool major=!IsGy||Math.Abs(tick%10)<1e-8;double xx=bounds.Left+bounds.Width*tick/max;
+                    dc.DrawLine(major?gridPen:minorPen,new Point(xx,bounds.Top),new Point(xx,bounds.Bottom));
+                    dc.DrawLine(new Pen(Theme.Muted,1),new Point(xx,bounds.Bottom),new Point(xx,bounds.Bottom+(major?6:3)));
+                    if(major)Text(dc,tick.ToString("0.##",CultureInfo.CurrentCulture),new Point(xx-10,bounds.Bottom+9),Theme.Muted,10);
                 }
                 Text(dc,"Volume (%)",new Point(12,3),Theme.Muted,10);
                 Text(dc,Units=="GY"?"Dose (Gy)":Units=="RELATIVE"?"Relative dose (DICOM values)":"Dose",new Point(bounds.Left+bounds.Width*.4,h-22),Theme.Muted,11);
@@ -184,7 +203,13 @@ namespace QuickLook.DicomRT
                     if(r.Status==DvhStatus.PartialCoverage)pen.DashStyle=DashStyles.Dash;
                     dc.PushOpacity(focused&&!emphasized?.18:1);dc.DrawGeometry(null,pen,geometry);dc.Pop();
                 }
+                if(IsGy)
+                {
+                    var rxPen=new Pen(Theme.Foreground,1.5){DashStyle=DashStyles.Dash};
+                    foreach(double rx in Prescriptions){double x=bounds.Left+rx/max*bounds.Width;dc.DrawLine(rxPen,new Point(x,bounds.Top),new Point(x,bounds.Bottom));}
+                }
                 dc.Pop();
+                if(IsGy&&Prescriptions.Length>0)Text(dc,"Rx "+string.Join(" / ",Prescriptions.Select(v=>v.ToString("0.##",CultureInfo.CurrentCulture)))+" Gy",new Point(bounds.Left+70,3),Theme.Foreground,10);
                 if(usable.Length==0)Text(dc,"No calculated curves yet",new Point(bounds.Left+20,bounds.Top+bounds.Height*.45),Theme.Muted,13);
             }
             void Text(DrawingContext dc,string value,Point point,Brush brush,double size)=>dc.DrawText(new FormattedText(value,CultureInfo.CurrentCulture,FlowDirection.LeftToRight,new Typeface("Segoe UI"),size,brush,VisualTreeHelper.GetDpi(this).PixelsPerDip),point);

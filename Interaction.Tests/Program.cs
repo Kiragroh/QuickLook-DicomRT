@@ -58,6 +58,7 @@ class Program
                 Check(Field<ComboBox>(viewer,"plans").Items.Count==2&&!Field<bool>(viewer,"sumMode"),"Unassociated doses offer standalone entries, not an unsafe sum");
             }
             PlaybackReplayScenarios.Run(Check);InteractiveContourScenarios.Run(Check);ProjectionWorkScenarios.Run(Check);NavigationProgressScenarios.Run(Check);AvatarScenarios.Run(Check);ThreeDLinacScenarios.Run(Check);DrrWindowScenarios.Run(Check);BeamMetersetInfoScenarios.Run(Check);FieldPlaybackCacheScenarios.Run(Check);DvhCurveScenarios.Run(Check);OutlineIndicatorScenarios.Run(Check);SumAndBlockScenarios.Run(Check);FieldClipScenarios.Run(Check);InitialIsocenterScenarios.Run(Check);MiniatureApertureScenarios.Run(Check);LoadingScenarios.Run(Check);ThreeDControlPointScenarios.Run(Check);BeamInteractionScenarios.Run(Check);OverlayRetentionScenarios.Run(Check);ProjectionCacheScenarios.Run(Check);NavigationExportScenarios.Run(Check);RtOnlyScenarios.Run(Check);
+            CompactUiScenarios.Run(Check);DvhWorkspaceScenarios.Run(Check);
             ReviewScenarios.Run(Check);
             LinacOrientationScenarios.Run(Check);
             AccelaMachineScenarios.Run(Check);
@@ -76,6 +77,7 @@ class Program
         finally{preferenceScope.Dispose();}
     }
     static int InteractivePreview(string folder){
+        if(Environment.GetEnvironmentVariable("DICOMRT_TEST_TRACE")=="1")AppDomain.CurrentDomain.FirstChanceException+=(s,e)=>Console.WriteLine("TRACE "+e.Exception.GetType().Name+" "+string.Join(" > ",new System.Diagnostics.StackTrace(e.Exception,false).GetFrames()?.Select(f=>f.GetMethod().DeclaringType?.Name+"."+f.GetMethod().Name)??new string[0]));
         var app=new Application();var viewer=new ViewerControl();var window=new Window{Title="DICOM RT · Interaction review",Width=1200,Height=850,Content=viewer};
         window.Loaded+=async(s,e)=>{var cat=await System.Threading.Tasks.Task.Run(()=>DicomCatalog.Scan(System.IO.Directory.EnumerateFiles(folder).First(),System.Threading.CancellationToken.None));viewer.Open(cat.Files.First(x=>x.Modality=="CT").Path);await viewer.LoadCompletion;Field<ComboBox>(viewer,"planes").SelectedItem="MPR + 3D";};
         window.Closed+=(s,e)=>viewer.Dispose();app.Run(window);return 0;

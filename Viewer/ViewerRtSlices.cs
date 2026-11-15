@@ -25,11 +25,13 @@ namespace QuickLook.DicomRT
         {
             try{
                 var bounds=await Task.Run(()=>RtSliceBounds.Create(rois,selected,lifetime.Token),lifetime.Token);
+                await Dispatcher.InvokeAsync(new Func<Task>(async()=>{
                 if(disposed||HasImage||rtSliceKey!=key)return;
                 bool first=rtSliceBounds==null;rtSliceBounds=bounds;
                 if(bounds!=null&&!userNavigatedImage){if(first){focus=bounds.Center;viewportCenter=null;}await JumpToPlanDoseAsync();}
                 if(bounds!=null)status.Text="RT-only slices · scroll structures and dose without CT/MR · Search more images to add anatomy";
                 Redraw();
+                })).Task.Unwrap();
             }catch(OperationCanceledException){}
         }
         private void SyncRtSliceSlider()

@@ -41,7 +41,7 @@ static class DvhCurveScenarios
             plot.Arrange(new Rect(0,0,870,474));point=new Point(452,222);
             check(ReferenceEquals(Call(plot,"FindCurve",point),curve),"DVH hit testing follows resized plot bounds");
             Call(plot,"UpdateHover",point);var tooltip=(ToolTip)Get(plot,"curveTip");var stack=(StackPanel)tooltip.Content;
-            check(((TextBlock)stack.Children[0]).Text=="Target","DVH hover identifies the actual hit structure");
+            check(((TextBlock)stack.Children[0]).Text.Contains("Name: Target")&&((TextBlock)stack.Children[0]).Text.Contains("Description:"),"DVH hover identifies the actual hit structure");
             var metrics=((TextBlock)stack.Children[1]).Text;
             check(metrics.Contains("cm³")&&metrics.Contains("Dmean")&&metrics.Contains("Dmedian")&&metrics.Contains("Dmax")&&metrics.Contains("Dmin")&&metrics.Contains("D98")&&metrics.Contains("D2"),"DVH hover includes volume and all requested dose metrics");
             check(view.CalculationCount==0,"DVH hover, selection and resize do not recalculate curves");
@@ -52,6 +52,10 @@ static class DvhCurveScenarios
             var watch=System.Diagnostics.Stopwatch.StartNew();for(int i=0;i<1000;i++)Call(plot,"FindCurve",point);watch.Stop();
             Console.WriteLine("DVH hit test: 128 curves / 2048 bins, 1000 probes: "+watch.ElapsedMilliseconds+" ms");
             check(ReferenceEquals(Call(plot,"FindCurve",point),curve),"Focused DVH curve wins exact overlap ties");
+            plot.GetType().GetField("Units").SetValue(plot,"GY");view.SetPrescriptions(new[]{40d});
+            check(ReferenceEquals(Call(plot,"FindCurve",new Point(152,222)),curve),"Curve hit testing uses the same Rx-expanded Gy axis as rendering");
+            var image=new System.Windows.Media.Imaging.RenderTargetBitmap(870,474,96,96,PixelFormats.Pbgra32);plot.InvalidateVisual();plot.UpdateLayout();image.Render(plot);var png=new System.Windows.Media.Imaging.PngBitmapEncoder();png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));using(var file=System.IO.File.Create(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"dvh-axis-review.png")))png.Save(file);
+
         }
     }
 }

@@ -30,13 +30,13 @@ namespace QuickLook.DicomRT
                 if(disposed||!roiOutlineRows.Contains(row))return;
                 bool available=result.Status==DvhStatus.Complete;
                 row.Volume.Text=available?(result.EstimatedVolumeCc<.01?"<0.01":result.EstimatedVolumeCc.ToString("0.##"))+" cm³":"—";
-                row.Volume.ToolTip=available?result.Message:"Volume unavailable: "+result.Message;
+                row.Volume.ToolTip=RoiLabels.Details(row.Roi);
             }
             catch(OperationCanceledException) { }
             catch(Exception)
             {
                 if(disposed||!roiOutlineRows.Contains(row))return;
-                row.Volume.Text="—";row.Volume.ToolTip="Contour volume could not be calculated.";
+                row.Volume.Text="—";row.Volume.ToolTip=RoiLabels.Details(row.Roi);
             }
         }
     }
