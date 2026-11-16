@@ -48,6 +48,12 @@ internal static class TagDetailScenarios
                 rows.Add(new TagRow { Path = prefix + "[" + i + "]/(0008,1155)", Tag = "(0008,1155)", Name = "Synthetic label", Value = "needle" });
             }
         }
+        rows.Single(r=>r.Path=="target").Name="Explorable sequence";
+        var built=TagNode.Build(rows);var sequenceHits=TagNode.Search(built,"explorable");
+        check(sequenceHits.Count==1&&sequenceHits[0].Children.Count==2&&sequenceHits[0].Children.All(n=>n.Children.Count==1),"Matched sequence retains nonmatching items and tags for exploration");
+        check(sequenceHits[0].IsExpanded&&sequenceHits[0].Children.All(n=>!n.IsExpanded),"Matched sequence opens without eagerly expanding every retained item");
+        sequenceHits[0].Children[1].IsExpanded=true;
+        check(!built.Single(n=>n.Row.Path=="target").Children[1].IsExpanded,"Exploring search results does not mutate manual tree expansion");
         var tree = Tree(rows);
         var host = new Window { Content = tree, Width = 330, Height = 240, Left = -10000, Top = -10000, ShowInTaskbar = false, ShowActivated = false, WindowStyle = WindowStyle.None };
         host.Show(); Layout(tree);
@@ -57,7 +63,7 @@ internal static class TagDetailScenarios
         Call(tree, "Filter", "needle"); Layout(tree); Call(tree, "Filter", ""); Layout(tree);
         check(manual.IsExpanded && original.Where(n => n != manual).All(n => !n.IsExpanded), "Clearing search without a selection restores manual expansion only");
 
-        Call(tree, "Filter", "needle"); Layout(tree);
+        Call(tree, "Filter", "explorable"); Layout(tree);
         var target = ((IEnumerable<TagNode>)tree.ItemsSource).Single(n => n.Row.Path == "target").Children[1].Children[0];
         // Materialize the search result, then select a real WPF item (including duplicate tag numbers).
         var filteredRoot = ((IEnumerable<TagNode>)tree.ItemsSource).Single(n => n.Row.Path == "target");
@@ -67,7 +73,7 @@ internal static class TagDetailScenarios
         var rootItem = (TreeViewItem)tree.ItemContainerGenerator.ContainerFromItem(filteredRoot);
         check(rootItem != null, "Search target sequence container is materialized");
         rootItem.BringIntoView(); Layout(tree);
-        var itemNode = filteredRoot.Children[1];
+        var itemNode = filteredRoot.Children[1];itemNode.IsExpanded=true;Layout(tree);
         Descendants<TagItemsPanel>(rootItem).Single(p => ItemsControl.GetItemsOwner(p) == rootItem).Reveal(rootItem.Items.IndexOf(itemNode)); Layout(tree);
         var item = (TreeViewItem)rootItem.ItemContainerGenerator.ContainerFromItem(itemNode);
         check(item != null, "Search sequence item container is materialized");

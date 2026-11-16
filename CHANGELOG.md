@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.47 — Explore sequences directly from tag search
+
+- **Browsable sequence matches:** a sequence or item matching the tag search retains its complete subtree, including tags whose names or values do not match. Expand retained items manually while keeping the search active.
+- **Retain navigation context:** search-only expansion is isolated from the original tree. Clearing the search keeps the selected explored tag visible and opens its ancestor branch while preserving unrelated manual expansion.
+
 ## 0.2.46 — Compact DVH layout refinement
 
 - **More chart space in 2 × 2:** use a narrow side legend when the pane has enough width, and a shorter bottom legend in narrow panes. Small-height plots remain rendered and clickable. This refines the new 0.2.45 DVH mode for 800-DIP-high windows.

@@ -44,11 +44,19 @@ namespace QuickLook.DicomRT
             foreach (var node in nodes)
             {
                 bool matches = new[] { node.Row.Tag, node.Row.Name, node.Row.Path, node.Row.Value, node.Row.VR }.Any(s => s?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
-                var children = Search(node.Children, query);
+                // A directly matching sequence remains a browsable entry point. Keep
+                // all descendants, but isolate expansion from the unfiltered tree.
+                var children = matches ? node.Children.Select(CloneBranch).ToList() : Search(node.Children, query);
                 if (matches || children.Count > 0) result.Add(new TagNode { Row = node.Row, Children = children, IsExpanded = true });
             }
             return result;
         }
+        private static TagNode CloneBranch(TagNode node) => new TagNode
+        {
+            Row = node.Row,
+            Children = node.Children.Select(CloneBranch).ToList(),
+            IsExpanded = node.IsExpanded
+        };
     }
 
     internal sealed class TagTreeControl : TreeView
