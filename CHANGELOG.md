@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.48 — Complete cases across CT and RT folders
+
+- **Open from any RT component:** conventional adjacent CT / RTDOSE / RTPLAN / RTSTRUCT folders are discovered automatically. A dose activates its uniquely referenced plan; a structure set activates its plan only when that association is unique. The initially opened dose remains the displayed dose, and explicit individual-object selections remain available.
+- **One search to complete the case:** Search subfolders now adds matching image series after resolving RT objects and registrations. Search more images also incorporates discovered plans and structures. Unrelated series remain deferred and existing patient/reference checks remain in effect.
+- **Bounded discovery:** automatic discovery covers direct files in recognized neighbouring modality folders. Arbitrary nested exports use the selected common-parent folder, avoiding an unrestricted automatic search of parent trees.
+
 ## 0.2.47 — Explore sequences directly from tag search
 
 - **Browsable sequence matches:** a sequence or item matching the tag search retains its complete subtree, including tags whose names or values do not match. Expand retained items manually while keeping the search active.

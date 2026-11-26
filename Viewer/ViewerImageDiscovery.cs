@@ -65,6 +65,19 @@ namespace QuickLook.DicomRT
             if(suspendedImage?.Stack==stack){var saved=suspendedImage;suspendedImage=null;currentStack=stack;currentEntry=saved.Entry;volume=saved.Volume;native=saved.Native;focus=saved.Focus;viewportCenter=saved.Center;windowWidth=saved.Width;windowCenter=saved.Level;zoom=saved.Zoom;sliceIndex=requestedSliceIndex=saved.Index;seriesLoad=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);changing=true;sliceSlider.Maximum=stack.Entries.Count-1;sliceSlider.Value=sliceIndex;changing=false;RefreshRt();return;}
             await SelectStackAsync(stack);
         }
+        private async Task LoadMatchingDiscoveredImagesAsync(CancellationToken token,int selection)
+        {
+            if(selection!=planSelectionRevision)return;
+            var paths=catalog.DeferredImages.Where(ActiveImagePredicate()).Select(e=>e.Path).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if(paths.Length>0){
+                activity.Text=$"● Loading matching image headers · {paths.Length} files …";
+                var additional=await Task.Run(()=>DicomCatalog.Scan(initialEntry.Path,token,knownPaths:paths),token);
+                token.ThrowIfCancellationRequested();MergeDiscoveredCatalog(additional);
+            }
+            if(selection!=planSelectionRevision||disposed)return;
+            RefreshPlanChoices();
+            if(sumMode||selectedPlan!=null||selectedDose!=null||selectedStructure!=null)await ApplySelectedImagesAsync();
+        }
         private async Task SearchMoreImagesAsync()
         {
             if(imageSearch!=null){imageSearch.Cancel();return;}
@@ -83,13 +96,13 @@ namespace QuickLook.DicomRT
             searchMoreImages.Content="Cancel image search";searchSubfolders.IsEnabled=false;activity.Visibility=Visibility.Visible;activity.Text="● Finding images for the selected RT object …";
             var clock=System.Diagnostics.Stopwatch.StartNew();
             try{
-                var found=await Task.Run(()=>DicomCatalog.Scan(initialEntry.Path,token,phaseProgress:(phase,count,total)=>{if(clock.ElapsedMilliseconds<200)return;clock.Restart();Dispatcher.BeginInvoke(new Action(()=>{if(!disposed&&!token.IsCancellationRequested)activity.Text=$"● Image search · {count}/{total} files";}));},searchRoot:root,recursive:true,imageFilter:predicate,knownPaths:paths),token);
+                var found=await Task.Run(()=>DicomCatalog.Scan(initialEntry.Path,token,entryFound:OnEntryFound,phaseProgress:(phase,count,total)=>{if(clock.ElapsedMilliseconds<200)return;clock.Restart();Dispatcher.BeginInvoke(new Action(()=>{if(!disposed&&!token.IsCancellationRequested)activity.Text=$"● Image search · {count}/{total} files";}));},searchRoot:root,recursive:true,imageFilter:predicate,knownPaths:paths),token);
                 token.ThrowIfCancellationRequested();MergeDiscoveredCatalog(found);
+                await RtLoadsCompletion;token.ThrowIfCancellationRequested();
                 var snapshot=catalog;var links=await Task.Run(()=>RegistrationReader.Read(snapshot),token);token.ThrowIfCancellationRequested();registrations=links;
-                if(selection==planSelectionRevision){var extra=catalog.DeferredImages.Where(ActiveImagePredicate()).Select(e=>e.Path).ToArray();if(extra.Length>0){var additional=await Task.Run(()=>DicomCatalog.Scan(initialEntry.Path,token,knownPaths:extra),token);token.ThrowIfCancellationRequested();MergeDiscoveredCatalog(additional);found.Stacks.AddRange(additional.Stacks);}}
-                RefreshPlanChoices();
-                if(selection==planSelectionRevision&&(sumMode||selectedPlan!=null||selectedDose!=null||selectedStructure!=null)){await ApplySelectedImagesAsync();if(!disposed&&selection==planSelectionRevision){RefreshRt();await JumpToPlanDoseAsync();}}
-                activity.Text=found.Stacks.Count>0?$"✓ {found.Stacks.Count} matching image groups available":"No matching images found · RT-only preview remains available";
+                RefreshPlanChoices();await LoadMatchingDiscoveredImagesAsync(token,selection);
+                if(selection==planSelectionRevision&&!disposed){RefreshRt();await JumpToPlanDoseAsync();}
+                activity.Text=catalog.Stacks.Any(s=>s.Entries.All(ActiveImagePredicate()))?"✓ Matching images available":"No matching images found · RT-only preview remains available";
             }catch(OperationCanceledException){if(!disposed)activity.Text="Image search cancelled";}catch(Exception){if(!disposed)activity.Text="Image search incomplete · check folder access";}
             finally{if(imageSearch==source)imageSearch=null;source.Dispose();if(!disposed){searchMoreImages.Content="Search more images…";searchSubfolders.IsEnabled=true;}}
         }

@@ -98,6 +98,34 @@ internal static class RtOnlyScenarios
                 check(Field<DicomEntry>(viewer,"currentEntry").SopUid==before.SopUid&&viewer.HasImage,"recursive RT discovery preserves the displayed image");
                 check(Field<bool>(viewer,"layersVisible")&&Field<Button>(viewer,"searchSubfolders").Content.ToString()=="Search subfolders…","RT panel opens and search remains repeatable");
             }
+            // A dose opened in a separate folder must gain its complete reference chain.
+            var separated=Path.Combine(root,"separated");Directory.CreateDirectory(separated);
+            foreach(var modality in new[]{"RTPLAN","RTDOSE","RTSTRUCT"}){var dir=Path.Combine(separated,modality);Directory.CreateDirectory(dir);File.Copy(Path.Combine(source,modality+".dcm"),Path.Combine(dir,"entry.dcm"));}
+            Directory.CreateDirectory(Path.Combine(separated,"CT"));File.Copy(imagePath,Path.Combine(separated,"CT","image.dcm"));
+            foreach(var modality in new[]{"RTDOSE","RTSTRUCT","RTPLAN"})using(var viewer=Open(Path.Combine(separated,modality,"entry.dcm"))){
+                check(viewer.HasImage&&Field<List<PlanData>>(viewer,"planData").Count==1&&viewer.StructureCount>0,"split modality folders assemble automatically from "+modality);
+                check(Field<PlanData>(viewer,"selectedPlan")!=null,"linked plan becomes active from "+modality);
+            }
+            var arbitrary=Path.Combine(root,"arbitrary");Directory.CreateDirectory(arbitrary);
+            foreach(var modality in new[]{"RTPLAN","RTDOSE","RTSTRUCT"}){var dir=Path.Combine(arbitrary,"export-"+modality);Directory.CreateDirectory(dir);File.Copy(Path.Combine(source,modality+".dcm"),Path.Combine(dir,"entry.dcm"));}
+            Directory.CreateDirectory(Path.Combine(arbitrary,"scan"));File.Copy(imagePath,Path.Combine(arbitrary,"scan","image.dcm"));
+            using(var viewer=Open(Path.Combine(arbitrary,"export-RTDOSE","entry.dcm"))){
+                check(!viewer.HasImage&&Field<PlanData>(viewer,"selectedPlan")==null,"unknown directory layout stays bounded until explicit search");
+                Pump((Task)typeof(ViewerControl).GetMethod("SearchFolderAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{arbitrary}));
+                check(viewer.HasImage&&viewer.StructureCount>0&&Field<PlanData>(viewer,"selectedPlan")!=null,"explicit parent search completes dose, plan, structures and CT in one operation");
+                var retained=Field<DicomEntry>(viewer,"currentEntry");
+                Pump((Task)typeof(ViewerControl).GetMethod("SearchFolderAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{arbitrary}));
+                check(Field<List<PlanData>>(viewer,"planData").Count==1&&Field<DicomEntry>(viewer,"currentEntry")==retained,"repeat discovery retains loaded image and deduplicates RT");
+            }
+            using(var viewer=Open(Path.Combine(arbitrary,"export-RTDOSE","entry.dcm"))){
+                Pump((Task)typeof(ViewerControl).GetMethod("SearchImagesAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{arbitrary,null}));
+                check(viewer.HasImage&&viewer.StructureCount>0&&Field<PlanData>(viewer,"selectedPlan")!=null,"image search also decodes discovered RT and completes the selected reference chain");
+                var picker=Field<ComboBox>(viewer,"plans");var doseChoice=picker.Items.Cast<object>().First(c=>c.GetType().GetField("Dose").GetValue(c)!=null);
+                typeof(ViewerControl).GetField("changing",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,true);picker.SelectedItem=doseChoice;typeof(ViewerControl).GetField("changing",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(viewer,false);
+                Pump((Task)typeof(ViewerControl).GetMethod("SelectPlanChoiceAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,null));
+                Pump((Task)typeof(ViewerControl).GetMethod("SearchFolderAsync",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(viewer,new object[]{arbitrary}));
+                check(Field<PlanData>(viewer,"selectedPlan")==null&&Field<DoseGrid>(viewer,"selectedDose")!=null,"subsequent discovery respects explicit individual-dose selection");
+            }
             var multi=Path.Combine(root,"multi-frame");Directory.CreateDirectory(multi);
             var imageA=DicomFile.Open(imagePath).Dataset;new DicomFile(imageA).Save(Path.Combine(multi,"image-A.dcm"));
             const string frameB="1.2.826.0.1.3680043.10.543.100";

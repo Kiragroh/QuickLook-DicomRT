@@ -22,6 +22,7 @@ class Program
         if(args.Length==2&&args[0]=="--private-plan-export")return PlanExportScenarios.Inspect(args[1]);
         if(args.Length==2&&args[0]=="--loading-navigation")return LoadingNavigationAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--accela-phantom")return AccelaPhantomAcceptance.Run(args[1]);
+        if(args.Length==2&&args[0]=="--private-discovery")return PrivateDiscoveryAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-load")return PrivateLoadAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--private-sum")return PrivateSumAcceptance.Run(args[1]);
         if(args.Length==2&&args[0]=="--playback-buffer")return PlaybackBufferBenchmark.Run(args[1]);

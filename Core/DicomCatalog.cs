@@ -58,6 +58,25 @@ namespace QuickLook.DicomRT
             return e;
         }
 
+        // Recognise the common export layout Case/{CT,RTDOSE,RTPLAN,RTSTRUCT}.
+        // Never climb arbitrary trees automatically; broader searches require the folder picker.
+        public static string[] InitialSearchPaths(string selectedFile,CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            var folder=Directory.GetParent(Path.GetFullPath(selectedFile));
+            var names=new HashSet<string>(new[]{"CT","MR","PT","PET","RT","RD","RP","RS","RTDOSE","RTPLAN","RTSTRUCT","REG"},StringComparer.OrdinalIgnoreCase);
+            if(folder?.Parent==null||!names.Contains(folder.Name))return null;
+            var paths=new HashSet<string>(StringComparer.OrdinalIgnoreCase){Path.GetFullPath(selectedFile)};
+            try{
+                foreach(var sibling in folder.Parent.EnumerateDirectories().Where(d=>names.Contains(d.Name)))
+                {
+                    try{if((sibling.Attributes&FileAttributes.ReparsePoint)!=0)continue;foreach(var file in sibling.EnumerateFiles()){token.ThrowIfCancellationRequested();paths.Add(file.FullName);}}
+                    catch(IOException){}catch(UnauthorizedAccessException){}
+                }
+            }catch(IOException){return null;}catch(UnauthorizedAccessException){return null;}
+            return paths.ToArray();
+        }
+
         /// <summary>
         /// Discover RT/registration objects before full image metadata. Callbacks run on the caller's thread.
         /// progress counts complete files; phaseProgress reports headers/catalog/complete and their bounded totals.

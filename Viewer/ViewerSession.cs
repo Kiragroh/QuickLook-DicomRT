@@ -47,7 +47,7 @@ namespace QuickLook.DicomRT
                     catch (OperationCanceledException) { return; }
                     catch (Exception) { status.Text = "Unable to display the individual image file; checking available series."; }
                 }
-                status.Text = "Scanning DICOM files in the same folder …";
+                status.Text = "Scanning DICOM files and adjacent modality folders …";
                 var progressClock=System.Diagnostics.Stopwatch.StartNew();Func<DicomEntry,bool> openingImages=null;
                 catalog = await Task.Run(() => DicomCatalog.Scan(path,token,null,OnEntryFound,(phase,count,total)=>
                 {
@@ -63,7 +63,7 @@ namespace QuickLook.DicomRT
                         openingImages=Dispatcher.Invoke(()=>InitialImagePredicate());
                     }
                     return openingImages(e);
-                }),token);
+                },knownPaths:DicomCatalog.InitialSearchPaths(path,token)),token);
                 IndexMilliseconds=elapsed.Elapsed.TotalMilliseconds;scanComplete=true;
                 if (token.IsCancellationRequested) return;
                 Func<DicomEntry,bool> samePatient = e => DicomPatientScope.Matches(initialEntry,e);

@@ -9,7 +9,7 @@ namespace QuickLook.DicomRT
 {
     public sealed partial class ViewerControl
     {
-        private readonly Button searchSubfolders=new Button{Content="Search subfolders…",Visibility=Visibility.Collapsed,Margin=new Thickness(6,0,0,0),Padding=new Thickness(8,3,8,3),ToolTip="Choose the common parent of your CT and RT folders. Find additional RT for this patient. Image series stay deferred until Search more images; source files remain unchanged."};
+        private readonly Button searchSubfolders=new Button{Content="Search subfolders…",Visibility=Visibility.Collapsed,Margin=new Thickness(6,0,0,0),Padding=new Thickness(8,3,8,3),ToolTip="Choose the common parent of your CT and RT folders. Find related plans, structures, dose and matching images. Unrelated image series stay deferred; source files remain unchanged."};
         private CancellationTokenSource folderSearch;
         private async Task SearchSubfoldersAsync()
         {
@@ -22,7 +22,7 @@ namespace QuickLook.DicomRT
         private async Task SearchFolderAsync(string root)
         {
             if(disposed||folderSearch!=null||imageSearch!=null)return;
-            var source=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);folderSearch=source;var token=source.Token;
+            int selection=planSelectionRevision;var source=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);folderSearch=source;var token=source.Token;
             searchMoreImages.IsEnabled=false;searchSubfolders.Content="Cancel search";activity.Visibility=Visibility.Visible;activity.Text="● Searching subfolders for matching RT …";
             var clock=System.Diagnostics.Stopwatch.StartNew();
             try{
@@ -33,7 +33,8 @@ namespace QuickLook.DicomRT
                 MergeDiscoveredCatalog(found);
                 await RtLoadsCompletion;token.ThrowIfCancellationRequested();
                 var links=await Task.Run(()=>RegistrationReader.Read(catalog),token);token.ThrowIfCancellationRequested();registrations=links;loadRevision++;sumResult=null;
-                RefreshPlanChoices();RefreshRt();await TryInitialIsocenterAsync();
+                RefreshPlanChoices();await LoadMatchingDiscoveredImagesAsync(token,selection);token.ThrowIfCancellationRequested();
+                RefreshRt();if(selection==planSelectionRevision)await TryInitialIsocenterAsync();
                 activity.Text=$"✓ Subfolder search complete · {planData.Count} plans · {doses.Count} doses"+(found.SkippedFiles>0?" · some files/folders skipped":"");
             }catch(OperationCanceledException){if(!disposed)activity.Text="Subfolder search cancelled · loaded objects retained";}
             catch(Exception){if(!disposed)activity.Text="Subfolder search incomplete · check folder access";}

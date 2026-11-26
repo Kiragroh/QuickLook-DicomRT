@@ -50,7 +50,12 @@ namespace QuickLook.DicomRT
             var choice=sumMode?choices.FirstOrDefault(c=>c.Sum&&sumGroup!=null&&c.Doses.Any(d=>sumGroup.Contains(d))):selectedPlan!=null?choices.FirstOrDefault(c=>c.Plan==selectedPlan):selectedDose!=null?choices.FirstOrDefault(c=>c.Dose==selectedDose):selectedStructure!=null?choices.FirstOrDefault(c=>c.Structure==selectedStructure):null;
             if(!userSelectedPlan){
                 var opened=choices.FirstOrDefault(c=>initialEntry?.SopUid!=null&&(c.Plan?.Entry.SopUid==initialEntry.SopUid||c.Dose?.Entry?.SopUid==initialEntry.SopUid||c.Structure?.Entry.SopUid==initialEntry.SopUid));
-                if(opened!=null)choice=opened;
+                if(opened!=null){
+                    // Follow explicit references to a unique plan on initial discovery.
+                    // Explicit dropdown selections still permit individual RT objects.
+                    var linked=opened.Dose!=null?planData.Where(p=>p.Entry.SopUid==opened.Dose.PlanUid).ToArray():opened.Structure!=null?planData.Where(p=>p.StructureSopUid==opened.Structure.Entry.SopUid).ToArray():new PlanData[0];
+                    choice=linked.Length==1?choices.First(c=>c.Plan==linked[0]):opened;
+                }
                 else if(initialEntry!=null&&!initialEntry.Modality.StartsWith("RT"))choice=choices.FirstOrDefault(c=>c.Plan!=null&&HasImage&&BuildImagePredicate(c.Plan,null,null)(currentEntry));
             }
             if(choice==null&&!userSelectedPlan){selectedPlan=null;selectedDose=null;selectedStructure=null;sumMode=false;}
