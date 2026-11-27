@@ -29,6 +29,7 @@ namespace QuickLook.DicomRT
             }panel.Children.Add(links);panel.Children.Add(Theme.Text("Keyboard & mouse",14,Theme.Accent));
             panel.Children.Add(ShortcutSection("OPEN & NAVIGATE",new[]{
                 new[]{"Space","Open preview in Explorer"},
+                new[]{"Ctrl + Shift + K","Keep current preview in an independent window"},
                 new[]{"Ctrl + I","Go to isocenter"},
                 new[]{"Ctrl + F","Search DICOM tags"},
                 new[]{"Home","Fit image"},
@@ -79,6 +80,7 @@ namespace QuickLook.DicomRT
             Focusable=true;Loaded+=(s,e)=>{if(!IsKeyboardFocusWithin)Focus();};
             PreviewKeyDown+=(s,e)=>{
                 var modifiers=Keyboard.Modifiers;
+                if(modifiers==(ModifierKeys.Control|ModifierKeys.Shift)&&e.Key==Key.K){RequestKeepOpen();e.Handled=true;return;}
                 if(e.Key==Key.F1){ShowAbout();e.Handled=true;return;}
                 if(modifiers==(ModifierKeys.Control|ModifierKeys.Shift)&&e.Key==Key.S){SaveScreenshot();e.Handled=true;return;}
                 if(modifiers==ModifierKeys.Control&&e.Key==Key.F){tagsVisible=true;UpdatePanels();UpdateTags();tagSearch.Focus();tagSearch.SelectAll();e.Handled=true;return;}

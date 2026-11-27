@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.49 — Keep cases open in independent windows
+
+- **Keep open:** the header button or Ctrl+Shift+K transfers the current viewer into a normal, resizable and maximizable window with its own taskbar entry. Further Explorer previews do not replace it.
+- **Preserve the current case:** the existing viewer and its loaded data, selection, zoom and caches are reused. Several cases can remain open side by side. Each window releases its resources when closed; QuickLook preview cleanup does not dispose retained windows.
+- **Window identity and help:** the version is included in preview and retained-window titles; the shortcut appears in the help table. Retained windows run within the QuickLook process, so exiting QuickLook closes them too.
+
 ## 0.2.48 — Complete cases across CT and RT folders
 
 - **Open from any RT component:** conventional adjacent CT / RTDOSE / RTPLAN / RTSTRUCT folders are discovered automatically. A dose activates its uniquely referenced plan; a structure set activates its plan only when that association is unique. The initially opened dose remains the displayed dose, and explicit individual-object selections remain available.

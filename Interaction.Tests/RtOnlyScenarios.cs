@@ -45,7 +45,7 @@ internal static class RtOnlyScenarios
         var slider=Field<Slider>(viewer,"sliceSlider");Invoke(viewer,"SelectImageMode","Axial");slider.Value=2;
         check(Math.Abs(Field<Vec3>(viewer,"focus").Z-(bounds.Origin.Z+2*bounds.SpacingZ))<1e-6,"RT-only slider changes physical slice coordinate");
     }
-    static string FixtureFolder(string root)
+    internal static string FixtureFolder(string root)
     {
         string folder=Path.Combine(root,"fixtures");Directory.CreateDirectory(folder);
         const string frame="1.2.826.0.1.3680043.10.543.1",planUid="1.2.826.0.1.3680043.10.543.2",structureUid="1.2.826.0.1.3680043.10.543.3";

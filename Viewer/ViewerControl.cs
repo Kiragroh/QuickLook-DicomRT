@@ -81,6 +81,7 @@ namespace QuickLook.DicomRT
             var heading = new DockPanel { Margin = new Thickness(10, 4, 10, 4), LastChildFill=false };
             var logo = new Image { Source = AppIcon.Image, Width = 26, Height = 26, Margin = new Thickness(0, 0, 7, 0) }; DockPanel.SetDock(logo, Dock.Left); heading.Children.Add(logo);
             var title = Theme.Text("DICOM RT · v"+typeof(ViewerControl).Assembly.GetName().Version.ToString(3), 12); title.FontWeight = FontWeights.SemiBold; title.VerticalAlignment=VerticalAlignment.Center;title.Margin=new Thickness(0,0,16,0); DockPanel.SetDock(title, Dock.Left); heading.Children.Add(title);
+            var keep=BuildKeepOpenButton();DockPanel.SetDock(keep,Dock.Right);heading.Children.Add(keep);
             var settingsButton=BuildSettingsButton();DockPanel.SetDock(settingsButton,Dock.Right);heading.Children.Add(settingsButton);
             var zip=BuildPlanExportButton();DockPanel.SetDock(zip,Dock.Right);heading.Children.Add(zip);
             var screenshot=BuildScreenshotButton();DockPanel.SetDock(screenshot,Dock.Right);heading.Children.Add(screenshot);
@@ -176,7 +177,7 @@ namespace QuickLook.DicomRT
 
         public void Dispose()
         {
-            isodosePreferences.Changed -= GlobalIsodosesChanged;
+            keepOpenAction=null;isodosePreferences.Changed -= GlobalIsodosesChanged;
             if (disposed) return; CloseDosePopups(); if(infoPopup!=null)infoPopup.IsOpen=false;if(fusionPopup!=null)fusionPopup.IsOpen=false; disposed = true;backgroundIndicatorTimer.Stop();suspendedImage=null; focusTimer.Stop();lifetime.Cancel(); seriesLoad?.Cancel(); tagTimer.Stop();
             foreach (var pane in panes) pane.Dispose(); centralPlayback?.Close(); dvhView?.Dispose(); threeDView?.Dispose(); mprThreeD?.Dispose(); sumLoad?.Cancel(); sumLoad?.Dispose(); overlayLoad?.Cancel(); overlayLoad?.Dispose(); overlayVolume=null; pixelCache.Clear(); volume = null; native = null;
         }
